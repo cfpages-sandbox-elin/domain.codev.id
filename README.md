@@ -67,7 +67,12 @@ npm install
 
     1.  **Create a Supabase Project:** If you don't have one already, go to [Supabase](https://supabase.io/) and create a new project.
     2.  **Get your Project URL and Anon Key:** After creating your project, you can find your `Project URL` and `Project API Key (anon)` in your project's settings under "API". Copy these values and paste them into your `.env` file for `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
-    3.  **Set up the `domains` table:** The application requires a table named `domains` in your Supabase database to store the tracked domain information. You can create this table using the Supabase SQL Editor with the following SQL:
+    3.  **Set up the `domains` table:** The application requires a table named `domains` in your Supabase database to store the tracked domain information. You can create this table using the Supabase SQL Editor. Follow these steps:
+
+    a.  Go to your Supabase project dashboard.
+    b.  In the left-hand navigation menu, click on the **SQL Editor** icon (it looks like a database).
+    c.  You will see an editor where you can paste and run SQL queries. Copy the following SQL code:
+
 
 ```sql
 create table domains (
