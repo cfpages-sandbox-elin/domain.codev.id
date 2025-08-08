@@ -86,3 +86,7 @@ Domain Tracker Pro is a web application designed for individuals and businesses 
 *   Direct domain registration/backordering integration with registrars.
 *   Payment processing for premium features.
 *   Support for other OAuth providers (e.g., GitHub, Twitter).
+
+## 7. Status
+
+It is live now and deployed at https://domain.codev.id
