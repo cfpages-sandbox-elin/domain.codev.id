@@ -69,7 +69,26 @@ npm install
     2.  **Get your Project URL and Anon Key:** After creating your project, you can find your `Project URL` and `Project API Key (anon)` in your project's settings under "API". Copy these values and paste them into your `.env` file for `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
     3.  **Set up the `domains` table:** The application requires a table named `domains` in your Supabase database to store the tracked domain information. You can create this table using the Supabase SQL Editor with the following SQL:
 
-    This SQL creates the `domains` table with necessary columns and sets up Row Level Security (RLS) to ensure that users can only access their own domain data.
+```sql
+create table domains (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references auth.users not null,
+  domain_name text not null,
+  status text,
+  expiration_date date,
+  tags text[], -- Array of tags (e.g., ['Mine', 'To Snatch'])
+  created_at timestamp with time zone default now()
+);
+
+alter table domains enable row security;
+
+create policy "Authenticated users can view their domains" on domains for select to authenticated using (auth.uid() = user_id);
+create policy "Authenticated users can insert their domains" on domains for insert to authenticated with check (auth.uid() = user_id);
+create policy "Authenticated users can update their domains" on domains for update to authenticated using (auth.uid() = user_id);
+create policy "Authenticated users can delete their domains" on domains for delete to authenticated using (auth.uid() = user_id);
+```
+
+This SQL creates the `domains` table with necessary columns and sets up Row Level Security (RLS) to ensure that users can only access their own domain data.
 
 ### Step 4: Run the Development Server
 
