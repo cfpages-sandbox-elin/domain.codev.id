@@ -63,6 +63,14 @@ npm install
 
     **Note:** The `VITE_` prefix is required for Vite to expose these variables to the application. The original `README.md` contains details on setting up the `domains` table in Supabase.
 
+    **Supabase Database Setup:**
+
+    1.  **Create a Supabase Project:** If you don't have one already, go to [Supabase](https://supabase.io/) and create a new project.
+    2.  **Get your Project URL and Anon Key:** After creating your project, you can find your `Project URL` and `Project API Key (anon)` in your project's settings under "API". Copy these values and paste them into your `.env` file for `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+    3.  **Set up the `domains` table:** The application requires a table named `domains` in your Supabase database to store the tracked domain information. You can create this table using the Supabase SQL Editor with the following SQL:
+
+    This SQL creates the `domains` table with necessary columns and sets up Row Level Security (RLS) to ensure that users can only access their own domain data.
+
 ### Step 4: Run the Development Server
 
 ```bash
@@ -109,3 +117,4 @@ Here are some common ways to bypass or deal with Cloudflare Pages cache:
 3.  **Append Query Strings (Development consideration):** Build tools like Vite (used in this project) automatically append unique hash strings to your production build asset filenames (e.g., `index.js?v=abcdef123`). This cache-busting technique forces the browser to download the new file when the content changes. While you typically don't need to manually manage this in production builds, understanding this mechanism helps explain why Cloudflare's cache is effectively bypassed for changed assets in a proper production deployment. During development, if you are testing a staged deployment or a preview URL, a hard refresh is usually sufficient.
 
 If you continue to see outdated content after a hard refresh and clearing browser cache, verify that your latest changes have been successfully deployed to Cloudflare Pages by checking your project's deployment history in the Cloudflare dashboard.
+
