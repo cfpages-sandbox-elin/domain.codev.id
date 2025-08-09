@@ -27,6 +27,7 @@ Domain Codev is a web application designed for individuals and businesses to mon
 *   **3.2.1:** Authenticated users must be able to enter a domain name into an input field and check its registration status (available or registered).
 *   **3.2.2:** For registered domains, the system shall fetch and display key WHOIS data, including registrar, registration date, and expiration date.
 *   **3.2.3:** For available domains, the application shall present a "Buy" button and a dropdown of recommended registrars to facilitate immediate acquisition.
+    *   **3.2.3.1. Layout:** The availability status text, registrar dropdown, and "Buy Now" button must be rendered inline with the domain name on a single line in the domain list view to provide a compact and efficient user interface. These elements should be visually grouped and appear after the domain's tags.
 *   **3.2.4:** The registrar list will be context-aware, suggesting relevant registrars based on the domain's TLD (e.g., specific options for `.id` domains vs. gTLDs).
 
 ### 3.3. Domain Tracking

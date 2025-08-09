@@ -130,7 +130,10 @@ export const SwitchHorizontalIcon: React.FC<{ className?: string }> = ({ classNa
         strokeLinejoin="round"
         className={className}
     >
-        <path d="M8 7h12m0 0l-4-4m4 4l-4 4m-8 6H4m0 0l4 4m-4-4l4-4" />
+        <path d="M16 3l5 5-5 5" />
+        <path d="M21 8H3" />
+        <path d="M8 21l-5-5 5-5" />
+        <path d="M3 16h18" />
     </svg>
 );
 

@@ -8,10 +8,8 @@ export interface Database {
     Tables: {
       domains: {
         // This is our single source of truth for the row type.
+        // Supabase will automatically infer the 'Insert' and 'Update' types from this.
         Row: Domain;
-        // We explicitly define Insert and Update types to avoid inference issues.
-        Insert: Omit<Domain, 'id' | 'user_id' | 'created_at'>;
-        Update: Partial<Domain>;
       };
     };
     Views: {
