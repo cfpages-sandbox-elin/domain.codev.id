@@ -13,8 +13,11 @@ import Auth from './components/Auth';
 import Spinner from './components/Spinner';
 import ConfigErrorScreen from './components/ConfigErrorScreen';
 import StatusLog from './components/StatusLog';
+import DocsPage from './components/DocsPage';
 
 const formatDate = (date: Date) => date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+type View = 'dashboard' | 'docs';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -24,6 +27,7 @@ const App: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState({ title: '', body: '' });
   const [logs, setLogs] = useState<string[]>([]);
+  const [view, setView] = useState<View>('dashboard');
 
   const addLog = useCallback((message: string) => {
     const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
@@ -192,7 +196,7 @@ const App: React.FC = () => {
     dropDate.setDate(redemptionPeriodEnd.getDate() + 5);
 
     const infoBody = `
-      <p class="mb-4 text-slate-600 dark:text-slate-400">This is an estimation based on typical domain registrar policies for .com, .net, etc. Actual dates may vary.</p>
+      <p class="mb-4 text-slate-600 dark:text-slate-400"><b>Note:</b> This is an estimation based on typical domain registrar policies for .com, .net, etc. Actual dates may vary.</p>
       <ul class="space-y-3">
         <li class="flex items-start"><span class="bg-yellow-100 text-yellow-800 text-xs font-semibold mr-3 px-2.5 py-1 rounded-full dark:bg-yellow-900 dark:text-yellow-300">Expired</span><div><p class="font-semibold text-slate-800 dark:text-slate-200">Domain Expired: ${formatDate(expiry)}</p><p class="text-sm text-slate-500 dark:text-slate-400">The domain is no longer active.</p></div></li>
         <li class="flex items-start"><span class="bg-orange-100 text-orange-800 text-xs font-semibold mr-3 px-2.5 py-1 rounded-full dark:bg-orange-900 dark:text-orange-300">Grace Period</span><div><p class="font-semibold text-slate-800 dark:text-slate-200">Ends around: ${formatDate(gracePeriodEnd)}</p><p class="text-sm text-slate-500 dark:text-slate-400">Original owner can usually renew at normal price.</p></div></li>
@@ -208,9 +212,31 @@ const App: React.FC = () => {
     addLog(`ℹ️ Displayed drop info for ${domain.domain_name}.`);
   };
   
+  const renderDashboard = () => (
+    <div className="max-w-4xl mx-auto">
+      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg mb-8">
+        <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-white">Check Domain</h2>
+        <p className="text-slate-600 dark:text-slate-400 mb-6">
+          Enter a domain to check its availability and add it to your tracking list. Your list is private, secure, and synced to your account.
+        </p>
+        <DomainForm onAddDomain={addDomain} />
+      </div>
+
+      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg">
+        <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-white">Tracked Domains</h2>
+        <div className="bg-blue-50 dark:bg-blue-900/30 border-l-4 border-brand-blue p-4 rounded-r-lg mb-6 text-sm text-blue-800 dark:text-blue-300">
+            <p className="font-semibold">Automated Daily Checks</p>
+            <p className="mt-1">Your tracked domains are checked for status changes once a day. This requires a one-time setup of the Supabase Edge Function.</p>
+            <button onClick={() => setView('docs')} className="font-semibold hover:underline mt-2 inline-block">Learn how to set up daily checks &rarr;</button>
+        </div>
+        <DomainList domains={domains} onRemove={removeDomain} onShowInfo={handleShowInfo} onToggleTag={toggleDomainTag} />
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen font-sans">
-      <Header session={session} notifications={notifications} clearNotifications={() => setNotifications([])} />
+      <Header session={session} notifications={notifications} clearNotifications={() => setNotifications([])} setView={setView} />
       
       <main className="container mx-auto p-4 md:p-8">
         {loading ? (
@@ -222,20 +248,7 @@ const App: React.FC = () => {
         ) : !session ? (
           <Auth />
         ) : (
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg mb-8">
-              <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-white">Check Domain</h2>
-              <p className="text-slate-600 dark:text-slate-400 mb-6">
-                Enter a domain to check its availability and add it to your tracking list.
-              </p>
-              <DomainForm onAddDomain={addDomain} />
-            </div>
-
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg">
-               <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-white">Tracked Domains</h2>
-              <DomainList domains={domains} onRemove={removeDomain} onShowInfo={handleShowInfo} onToggleTag={toggleDomainTag} />
-            </div>
-          </div>
+          view === 'dashboard' ? renderDashboard() : <DocsPage />
         )}
       </main>
 

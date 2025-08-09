@@ -8,28 +8,32 @@ interface HeaderProps {
     session: Session | null;
     notifications: string[];
     clearNotifications: () => void;
+    setView: (view: 'dashboard' | 'docs') => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotifications }) => {
+const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotifications, setView }) => {
   const [showNotifications, setShowNotifications] = useState(false);
 
   return (
     <header className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg sticky top-0 z-40 shadow-sm dark:shadow-slate-700/[.7]">
       <div className="container mx-auto px-4 md:px-8">
         <div className="flex items-center justify-between h-16">
-          <div className="text-2xl font-bold text-brand-blue">
+          <button onClick={() => setView('dashboard')} className="text-2xl font-bold text-brand-blue">
             Domain Tracker Pro
-          </div>
-          <div className="flex items-center space-x-4">
+          </button>
+          <div className="flex items-center space-x-2 sm:space-x-4">
             {session && (
               <>
-                <div className="hidden sm:block text-sm text-slate-600 dark:text-slate-400">
+                <div className="hidden md:block text-sm text-slate-600 dark:text-slate-400">
                   {session.user.email}
                 </div>
+                <button onClick={() => setView('docs')} className="hidden sm:inline-block px-3 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors">
+                    Documentation
+                </button>
                 <div className="relative">
                   <button
                     onClick={() => setShowNotifications(!showNotifications)}
-                    className="relative text-slate-600 dark:text-slate-400 hover:text-brand-blue dark:hover:text-white transition-colors"
+                    className="relative text-slate-600 dark:text-slate-400 hover:text-brand-blue dark:hover:text-white transition-colors p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"
                     aria-label="Toggle notifications"
                   >
                     <BellIcon className="w-6 h-6" />

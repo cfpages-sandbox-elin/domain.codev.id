@@ -1,8 +1,8 @@
 # Product Requirements Document: Domain Tracker Pro
 
 **Author:** World-Class Senior Frontend React Engineer
-**Version:** 1.6
-**Date:** 2024-05-26
+**Version:** 1.7
+**Date:** 2024-05-27
 
 ---
 
@@ -60,6 +60,21 @@ Domain Tracker Pro is a web application designed for individuals and businesses 
 ### 3.9. System Behavior
 *   **3.9.1. Configuration Error Handling:** The application must not crash if critical environment variables (e.g., Supabase URL, Supabase Anon Key) are missing. Instead, it must display a clear, user-friendly error screen that informs the developer what is wrong and how to fix it by referencing the `README.md`.
 
+### 3.10. In-App Guidance & Documentation
+To enhance user-friendliness and reduce the learning curve, the application will provide contextual help and a centralized documentation center.
+
+*   **3.10.1. Microcopy & Contextual Help:**
+    *   **3.10.1.1. Domain Form:** Add descriptive text below the "Check Domain" heading to clarify the form's purpose.
+    *   **3.10.1.2. Tracked Domains:** Add an informational block within the "Tracked Domains" card explaining that domains are checked automatically once daily and prompting the user to set up the automation if they haven't. This text should link to the new Documentation section.
+    *   **3.10.1.3. Empty State:** The message shown when the tracking list is empty will be encouraging and directive.
+    *   **3.10.1.4. Drop Snatching Modal:** The modal will more clearly state that the provided dates are estimates and can vary.
+
+*   **3.10.2. Documentation Center:**
+    *   **3.10.2.1. New View:** The application will include a new "Documentation" view, accessible via a link in the main header.
+    *   **3.10.2.2. Content:** This view will render the content from the project's key markdown files (`README.md`, `deployment.md`, and all files from the `/docs` directory).
+    *   **3.10.2.3. Navigation:** The Documentation Center will feature a sidebar menu allowing users to easily switch between different documents.
+    *   **3.10.2.4. Markdown Rendering:** Markdown content will be parsed and rendered into clean, readable HTML.
+
 ## 4. Non-Functional Requirements
 
 *   **4.1. Performance:** The UI must be fast and responsive, with loading states to indicate background operations.
@@ -72,6 +87,7 @@ Domain Tracker Pro is a web application designed for individuals and businesses 
 
 *   **Frontend:** React 18+, TypeScript
 *   **Styling:** Tailwind CSS
+*   **Content Parsing:** `marked` for rendering documentation
 *   **Authentication:** Supabase Auth (with Google OAuth)
 *   **Database:** Supabase (PostgreSQL with RLS)
 *   **Backend Automation:** Supabase Edge Function with Cron Jobs
@@ -136,6 +152,16 @@ It is live now and deployed at https://domain.codev.id
 - [ ] **3.9. System Behavior**
     - [x] 3.9.1. Configuration Error Handling: The application must not crash if critical environment variables are missing. (Partially addressed in `services/supabaseService.ts`, needs comprehensive handling)
     - [x] 4.5. Global Error Boundary: The application must not crash to a blank screen in case of a UI rendering error. (Based on file list, `components/ErrorBoundary.tsx` likely exists)
+
+- [ ] **3.10. In-App Guidance & Documentation**
+    - [x] 3.10.1.1. Domain Form: Add descriptive text below the "Check Domain" heading.
+    - [x] 3.10.1.2. Tracked Domains: Add informational block explaining auto-checks.
+    - [x] 3.10.1.3. Empty State: Ensure the empty state message is directive.
+    - [x] 3.10.1.4. Drop Snatching Modal: Ensure the estimation note is clear.
+    - [x] 3.10.2.1. New View: Implement the "Documentation" view.
+    - [x] 3.10.2.2. Content: Load markdown files into the application.
+    - [x] 3.10.2.3. Navigation: Implement a sidebar for doc navigation.
+    - [x] 3.10.2.4. Markdown Rendering: Use `marked` to render content as HTML.
 
 - [ ] **4. Non-Functional Requirements** (These are ongoing considerations and not distinct tasks)
     - [x] 4.1. Performance: The UI must be fast and responsive. (Ongoing effort)
