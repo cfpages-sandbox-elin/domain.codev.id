@@ -523,15 +523,22 @@ Before you can schedule jobs, you need to enable the `pg_cron` extension for you
 4.  You'll be taken to the integration's page. Click the green **"Enable pg_cron"** button. This only needs to be done once per project.
 
 #### Step 5: Schedule the Cron Job
-Now that the extension is active, you can schedule the job to run automatically.
+Now you can schedule the job to run automatically.
 
-1.  On the Cron integration page, click on the **"Jobs"** tab next to "Overview".
+1.  On the Cron integration page, navigate to the **"Jobs"** tab.
 2.  Click the green **"Create job"** button on the right.
-3.  A configuration panel will appear. Fill it out as follows:
+3.  A "Create a new cron job" panel will appear. Fill it out as follows:
     *   **Name**: Give your job a descriptive name, like `Daily Domain Check`.
-    *   **Schedule**: For once a day at midnight UTC, use the preset "Run once a day" which fills in `0 0 * * *`.
-    *   **Function**: Select the `check-domains` function from the dropdown list.
-4.  Click **"Create job"** to save and activate the schedule.
+    *   **Schedule**: Use the "Run once a day" preset, which will fill in `0 0 * * *`. This means the job runs at midnight UTC every day.
+    *   **Type**: Select **Supabase Edge Function**.
+    *   **Edge Function**: Choose `check-domains` from the dropdown list.
+    *   **Method**: Leave this set to `POST`.
+    *   **HTTP Headers**: This part is critical for security.
+        *   Click **"+ Add a new header"**.
+        *   For the header **Name**, enter `Authorization`.
+        *   For the header **Value**, enter `Bearer YOUR_CRON_SECRET`. **Important**: Replace `YOUR_CRON_SECRET` with the actual secret string you generated and saved in Step 3.
+    *   **HTTP Request Body**: You can leave this empty.
+4.  Review your settings, then click the green **"Create cron job"** button at the bottom to save and activate the schedule.
 
 That's it! Your application is now fully configured to automatically monitor your domains every day.
 

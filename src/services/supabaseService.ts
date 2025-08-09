@@ -10,6 +10,15 @@ export interface Database {
         Row: Domain; // The data shape returned from the database.
         Insert: NewDomain; // The data shape required to insert a new row.
         Update: DomainUpdate; // The data shape required to update a row.
+        Relationships: [
+          {
+            foreignKeyName: 'domains_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          }
+        ];
       };
     };
     Views: {
