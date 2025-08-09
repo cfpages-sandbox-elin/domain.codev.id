@@ -6,6 +6,7 @@ interface ImportMetaEnv {
   readonly VITE_WHOIS_API_KEY?: string;
   readonly VITE_APILAYER_API_KEY?: string;
   readonly VITE_WHOISFREAKS_API_KEY?: string;
+  readonly VITE_WHOAPI_COM_API_KEY?: string;
 }
 
 interface ImportMeta {

@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import { Domain } from '../types';
 import DomainItem from './DomainItem';
@@ -9,11 +7,12 @@ interface DomainListProps {
   onRemove: (id: number) => void;
   onShowInfo: (domain: Domain) => void;
   onToggleTag: (id: number) => void;
+  onRecheck: (id: number) => Promise<void>;
 }
 
-type FilterType = 'all' | 'mine' | 'to-snatch' | 'expiring' | 'expired';
+type FilterType = 'all' | 'mine' | 'to-snatch' | 'expiring' | 'expired' | 'available';
 
-const DomainList: React.FC<DomainListProps> = ({ domains, onRemove, onShowInfo, onToggleTag }) => {
+const DomainList: React.FC<DomainListProps> = ({ domains, onRemove, onShowInfo, onToggleTag, onRecheck }) => {
   const [filter, setFilter] = useState<FilterType>('all');
 
   const filteredDomains = domains.filter(domain => {
@@ -22,6 +21,8 @@ const DomainList: React.FC<DomainListProps> = ({ domains, onRemove, onShowInfo, 
         return domain.tag === 'mine';
       case 'to-snatch':
         return domain.tag === 'to-snatch';
+      case 'available':
+        return domain.status === 'available' || domain.status === 'dropped';
       case 'expiring':
         if (!domain.expiration_date) return false;
         const daysLeft = (new Date(domain.expiration_date).getTime() - Date.now()) / (1000 * 3600 * 24);
@@ -63,6 +64,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, onRemove, onShowInfo, 
         <FilterButton filterType="all">All</FilterButton>
         <FilterButton filterType="mine">Mine</FilterButton>
         <FilterButton filterType="to-snatch">To Snatch</FilterButton>
+        <FilterButton filterType="available">Available</FilterButton>
         <FilterButton filterType="expiring">Expiring Soon</FilterButton>
         <FilterButton filterType="expired">Expired</FilterButton>
       </div>
@@ -70,7 +72,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, onRemove, onShowInfo, 
       <div className="space-y-4">
         {filteredDomains.length > 0 ? (
           filteredDomains.map(domain => (
-            <DomainItem key={domain.id} domain={domain} onRemove={onRemove} onShowInfo={onShowInfo} onToggleTag={onToggleTag}/>
+            <DomainItem key={domain.id} domain={domain} onRemove={onRemove} onShowInfo={onShowInfo} onToggleTag={onToggleTag} onRecheck={onRecheck}/>
           ))
         ) : (
             <div className="text-center py-12">

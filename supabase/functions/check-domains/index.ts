@@ -45,6 +45,9 @@ const WHOISXMLAPI_KEY = Deno.env.get('VITE_WHOIS_API_KEY');
 const APILAYER_KEY = Deno.env.get('VITE_APILAYER_API_KEY');
 // @ts-ignore
 const WHOISFREAKS_KEY = Deno.env.get('VITE_WHOISFREAKS_API_KEY');
+// @ts-ignore
+const WHOAPI_COM_KEY = Deno.env.get('VITE_WHOAPI_COM_API_KEY');
+
 
 const getWhoisDataFromWhoDat = async (domainName: string): Promise<WhoisData> => {
     const headers = new Headers();
@@ -81,8 +84,14 @@ const getWhoisDataFromWhoisXmlApi = async (domainName: string): Promise<WhoisDat
     };
 };
 
+const APILAYER_SUPPORTED_TLDS = new Set(['com', 'me', 'net', 'org', 'sh', 'io', 'co', 'club', 'biz', 'mobi', 'info', 'us', 'domains', 'cloud', 'fr', 'au', 'ru', 'uk', 'nl', 'fi', 'br', 'hr', 'ee', 'ca', 'sk', 'se', 'no', 'cz', 'it', 'in', 'icu', 'top', 'xyz', 'cn', 'cf', 'hk', 'sg', 'pt', 'site', 'kz', 'si', 'ae', 'do', 'yoga', 'xxx', 'ws', 'work', 'wiki', 'watch', 'wtf', 'world', 'website', 'vip', 'ly', 'dev', 'network', 'company', 'page', 'rs', 'run', 'science', 'sex', 'shop', 'solutions', 'so', 'studio', 'style', 'tech', 'travel', 'vc', 'pub', 'pro', 'app', 'press', 'ooo', 'de']);
+
 const getWhoisDataFromApiLayer = async (domainName: string): Promise<WhoisData> => {
     if (!APILAYER_KEY) throw new Error("apilayer.com Key not provided.");
+    const tld = domainName.split('.').pop();
+    if (!tld || !APILAYER_SUPPORTED_TLDS.has(tld)) {
+        throw new Error(`TLD ".${tld}" is not supported by apilayer.com`);
+    }
     const response = await fetch(`https://api.apilayer.com/whois/check?domain=${domainName}`, { headers: { 'apikey': APILAYER_KEY } });
     if (!response.ok) throw new Error(`apilayer.com failed: ${response.status}`);
     const data = await response.json();
@@ -113,6 +122,25 @@ const getWhoisDataFromWhoisFreaks = async (domainName: string): Promise<WhoisDat
     };
 };
 
+const getWhoisDataFromWhoapi = async (domainName: string): Promise<WhoisData> => {
+    if (!WHOAPI_COM_KEY) throw new Error("whoapi.com API Key not provided.");
+    const url = `http://api.whoapi.com/?apikey=${WHOAPI_COM_KEY}&r=whois&domain=${domainName}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`whoapi.com failed: ${response.status}`);
+    const data = await response.json();
+    if (data.status !== '0') throw new Error(`whoapi.com Error: ${data.status_desc || `Status ${data.status}`}`);
+    const expiryDateStr = data.date_expires;
+    const status = !data.registered ? 'available' : (expiryDateStr && new Date(expiryDateStr) < new Date() ? 'expired' : 'registered');
+    const registrarContact = data.contacts?.find((c: any) => c.type === 'registrar');
+    const registrarName = registrarContact?.organization || data.whois_name || null;
+    return {
+        status,
+        expirationDate: expiryDateStr || null,
+        registeredDate: data.date_created || null,
+        registrar: registrarName,
+    };
+};
+
 const getWhoisData = async (domainName: string): Promise<WhoisData> => {
     if (WHO_DAT_URL) {
         try { return await getWhoisDataFromWhoDat(domainName); } catch (e) { console.error(e.message); }
@@ -125,6 +153,9 @@ const getWhoisData = async (domainName: string): Promise<WhoisData> => {
     }
     if (WHOISFREAKS_KEY) {
         try { return await getWhoisDataFromWhoisFreaks(domainName); } catch (e) { console.error(e.message); }
+    }
+    if (WHOAPI_COM_KEY) {
+        try { return await getWhoisDataFromWhoapi(domainName); } catch (e) { console.error(e.message); }
     }
     console.error(`❌ All WHOIS providers failed for ${domainName}.`);
     return { status: 'unknown', expirationDate: null, registeredDate: null, registrar: 'Error' };

@@ -19,8 +19,7 @@ export interface Database {
       [_ in never]: never;
     };
     Enums: {
-      domain_status_type: 'available' | 'registered' | 'expired' | 'dropped' | 'unknown';
-      domain_tag_type: 'mine' | 'to-snatch';
+      [_ in never]: never;
     };
     CompositeTypes: {
       [_ in never]: never;

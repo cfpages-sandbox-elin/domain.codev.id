@@ -1,8 +1,8 @@
 # Product Requirements Document: Domain Tracker Pro
 
 **Author:** World-Class Senior Frontend React Engineer
-**Version:** 1.7
-**Date:** 2024-05-27
+**Version:** 1.8
+**Date:** 2024-05-28
 
 ---
 
@@ -26,22 +26,31 @@ Domain Tracker Pro is a web application designed for individuals and businesses 
 ### 3.2. Domain Status Checking
 *   **3.2.1:** Authenticated users must be able to enter a domain name into an input field and check its registration status (available or registered).
 *   **3.2.2:** For registered domains, the system shall fetch and display key WHOIS data, including registrar, registration date, and expiration date.
+*   **3.2.3:** For available domains, the application shall present a "Buy" button and a dropdown of recommended registrars to facilitate immediate acquisition.
+*   **3.2.4:** The registrar list will be context-aware, suggesting relevant registrars based on the domain's TLD (e.g., specific options for `.id` domains vs. gTLDs).
 
 ### 3.3. Domain Tracking
 *   **3.3.1:** Users must be able to add domains to a persistent tracking list associated with their account.
 *   **3.3.2:** The tracked list shall display the domain name, its status, expiration date, and user-assigned tag.
 *   **3.3.3:** Users must be able to remove domains from their tracking list.
 *   **3.3.4:** Users must be able to switch the tag of a tracked domain (e.g., from "To Snatch" to "Mine" and vice-versa).
+*   **3.3.5:** The UI shall provide filters to view all domains, or subsets based on tag ("Mine", "To Snatch"), status ("Expired", "Available"), or urgency ("Expiring Soon").
 
 ### 3.4. Tagging System
 *   **3.4.1:** Users must be able to categorize tracked domains with one of two tags:
     *   **"Mine":** For domains the user owns and needs renewal reminders for.
     *   **"To Snatch":** For domains the user wants to acquire after they expire and drop.
-*   **3.4.2:** The UI should visually distinguish between domains with different tags.
+*   **3.4.2:** Users can quickly add domains using keyboard shortcuts: `Enter` for "Mine" and `Shift+Enter` for "To Snatch".
+*   **3.4.3:** The UI should visually distinguish between domains with different tags.
 
 ### 3.5. Expiration Notifications & Alerts
 *   **3.5.1:** For domains tagged "Mine", the system must generate a notification when the domain is within a user-defined period of its expiration date (default: 7 days).
-*   **3.5.2:** Notifications shall be clearly visible within the application's UI.
+*   **3.5.2:** The UI will use a multi-level, color-coded highlighting system to indicate urgency for expiring domains:
+    *   **90 days or less:** Low alert (e.g., yellow).
+    *   **30 days or less:** Medium alert (e.g., orange).
+    *   **7 days or less:** High alert (e.g., red).
+    *   **Expired:** Critical alert (e.g., strong red).
+*   **3.5.3:** Notifications shall be clearly visible within the application's UI.
 
 ### 3.6. Drop Snatching Assistance
 *   **3.6.1:** For domains tagged "To Snatch" that have expired, the system will provide an informative modal with an estimated lifecycle timeline based on the domain's expiration date.
@@ -118,26 +127,31 @@ It is live now and deployed at https://domain.codev.id
     - [x] 3.1.4: Unauthenticated users should be presented with a login page and cannot access the application's core features. (Requires implementing route guarding)
 
 - [ ] **3.2. Domain Status Checking**
-    - [x] 3.2.1: Authenticated users must be able to enter a domain name into an input field and check its registration status (available or registered). (Requires implementing frontend component and WHOIS service integration)
-    - [x] 3.2.2: For registered domains, the system shall fetch and display key WHOIS data, including registrar, registration date, and expiration date. (Requires integrating WHOIS services and displaying data in UI)
+    - [x] 3.2.1: Authenticated users must be able to enter a domain name into an input field and check its registration status (available or registered).
+    - [x] 3.2.2: For registered domains, the system shall fetch and display key WHOIS data.
+    - [x] 3.2.3: For available domains, present a "Buy" button and registrar dropdown.
+    - [x] 3.2.4: Make registrar list context-aware based on TLD.
 
 - [ ] **3.3. Domain Tracking**
-    - [x] 3.3.1: Users must be able to add domains to a persistent tracking list associated with their account. (Requires implementing frontend component and database interaction)
-    - [x] 3.3.2: The tracked list shall display the domain name, its status, expiration date, and user-assigned tag. (Requires implementing frontend component and fetching data from database)
-    - [x] 3.3.3: Users must be able to remove domains from their tracking list. (Requires implementing frontend component and database interaction)
-    - [x] 3.3.4: Users must be able to switch the tag of a tracked domain (e.g., from "To Snatch" to "Mine" and vice-versa). (Requires implementing frontend component and database interaction)
+    - [x] 3.3.1: Users must be able to add domains to a persistent tracking list.
+    - [x] 3.3.2: The tracked list shall display key domain information.
+    - [x] 3.3.3: Users must be able to remove domains from their tracking list.
+    - [x] 3.3.4: Users must be able to switch the tag of a tracked domain.
+    - [x] 3.3.5: Implement UI filters for the domain list, including an "Available" filter.
 
 - [ ] **3.4. Tagging System**
-    - [x] 3.4.1: Users must be able to categorize tracked domains with one of two tags: "Mine" and "To Snatch". (Requires implementing tagging functionality in UI and database)
-    - [x] 3.4.2: The UI should visually distinguish between domains with different tags. (Requires implementing UI styling based on tags)
+    - [x] 3.4.1: Users must be able to categorize tracked domains with one of two tags: "Mine" and "To Snatch".
+    - [x] 3.4.2: Implement keyboard shortcuts (`Enter` and `Shift+Enter`) for adding domains.
+    - [x] 3.4.3: The UI should visually distinguish between domains with different tags.
 
 - [ ] **3.5. Expiration Notifications & Alerts**
-    - [x] 3.5.1: For domains tagged "Mine", the system must generate a notification when the domain is within a user-defined period of its expiration date (default: 7 days). (Requires implementing logic for checking expiration dates and generating notifications)
-    - [x] 3.5.2: Notifications shall be clearly visible within the application's UI. (Requires implementing UI for displaying notifications)
+    - [x] 3.5.1: Generate in-app notifications for expiring domains.
+    - [x] 3.5.2: Implement multi-level, color-coded highlighting for expiring domains (90, 30, 7 days, and expired).
+    - [x] 3.5.3: Notifications shall be clearly visible within the application's UI.
 
 - [ ] **3.6. Drop Snatching Assistance**
-    - [x] 3.6.1: For domains tagged "To Snatch" that have expired, the system will provide an informative modal with an estimated lifecycle timeline. (Requires implementing logic for estimating timeline and displaying modal)
-    - [x] 3.6.2: This timeline will estimate the end of the Grace Period, Redemption Period, and the potential drop date. (Requires implementing logic for estimating timeline)
+    - [x] 3.6.1: For domains tagged "To Snatch" that have expired, the system will provide an informative modal with an estimated lifecycle timeline.
+    - [x] 3.6.2: This timeline will estimate the end of the Grace Period, Redemption Period, and the potential drop date.
 
 - [ ] **3.7. Automated Daily Checks (Server-Side)**
     - [x] 3.7.1: The application backend will perform a daily background check on all tracked domains that require a status update. (Implemented with Supabase Edge Function)
@@ -145,13 +159,13 @@ It is live now and deployed at https://domain.codev.id
     - [x] 3.7.3: The primary purpose of the check is to update the status of expired domains to see if they have been renewed or if they have "dropped". (Logic implemented in Edge Function)
 
 - [ ] **3.8. UI/UX**
-    - [x] 3.8.1: The application must feature a theme toggle for Light and Dark modes. (Based on file list, `components/ModeToggle.tsx` likely exists)
-    - [x] 3.8.2: The interface must be clean, modern, and aesthetically pleasing, built with Tailwind CSS. (Based on file list and `package.json`, Tailwind CSS is being used)
-    - [x] 3.8.3: The application must be fully responsive and usable on various screen sizes. (Requires implementing responsive design)
+    - [x] 3.8.1: The application must feature a theme toggle for Light and Dark modes.
+    - [x] 3.8.2: The interface must be clean, modern, and aesthetically pleasing, built with Tailwind CSS.
+    - [x] 3.8.3: The application must be fully responsive and usable on various screen sizes.
 
 - [ ] **3.9. System Behavior**
-    - [x] 3.9.1. Configuration Error Handling: The application must not crash if critical environment variables are missing. (Partially addressed in `services/supabaseService.ts`, needs comprehensive handling)
-    - [x] 4.5. Global Error Boundary: The application must not crash to a blank screen in case of a UI rendering error. (Based on file list, `components/ErrorBoundary.tsx` likely exists)
+    - [x] 3.9.1. Configuration Error Handling: The application must not crash if critical environment variables are missing.
+    - [x] 4.5. Global Error Boundary: The application must not crash to a blank screen in case of a UI rendering error.
 
 - [ ] **3.10. In-App Guidance & Documentation**
     - [x] 3.10.1.1. Domain Form: Add descriptive text below the "Check Domain" heading.

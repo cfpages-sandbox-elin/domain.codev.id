@@ -6,6 +6,7 @@ const WHO_DAT_AUTH_KEY = import.meta.env.VITE_WHO_DAT_AUTH_KEY;
 const WHOISXMLAPI_KEY = import.meta.env.VITE_WHOIS_API_KEY;
 const APILAYER_KEY = import.meta.env.VITE_APILAYER_API_KEY;
 const WHOISFREAKS_KEY = import.meta.env.VITE_WHOISFREAKS_API_KEY;
+const WHOAPI_COM_KEY = import.meta.env.VITE_WHOAPI_COM_API_KEY;
 
 
 // --- Provider 0: who-dat (Primary) ---
@@ -113,6 +114,8 @@ const getWhoisDataFromWhoisXmlApi = async (domainName: string): Promise<WhoisDat
 
 // --- Provider 2: apilayer.com ---
 const APILAYER_URL = 'https://api.apilayer.com/whois/check';
+const APILAYER_SUPPORTED_TLDS = new Set(['com', 'me', 'net', 'org', 'sh', 'io', 'co', 'club', 'biz', 'mobi', 'info', 'us', 'domains', 'cloud', 'fr', 'au', 'ru', 'uk', 'nl', 'fi', 'br', 'hr', 'ee', 'ca', 'sk', 'se', 'no', 'cz', 'it', 'in', 'icu', 'top', 'xyz', 'cn', 'cf', 'hk', 'sg', 'pt', 'site', 'kz', 'si', 'ae', 'do', 'yoga', 'xxx', 'ws', 'work', 'wiki', 'watch', 'wtf', 'world', 'website', 'vip', 'ly', 'dev', 'network', 'company', 'page', 'rs', 'run', 'science', 'sex', 'shop', 'solutions', 'so', 'studio', 'style', 'tech', 'travel', 'vc', 'pub', 'pro', 'app', 'press', 'ooo', 'de']);
+
 
 interface ApiLayerResponse {
     result?: {
@@ -126,6 +129,11 @@ interface ApiLayerResponse {
 
 const getWhoisDataFromApiLayer = async (domainName: string): Promise<WhoisData> => {
     if (!APILAYER_KEY) throw new Error("apilayer.com API Key not provided.");
+
+    const tld = domainName.split('.').pop();
+    if (!tld || !APILAYER_SUPPORTED_TLDS.has(tld)) {
+        throw new Error(`TLD ".${tld}" is not supported by apilayer.com`);
+    }
 
     const response = await fetch(`${APILAYER_URL}?domain=${domainName}`, {
         headers: { 'apikey': APILAYER_KEY }
@@ -214,6 +222,58 @@ const getWhoisDataFromWhoisFreaks = async (domainName: string): Promise<WhoisDat
     };
 };
 
+// --- Provider 4: whoapi.com ---
+const WHOAPI_URL = 'http://api.whoapi.com/';
+
+interface WhoApiResponse {
+    status: string; // '0' is success
+    status_desc?: string;
+    registered: boolean;
+    date_created: string;
+    date_expires: string;
+    whois_name: string; // Registrar name
+    contacts: { type: string, organization?: string }[];
+}
+
+const getWhoisDataFromWhoapi = async (domainName: string): Promise<WhoisData> => {
+    if (!WHOAPI_COM_KEY) throw new Error("whoapi.com API Key not provided.");
+
+    const params = new URLSearchParams({
+        apikey: WHOAPI_COM_KEY,
+        r: 'whois',
+        domain: domainName,
+    });
+
+    const response = await fetch(`${WHOAPI_URL}?${params.toString()}`);
+    if (!response.ok) throw new Error(`whoapi.com request failed with status ${response.status}`);
+
+    const data: WhoApiResponse = await response.json();
+    if(data.status !== '0') {
+        throw new Error(`whoapi.com Error: ${data.status_desc || `Status code ${data.status}`}`);
+    }
+    
+    let status: DomainStatus;
+    const expiryDateStr = data.date_expires;
+    if(!data.registered) {
+        status = 'available';
+    } else {
+        status = 'registered';
+        if (expiryDateStr && new Date(expiryDateStr) < new Date()) {
+            status = 'expired';
+        }
+    }
+
+    const registrarContact = data.contacts?.find(c => c.type === 'registrar');
+    const registrarName = registrarContact?.organization || data.whois_name || null;
+
+    return {
+        status,
+        expirationDate: data.date_expires || null,
+        registeredDate: data.date_created || null,
+        registrar: registrarName,
+    }
+};
+
 
 
 // --- Main Service Function (Waterfall) ---
@@ -268,6 +328,18 @@ export const getWhoisData = async (domainName: string, log?: (message: string) =
             return data;
         } catch (error) {
             log?.(`⚠️ Failure: whoisfreaks.com. ${(error as Error).message}`);
+        }
+    }
+
+    // Attempt 5: whoapi.com (Backup 4)
+    if (WHOAPI_COM_KEY) {
+        try {
+            log?.("➡️ Trying provider: whoapi.com...");
+            const data = await getWhoisDataFromWhoapi(domainName);
+            log?.("✅ Success: whoapi.com");
+            return data;
+        } catch (error) {
+            log?.(`⚠️ Failure: whoapi.com. ${(error as Error).message}`);
         }
     }
 

@@ -50,7 +50,8 @@ const App: React.FC = () => {
         'who-dat': import.meta.env.VITE_WHO_DAT_URL,
         'WhoisXMLAPI': import.meta.env.VITE_WHOIS_API_KEY,
         'apilayer.com': import.meta.env.VITE_APILAYER_API_KEY,
-        'whoisfreaks.com': import.meta.env.VITE_WHOISFREAKS_API_KEY
+        'whoisfreaks.com': import.meta.env.VITE_WHOISFREAKS_API_KEY,
+        'whoapi.com': import.meta.env.VITE_WHOAPI_COM_API_KEY,
     };
 
     let hasAnyWhoisKey = false;
@@ -185,6 +186,35 @@ const App: React.FC = () => {
     }
   };
 
+  const recheckDomain = async (id: number) => {
+    const domain = domains.find(d => d.id === id);
+    if (!domain) return;
+
+    addLog(`🔄 Re-checking domain: ${domain.domain_name}`);
+    const whoisData = await getWhoisData(domain.domain_name, addLog);
+    
+    // Even if the status is still unknown, we update the record with new data and last_checked
+    const updates = {
+        status: whoisData.status,
+        expiration_date: whoisData.expirationDate,
+        registered_date: whoisData.registeredDate,
+        registrar: whoisData.registrar,
+        last_checked: new Date().toISOString(),
+    };
+
+    const updatedDomain = await SupabaseService.updateDomain(id, updates);
+
+    if (updatedDomain) {
+        setDomains(prev => prev.map(d => d.id === id ? updatedDomain : d));
+        if (updatedDomain.status !== 'unknown') {
+            checkAndNotify(updatedDomain);
+            addLog(`✅ Re-check successful for ${domain.domain_name}. Status is now ${updatedDomain.status}.`);
+        } else {
+            addLog(`❌ Re-check failed for ${domain.domain_name}. Still unknown.`);
+        }
+    }
+  };
+
   const handleShowInfo = (domain: Domain) => {
     if (!domain.expiration_date) return;
     const expiry = new Date(domain.expiration_date);
@@ -229,7 +259,7 @@ const App: React.FC = () => {
             <p className="mt-1">Your tracked domains are checked for status changes once a day. This requires a one-time setup of the Supabase Edge Function.</p>
             <button onClick={() => setView('docs')} className="font-semibold hover:underline mt-2 inline-block">Learn how to set up daily checks &rarr;</button>
         </div>
-        <DomainList domains={domains} onRemove={removeDomain} onShowInfo={handleShowInfo} onToggleTag={toggleDomainTag} />
+        <DomainList domains={domains} onRemove={removeDomain} onShowInfo={handleShowInfo} onToggleTag={toggleDomainTag} onRecheck={recheckDomain} />
       </div>
     </div>
   );

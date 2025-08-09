@@ -18,12 +18,14 @@ An aesthetically pleasing app to check domain availability and track domain expi
 ## Features
 
 *   **Secure User Accounts:** Sign in with your Google account to keep your domain list private and synced.
-*   **Resilient Real-Time Domain Check:** Quickly see if a domain is available using a tiered approach with fallbacks to WhoisXMLAPI, apilayer.com, and whoisfreaks.com.
+*   **Resilient Real-Time Domain Check:** Quickly see if a domain is available using a tiered approach with multiple fallbacks including WhoisXMLAPI, apilayer.com, whoisfreaks.com, and whoapi.com.
 *   **Automated Daily Checks:** A secure, server-side Supabase Edge Function runs daily to automatically update the status of your tracked domains, checking for expirations and drops.
-*   **Flexible Scheduling:** Use either Supabase's built-in cron scheduler or a more advanced external service like [fastcron.com](https://fastcron.com/) for automation.
+*   **Manual Re-check:** For any domain where the lookup failed, a simple "Re-check" button allows you to instantly try again.
+*   **Direct Purchase Links:** For available domains, get quick links to recommended registrars to purchase the domain immediately.
+*   **Advanced Expiration Alerts:** Get multi-level, color-coded visual alerts for domains expiring within 90, 30, and 7 days, plus a critical alert for already expired domains.
 *   **Track Your Portfolio:** Add domains to a personal tracking list.
-*   **Smart Tagging:** Tag domains as "Mine" for renewal reminders or "To Snatch" for drop-catching.
-*   **Expiration Alerts:** Get in-app notifications before your domains expire.
+*   **Smart Tagging & Keyboard Shortcuts:** Tag domains as "Mine" or "To Snatch". Add them even faster using \`Enter\` (for Mine) and \`Shift+Enter\` (for To Snatch).
+*   **Advanced Filtering:** Filter your list by tag, status, or urgency, including a dedicated "Available" filter.
 *   **Drop-Catching Helper:** For expired domains, get an estimated timeline for when they might become available.
 *   **Light/Dark Mode:** Beautifully designed interface that's easy on the eyes.
 *   **Cloud Data Persistence:** Your list is securely saved to your Supabase account, accessible from anywhere.
@@ -34,7 +36,7 @@ An aesthetically pleasing app to check domain availability and track domain expi
 *   **Tailwind CSS** for styling
 *   **Supabase** for Authentication, Database, and Edge Functions
 *   **Cron Job Schedulers**: Supabase Cron or external services (e.g., fastcron.com)
-*   **\`who-dat\`** (self-hosted), **WhoisXMLAPI**, **apilayer.com API**, & **whoisfreaks.com API** for live domain data
+*   **\`who-dat\`** (self-hosted), **WhoisXMLAPI**, **apilayer.com API**, **whoisfreaks.com API**, & **whoapi.com API** for live domain data
 
 ---
 
@@ -71,6 +73,7 @@ npm install
     VITE_WHOIS_API_KEY=YOUR_WHOISXMLAPI_KEY
     VITE_APILAYER_API_KEY=YOUR_APILAYER_KEY
     VITE_WHOISFREAKS_API_KEY=YOUR_WHOISFREAKS_KEY
+    VITE_WHOAPI_COM_API_KEY=YOUR_WHOAPI_COM_KEY
     
     # Optional: Self-hosted who-dat instance for WHOIS lookups
     # The public instance is not recommended due to rate limits and CORS issues.
@@ -190,6 +193,7 @@ The Edge Function needs API keys to work. It also needs a secret key to prevent 
     npx supabase secrets set VITE_WHOIS_API_KEY=YOUR_WHOISXMLAPI_KEY
     npx supabase secrets set VITE_APILAYER_API_KEY=YOUR_APILAYER_KEY
     npx supabase secrets set VITE_WHOISFREAKS_API_KEY=YOUR_WHOISFREAKS_KEY
+    npx supabase secrets set VITE_WHOAPI_COM_API_KEY=YOUR_WHOAPI_COM_KEY
 
     # Optional: Set these if you are using a self-hosted who-dat instance
     # npx supabase secrets set VITE_WHO_DAT_URL=https://your-who-dat-instance.vercel.app
@@ -303,6 +307,7 @@ The Edge Function needs API keys to work. It also needs a secret key to prevent 
     npx supabase secrets set VITE_WHOIS_API_KEY=YOUR_WHOISXMLAPI_KEY
     npx supabase secrets set VITE_APILAYER_API_KEY=YOUR_APILAYER_KEY
     npx supabase secrets set VITE_WHOISFREAKS_API_KEY=YOUR_WHOISFREAKS_KEY
+    npx supabase secrets set VITE_WHOAPI_COM_API_KEY=YOUR_WHOAPI_COM_KEY
 
     # Optional: Set these if you are using a self-hosted who-dat instance
     # npx supabase secrets set VITE_WHO_DAT_URL=https://your-who-dat-instance.vercel.app
@@ -620,6 +625,128 @@ The API uses standard HTTP status codes to indicate issues. For example:
 -   **\`429\`**: Maximum request limit reached.
 `;
 
+const whoapiContent = `
+# WhoAPI.com WHOIS Service Documentation
+
+This document summarizes the key details for integrating the WhoAPI.com WHOIS service.
+
+## Overview
+
+The service provides parsed WHOIS registration data for domain names programmatically.
+
+-   **Endpoint**: \`http://api.whoapi.com/\`
+-   **Method**: \`GET\`
+-   **Response Format**: \`JSON\` (default) or \`XML\`.
+
+## Authentication
+
+Authentication is required for every request and is handled via a query parameter.
+
+-   **Parameter Name**: \`apikey\`
+-   **Usage**: All requests must include \`apikey=YOUR_API_KEY\` in the URL's query string.
+
+## Key Request Parameters
+
+### Required
+
+-   \`apikey\` (string): Your personal API key from the WhoAPI dashboard.
+-   \`r\` (string): Must be set to the value \`whois\` for a parsed WHOIS lookup.
+-   \`domain\` (string): The domain name you want to query.
+
+## Example Request (GET)
+
+To get parsed WHOIS data for \`example.com\` in JSON format:
+
+\`\`\`
+http://api.whoapi.com/?domain=example.com&r=whois&apikey=YOUR_API_KEY
+\`\`\`
+
+## Response Data
+
+A successful response (\`status: "0"\`) returns a JSON object. Key fields to look for include:
+
+-   \`status\`: A string code. \`"0"\` indicates success.
+-   \`registered\`: A boolean (\`true\` or \`false\`) indicating if the domain is registered.
+-   \`date_created\`: Registration date (e.g., "2011-02-14 15:31:26").
+-   \`date_expires\`: Expiration date (e.g., "2021-02-14 15:31:26").
+-   \`whois_name\`: The name of the registrar (e.g., "PublicDomainRegistry").
+-   \`contacts\`: An array of contact objects. The registrar's full name can often be found in the contact object where \`type\` is \`"registrar"\`.
+-   \`requests_available\`: Your remaining API request quota.
+
+## Error Handling
+
+If a request fails, the \`status\` field will contain a non-zero value, and \`status_desc\` will provide a human-readable error message.
+`;
+
+const troubleshootingContent = `
+# Troubleshooting Guide
+
+This document covers common issues and their solutions when working with this project.
+
+## Issue: Build fails with TypeScript errors in \`DocsPage.tsx\`
+
+You may encounter a series of build errors related to the \`marked\` library, like this:
+
+\`\`\`
+src/components/DocsPage.tsx(19,17): error TS2322: Type '(text: any, level: any) => string' is not assignable to type '({ tokens, depth }: Heading) => string'.
+\`\`\`
+
+### The Problem: API and Type Definition Mismatch
+
+This error occurs due to a mismatch between the JavaScript implementation of the \`marked\` library and its corresponding TypeScript type definitions (\`@types/marked\`).
+
+The \`marked\` library has evolved, and there are two primary ways to customize its HTML output:
+
+1.  **The "Old" Way (Instance-based):** You create a new renderer instance (\`new marked.Renderer()\`) and override its methods. The functions for this method take simple arguments, like \`renderer.heading = function(text, level) { ... }\`. This is how the code was originally written.
+
+2.  **The "New" Way (Extension API):** You pass a plain JavaScript object with renderer functions to \`marked.use({ renderer: ... })\`. The functions for this newer method receive a single complex **token object**, like \`heading(token) { ... }\`.
+
+The problem is that the official TypeScript types for recent versions of \`marked\` **only describe the new, token-based API**. When the TypeScript compiler sees the old, argument-based functions in the code, it flags them as errors because they don't match the token-based signatures in the type definitions.
+
+### The Solution: Extend the Renderer Class
+
+The most robust and type-safe way to resolve this is to adopt the modern approach that aligns with the TypeScript types. While the extension API (\`marked.use()\`) is one option, an even better solution is to **extend the \`marked.Renderer\` class**.
+
+This approach has a significant advantage: it provides access to the renderer's internal parser via \`this.parser\`. This is crucial for correctly rendering nested markdown elements (e.g., a link inside a paragraph or bold text in a list item), a task that is very difficult with the other methods.
+
+#### Correct Implementation (\`src/components/DocsPage.tsx\`)
+
+The fix involves refactoring the component to use a custom class that extends \`marked.Renderer\`.
+
+\`\`\`tsx
+import { marked } from 'marked';
+import type { Tokens } from 'marked';
+
+// 1. Create a custom class that extends the base renderer
+class CustomRenderer extends marked.Renderer {
+    // 2. Override methods using the correct token-based signatures
+    heading(token: Tokens.Heading): string {
+        // 3. Use the internal parser to correctly render nested content
+        const text = this.parser.parseInline(token.tokens || []);
+        const level = token.depth;
+        // ... apply custom styling
+        return \`<h\${level} class="...">\${text}</h\${level}>\`;
+    }
+
+    // ... other overrides ...
+}
+
+// 4. In the component, use an instance of the new custom renderer
+useEffect(() => {
+    const parseMarkdown = async () => {
+        // ...
+        const renderer = new CustomRenderer();
+        const rawHtml = await marked.parse(selectedDoc.content, { async: true, renderer });
+        setHtmlContent(rawHtml);
+        // ...
+    };
+    parseMarkdown();
+}, [selectedDoc]);
+\`\`\`
+
+This pattern resolves all the build errors, ensures type safety, and correctly renders the documentation with the desired custom styling.
+`;
+
 
 export const docs: DocContent[] = [
     {
@@ -631,6 +758,11 @@ export const docs: DocContent[] = [
         slug: 'deployment',
         title: 'Deployment & Setup',
         content: deploymentContent
+    },
+    {
+        slug: 'troubleshooting',
+        title: 'Troubleshooting',
+        content: troubleshootingContent
     },
     {
         slug: 'who-dat',
@@ -651,5 +783,10 @@ export const docs: DocContent[] = [
         slug: 'whoisfreaks',
         title: 'Provider: WhoisFreaks',
         content: whoisFreaksContent
+    },
+    {
+        slug: 'whoapi',
+        title: 'Provider: WhoAPI.com',
+        content: whoapiContent
     },
 ];
