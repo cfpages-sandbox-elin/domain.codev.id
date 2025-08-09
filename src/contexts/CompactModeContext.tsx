@@ -17,6 +17,7 @@ export const CompactModeProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const stored = localStorage.getItem('compactMode');
+    // Set initial state from localStorage, default to false
     setIsCompact(stored === 'true');
   }, []);
 

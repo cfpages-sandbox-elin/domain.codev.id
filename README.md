@@ -9,6 +9,7 @@ An aesthetically pleasing app to check domain availability and track domain expi
 *   **Secure User Accounts:** Sign in with your Google account to keep your domain list private and synced.
 *   **Resilient Real-Time Domain Check:** Quickly see if a domain is available using a tiered approach with multiple fallbacks including WhoisXMLAPI, apilayer.com, whoisfreaks.com, whoapi.com, and rapidapi.com.
 *   **Automated Daily Checks:** A secure, server-side Supabase Edge Function runs daily to automatically update the status of your tracked domains, checking for expirations and drops.
+*   **Bulk Add, Import & Export:** Easily manage large lists of domains by pasting a list or importing/exporting in JSON/CSV format. Bulk additions are processed concurrently with rate-limiting to ensure speed and reliability.
 *   **Manual Re-check:** For any domain where the lookup failed, a simple "Re-check" button allows you to instantly try again.
 *   **Direct Purchase Links:** For available domains, get quick links to recommended registrars to purchase the domain immediately.
 *   **Advanced Expiration Alerts:** Get multi-level, color-coded visual alerts for domains expiring within 90, 30, and 7 days, plus a critical alert for already expired domains.
@@ -16,7 +17,7 @@ An aesthetically pleasing app to check domain availability and track domain expi
 *   **Smart Tagging & Keyboard Shortcuts:** Tag domains as "Mine" or "To Snatch". Add them even faster using `Enter` (for Mine) and `Shift+Enter` (for To Snatch).
 *   **Advanced Filtering:** Filter your list by tag, status, or urgency, including a dedicated "Available" filter.
 *   **Drop-Catching Helper:** For expired domains, get an estimated timeline for when they might become available.
-*   **Light/Dark Mode:** Beautifully designed interface that's easy on the eyes.
+*   **Light/Dark & Compact/Standard Modes:** Beautifully designed interface that's easy on the eyes, with view modes to suit your preference.
 *   **Cloud Data Persistence:** Your list is securely saved to your Supabase account, accessible from anywhere.
 
 ## Tech Stack
@@ -301,7 +302,7 @@ const getWhoisDataFromWhoisFreaks = async (domainName: string): Promise<WhoisDat
 
 const getWhoisDataFromWhoapi = async (domainName: string): Promise<WhoisData> => {
     if (!WHOAPI_COM_KEY) throw new Error("whoapi.com API Key not provided.");
-    const url = `http://api.whoapi.com/?apikey=${WHOAPI_COM_KEY}&r=whois&domain=${domainName}`;
+    const url = `https://api.whoapi.com/?apikey=${WHOAPI_COM_KEY}&r=whois&domain=${domainName}`;
     const response = await fetch(url);
     if (!response.ok) throw new Error(`whoapi.com failed: ${response.status}`);
     const data = await response.json();

@@ -9,7 +9,7 @@ const CompactModeToggle: React.FC = () => {
     <button
       onClick={toggleCompactMode}
       className="p-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-      aria-label="Toggle compact mode"
+      aria-label={isCompact ? 'Switch to Standard View' : 'Switch to Compact View'}
       title={isCompact ? 'Switch to Standard View' : 'Switch to Compact View'}
     >
       {isCompact ? (

@@ -1,8 +1,8 @@
 # Product Requirements Document: Domain Codev
 
 **Author:** World-Class Senior Frontend React Engineer
-**Version:** 1.8
-**Date:** 2024-05-28
+**Version:** 1.9
+**Date:** 2024-05-29
 
 ---
 
@@ -12,7 +12,7 @@ Domain Codev is a web application designed for individuals and businesses to mon
 
 ## 2. User Personas
 
-*   **Alex, the Domain Investor:** Alex buys and sells domain names for profit. They need a tool to track hundreds of domains they are interested in, get precise alerts when domains are about to drop, and quickly check the availability of new ideas. They need their list to be private and accessible from any device.
+*   **Alex, the Domain Investor:** Alex buys and sells domain names for profit. They need a tool to track hundreds of domains they are interested in, get precise alerts when domains are about to drop, and quickly check the availability of new ideas. They need their list to be private, accessible from any device, and support bulk import/export.
 *   **Maria, the Small Business Owner:** Maria owns several domains for her businesses. She is busy and needs a reliable system to remind her to renew her domains well in advance. She doesn't want to lose her branded domains due to a missed email from her registrar.
 
 ## 3. Functional Requirements
@@ -75,6 +75,7 @@ Domain Codev is a web application designed for individuals and businesses to mon
 *   **3.8.1:** The application must feature a theme toggle for Light and Dark modes.
 *   **3.8.2:** The interface must be clean, modern, and aesthetically pleasing, built with Tailwind CSS.
 *   **3.8.3:** The application must be fully responsive and usable on various screen sizes.
+*   **3.8.4. Compact Mode:** The application shall include a toggle for a "Compact View". This mode will reduce padding and font sizes in the domain list to allow more items to be visible on the screen, catering to users with large domain portfolios.
 
 ### 3.9. System Behavior
 *   **3.9.1. Configuration Error Handling:** The application must not crash if critical environment variables (e.g., Supabase URL, Supabase Anon Key) are missing. Instead, it must display a clear, user-friendly error screen that informs the developer what is wrong and how to fix it by referencing the `README.md`.
@@ -94,9 +95,17 @@ To enhance user-friendliness and reduce the learning curve, the application will
     *   **3.10.2.3. Navigation:** The Documentation Center will feature a sidebar menu allowing users to easily switch between different documents.
     *   **3.10.2.4. Markdown Rendering:** Markdown content will be parsed and rendered into clean, readable HTML.
 
+### 3.11. Bulk Domain Management
+*   **3.11.1. Bulk Add via Text Area:** Users must be able to add multiple domains at once by pasting a list (newline, comma, or space-separated) into a textarea.
+*   **3.11.2. Data Import (JSON, CSV):** Users must be able to import a list of domains from a local file in either JSON or CSV format.
+    *   **3.11.2.1. JSON Format:** The importer must accept a JSON array of objects that match the application's domain structure.
+    *   **3.11.2.2. CSV Format:** The importer must accept a CSV file with a `domain_name` header. An optional `tag` column will be used if present.
+*   **3.11.3. Data Export (JSON, CSV):** Users must be able to export their entire list of tracked domains to a local file in either JSON or CSV format.
+*   **3.11.4. Concurrent Processing:** When domains are added in bulk, the application must check their WHOIS status concurrently to ensure fast processing. This process must be rate-limited (e.g., using batches with delays) to avoid overwhelming WHOIS API providers.
+
 ## 4. Non-Functional Requirements
 
-*   **4.1. Performance:** The UI must be fast and responsive, with loading states to indicate background operations.
+*   **4.1. Performance:** The UI must be fast and responsive, with loading states to indicate background operations. Bulk operations must not lock the UI.
 *   **4.2. Usability:** The application flow should be intuitive, requiring minimal instruction for a new user.
 *   **4.3. Security:** User data must be isolated and protected. The `check-domains` Edge Function must be protected by a secret key.
 *   **4.4. Data Persistence:** All user data must be stored securely in a remote database (Supabase).
@@ -173,6 +182,7 @@ It is live now and deployed at https://domain.codev.id
     - [x] 3.8.1: The application must feature a theme toggle for Light and Dark modes.
     - [x] 3.8.2: The interface must be clean, modern, and aesthetically pleasing, built with Tailwind CSS.
     - [x] 3.8.3: The application must be fully responsive and usable on various screen sizes.
+    - [x] 3.8.4: Implement Compact View toggle and functionality.
 
 - [ ] **3.9. System Behavior**
     - [x] 3.9.1. Configuration Error Handling: The application must not crash if critical environment variables are missing.
@@ -181,12 +191,18 @@ It is live now and deployed at https://domain.codev.id
 - [ ] **3.10. In-App Guidance & Documentation**
     - [x] 3.10.1.1. Domain Form: Add descriptive text below the "Check Domain" heading.
     - [x] 3.10.1.2. Tracked Domains: Add an informational block explaining auto-checks.
-    *   **3.10.1.3. Empty State:** The message shown when the tracking list is empty will be encouraging and directive.
-    *   **3.10.1.4. Drop Snatching Modal:** The modal will more clearly state that the provided dates are estimates and can vary.
+    - [x] 3.10.1.3. Empty State: The message shown when the tracking list is empty will be encouraging and directive.
+    - [x] 3.10.1.4. Drop Snatching Modal: The modal will more clearly state that the provided dates are estimates and can vary.
     - [x] 3.10.2.1. New View: Implement the "Documentation" view.
     - [x] 3.10.2.2. Content: Load markdown files into the application.
     - [x] 3.10.2.3. Navigation: Implement a sidebar for doc navigation.
     - [x] 3.10.2.4. Markdown Rendering: Use `marked` to render content as HTML.
+
+- [ ] **3.11. Bulk Domain Management**
+    - [x] 3.11.1: Implement bulk add via textarea.
+    - [x] 3.11.2: Implement data import from JSON and CSV files.
+    - [x] 3.11.3: Implement data export to JSON and CSV files.
+    - [x] 3.11.4: Implement concurrent, rate-limited processing for bulk additions.
 
 - [ ] **4. Non-Functional Requirements** (These are ongoing considerations and not distinct tasks)
     - [x] 4.1. Performance: The UI must be fast and responsive. (Ongoing effort)

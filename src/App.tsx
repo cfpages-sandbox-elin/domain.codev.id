@@ -15,19 +15,24 @@ import Spinner from './components/Spinner';
 import ConfigErrorScreen from './components/ConfigErrorScreen';
 import StatusLog from './components/StatusLog';
 import DocsPage from './components/DocsPage';
+import BulkAddModal from './components/BulkAddModal';
 import { PlusIcon } from './components/icons';
 
 const formatDate = (date: Date) => date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
 type View = 'dashboard' | 'docs';
 
+type BulkDomain = { domainName: string; tag?: DomainTag };
+
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
   const [domains, setDomains] = useState<Domain[]>([]);
   const [notifications, setNotifications] = useState<string[]>([]);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [isAddDomainModalOpen, setIsAddDomainModalOpen] = useState(false);
+  const [isBulkAddModalOpen, setIsBulkAddModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState({ title: '', body: '' });
   const [logs, setLogs] = useState<string[]>([]);
   const [view, setView] = useState<View>('dashboard');
@@ -180,11 +185,10 @@ const App: React.FC = () => {
   }, [domains, session, addLog, checkAndNotify]);
 
 
-  const addDomain = async (domainName: string, tag: DomainTag) => {
+  const addDomain = async (domainName: string, tag: DomainTag): Promise<Domain | null> => {
     if (domains.some(d => d.domain_name.toLowerCase() === domainName.toLowerCase())) {
       addLog(`⚠️ Attempted to add duplicate domain: ${domainName}`);
-      alert('This domain is already being tracked.');
-      return;
+      return null;
     }
     const whoisData = await getWhoisData(domainName, addLog);
     
@@ -210,9 +214,53 @@ const App: React.FC = () => {
         setDomains(prevDomains => [...prevDomains, newDomain]);
         checkAndNotify(newDomain);
         addLog(`✅ Successfully added ${domainName}.`);
+        return newDomain;
     } else {
         addLog(`❌ Failed to add ${domainName}.`);
+        return null;
     }
+  };
+
+  const handleBulkAdd = async (bulkDomains: BulkDomain[], defaultTag: DomainTag) => {
+    const domainsToAdd = bulkDomains.filter(item => 
+        !domains.some(d => d.domain_name.toLowerCase() === item.domainName.toLowerCase())
+    );
+    
+    if (domainsToAdd.length !== bulkDomains.length) {
+        const skippedCount = bulkDomains.length - domainsToAdd.length;
+        addLog(`⚠️ Skipped ${skippedCount} duplicate domain(s) from bulk add.`);
+    }
+
+    if (domainsToAdd.length === 0) {
+        addLog('ℹ️ No new domains to add from bulk list.');
+        return;
+    }
+
+    setIsBulkProcessing(true);
+    addLog(`➡️ Starting bulk add of ${domainsToAdd.length} domains...`);
+
+    const BATCH_SIZE = 5;
+    const DELAY_BETWEEN_BATCHES = 2000; // 2 seconds
+
+    for (let i = 0; i < domainsToAdd.length; i += BATCH_SIZE) {
+        const batch = domainsToAdd.slice(i, i + BATCH_SIZE);
+        const batchNumber = i / BATCH_SIZE + 1;
+        const totalBatches = Math.ceil(domainsToAdd.length / BATCH_SIZE);
+        
+        addLog(`🔄 Processing batch ${batchNumber} of ${totalBatches} (${batch.length} domains)...`);
+
+        const promises = batch.map(item => addDomain(item.domainName, item.tag || defaultTag));
+        await Promise.allSettled(promises);
+        
+        if (i + BATCH_SIZE < domainsToAdd.length) {
+            addLog(`⌛ Waiting for ${DELAY_BETWEEN_BATCHES / 1000} seconds before next batch...`);
+            await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
+        }
+    }
+
+    addLog('✅ Bulk add finished.');
+    setIsBulkProcessing(false);
+    setIsBulkAddModalOpen(false);
   };
 
   const handleAddDomainFromModal = async (domainName: string, tag: DomainTag) => {
@@ -309,6 +357,39 @@ const App: React.FC = () => {
     setIsInfoModalOpen(true);
     addLog(`ℹ️ Displayed drop info for ${domain.domain_name}.`);
   };
+
+  const handleExport = (format: 'json' | 'csv') => {
+    let content = '';
+    let mimeType = '';
+    let filename = '';
+
+    if (format === 'json') {
+        content = JSON.stringify(domains, null, 2);
+        mimeType = 'application/json';
+        filename = 'domain_codev_export.json';
+        addLog('✅ Exporting data as JSON...');
+    } else { // csv
+        const header = 'id,user_id,domain_name,tag,status,expiration_date,registered_date,registrar,created_at,last_checked\n';
+        const rows = domains.map(d => 
+            [d.id, d.user_id, d.domain_name, d.tag, d.status, d.expiration_date, d.registered_date, `"${d.registrar || ''}"`, d.created_at, d.last_checked].join(',')
+        ).join('\n');
+        content = header + rows;
+        mimeType = 'text/csv';
+        filename = 'domain_codev_export.csv';
+        addLog('✅ Exporting data as CSV...');
+    }
+
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    addLog('✅ Export download initiated.');
+  };
   
   const renderDashboard = () => (
     <div className="max-w-4xl mx-auto">
@@ -319,7 +400,16 @@ const App: React.FC = () => {
             <p className="mt-1">Your tracked domains are checked for status changes once a day. This requires a one-time setup of the Supabase Edge Function.</p>
             <button onClick={() => setView('docs')} className="font-semibold hover:underline mt-2 inline-block">Learn how to set up daily checks &rarr;</button>
         </div>
-        <DomainList domains={domains} onRemove={removeDomain} onShowInfo={handleShowInfo} onToggleTag={toggleDomainTag} onRecheck={recheckDomain} />
+        <DomainList 
+            domains={domains}
+            onRemove={removeDomain}
+            onShowInfo={handleShowInfo}
+            onToggleTag={toggleDomainTag}
+            onRecheck={recheckDomain}
+            onExportRequest={handleExport}
+            onImportRequest={() => setIsBulkAddModalOpen(true)}
+            isProcessing={isBulkProcessing}
+        />
       </div>
     </div>
   );
@@ -368,6 +458,13 @@ const App: React.FC = () => {
                     <DomainForm onAddDomain={handleAddDomainFromModal} />
                 </div>
             </Modal>
+            <BulkAddModal
+                isOpen={isBulkAddModalOpen}
+                onClose={() => setIsBulkAddModalOpen(false)}
+                onBulkAdd={handleBulkAdd}
+                isLoading={isBulkProcessing}
+                addLog={addLog}
+            />
         </>
       )}
     </div>

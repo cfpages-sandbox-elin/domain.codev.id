@@ -224,7 +224,7 @@ const getWhoisDataFromWhoisFreaks = async (domainName: string): Promise<WhoisDat
 };
 
 // --- Provider 4: whoapi.com ---
-const WHOAPI_URL = 'http://api.whoapi.com/';
+const WHOAPI_URL = 'https://api.whoapi.com/';
 
 interface WhoApiResponse {
     status: string; // '0' is success

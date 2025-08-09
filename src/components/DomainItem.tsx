@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Domain, DomainStatus } from '../types';
+import { useCompactMode } from '../contexts/CompactModeContext';
 import { TrashIcon, InfoIcon, TagIcon, SwitchHorizontalIcon, ShoppingCartIcon, RefreshIcon } from './icons';
 import Spinner from './Spinner';
 
@@ -31,7 +32,7 @@ const formatDateWithTime = (dateString: string | null) => {
     });
 };
 
-const StatusBadge: React.FC<{ status: DomainStatus }> = ({ status }) => {
+const StatusBadge: React.FC<{ status: DomainStatus, isCompact: boolean }> = ({ status, isCompact }) => {
     const statusStyles: { [key in DomainStatus]: string } = {
         available: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
         dropped: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
@@ -43,7 +44,7 @@ const StatusBadge: React.FC<{ status: DomainStatus }> = ({ status }) => {
     const statusText = status === 'dropped' ? 'available' : status;
 
     return (
-        <span className={`px-2 py-0 text-[10px] font-semibold rounded-full capitalize ${statusStyles[status]}`}>
+        <span className={`px-2 font-semibold rounded-full capitalize ${statusStyles[status]} ${isCompact ? 'py-0 text-[9px]' : 'py-0.5 text-[10px]'}`}>
             {statusText}
         </span>
     );
@@ -51,19 +52,19 @@ const StatusBadge: React.FC<{ status: DomainStatus }> = ({ status }) => {
 
 const getUrgencyStyles = (status: DomainStatus, daysUntilExpiry: number | null): string => {
     if (status === 'expired') {
-        return 'bg-red-100 dark:bg-red-900/40 ring-2 ring-red-500/80';
+        return 'bg-red-100 dark:bg-red-900/40 ring-1 ring-red-500/80';
     }
     if (daysUntilExpiry === null) {
         return 'bg-slate-50 dark:bg-slate-800/50';
     }
     if (daysUntilExpiry <= 7) {
-        return 'bg-red-50 dark:bg-red-900/30 ring-2 ring-red-500';
+        return 'bg-red-50 dark:bg-red-900/30 ring-1 ring-red-500';
     }
     if (daysUntilExpiry <= 30) {
-        return 'bg-orange-50 dark:bg-orange-900/30 ring-2 ring-orange-500';
+        return 'bg-orange-50 dark:bg-orange-900/30 ring-1 ring-orange-500';
     }
     if (daysUntilExpiry <= 90) {
-        return 'bg-yellow-50 dark:bg-yellow-900/20 ring-2 ring-yellow-400';
+        return 'bg-yellow-50 dark:bg-yellow-900/20 ring-1 ring-yellow-400';
     }
     return 'bg-slate-50 dark:bg-slate-800/50';
 };
@@ -79,6 +80,7 @@ const getDaysUntilExpiry = (dateString: string | null): number | null => {
 const DomainItem: React.FC<DomainItemProps> = ({ domain, onRemove, onShowInfo, onToggleTag, onRecheck }) => {
   const [selectedRegistrar, setSelectedRegistrar] = useState<string>('');
   const [isRechecking, setIsRechecking] = useState(false);
+  const { isCompact } = useCompactMode();
   
   const isIdDomain = domain.domain_name.endsWith('.id');
   const registrars = isIdDomain
@@ -129,13 +131,13 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, onRemove, onShowInfo, o
   const isAvailableForPurchase = domain.status === 'available' || domain.status === 'dropped';
 
   return (
-    <div className={`p-2 rounded-lg flex flex-col justify-between gap-2 transition-all ${urgencyStyles}`}>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+    <div className={`rounded-lg flex flex-col justify-between gap-2 transition-all ${urgencyStyles} ${isCompact ? 'p-2' : 'p-3'}`}>
+      <div className={`flex flex-wrap items-center gap-y-2 ${isCompact ? 'gap-x-3' : 'gap-x-4'}`}>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <h3 className="text-lg font-bold text-slate-800 dark:text-white break-all">{domain.domain_name}</h3>
+          <h3 className={`font-bold text-slate-800 dark:text-white break-all ${isCompact ? 'text-base' : 'text-lg'}`}>{domain.domain_name}</h3>
           <div className="flex items-center gap-2">
-            <StatusBadge status={domain.status} />
-            <span className={`px-2 py-0 text-[10px] font-semibold rounded-full capitalize flex items-center gap-1 ${tagStyles[domain.tag]}`}>
+            <StatusBadge status={domain.status} isCompact={isCompact} />
+            <span className={`px-2 font-semibold rounded-full capitalize flex items-center gap-1 ${tagStyles[domain.tag]} ${isCompact ? 'py-0 text-[9px]' : 'py-0.5 text-[10px]'}`}>
               <TagIcon className="w-3 h-3" />
               {domain.tag === 'mine' ? 'Mine' : 'To Snatch'}
             </span>
@@ -144,11 +146,12 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, onRemove, onShowInfo, o
 
         {isAvailableForPurchase ? (
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-green-700 dark:text-green-300">This domain is available!</span>
+            <span className="font-semibold text-green-700 dark:text-green-300" style={{ fontSize: isCompact ? '0.8rem' : '0.875rem' }}>Available!</span>
             <select
               value={selectedRegistrar}
               onChange={(e) => setSelectedRegistrar(e.target.value)}
-              className="flex-grow sm:flex-grow-0 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-xs focus:ring-brand-blue focus:border-brand-blue"
+              className="flex-grow sm:flex-grow-0 px-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-brand-blue focus:border-brand-blue"
+              style={{ fontSize: isCompact ? '0.75rem' : '0.875rem', padding: isCompact ? '2px 6px' : '4px 8px' }}
             >
               {Object.entries(registrars).map(([value, name]) => (
                 <option key={value} value={value}>{name}</option>
@@ -156,23 +159,24 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, onRemove, onShowInfo, o
             </select>
             <button
               onClick={handleBuyClick}
-              className="flex-shrink-0 flex items-center justify-center gap-2 px-3 py-1.5 font-semibold text-white bg-brand-green hover:bg-green-600 rounded-lg transition-colors"
+              className="flex-shrink-0 flex items-center justify-center gap-2 font-semibold text-white bg-brand-green hover:bg-green-600 rounded-lg transition-colors"
+              style={{ padding: isCompact ? '2px 8px' : '4px 12px', fontSize: isCompact ? '0.75rem' : '0.875rem' }}
               aria-label={`Buy ${domain.domain_name} on ${selectedRegistrar}`}
             >
               <ShoppingCartIcon className="w-4 h-4" />
-              Buy Now
+              Buy
             </button>
           </div>
         ) : domain.status !== 'unknown' && (
           <div className="flex flex-col">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
-              <span>Registrar: <span className="font-semibold text-slate-700 dark:text-slate-300">{domain.registrar || 'N/A'}</span></span>
-              <span>Registered: <span className="font-semibold text-slate-700 dark:text-slate-300">{formatDate(domain.registered_date)}</span></span>
-              <span>Expires: <span className="font-semibold text-slate-700 dark:text-slate-300">{formatDate(domain.expiration_date)}</span></span>
-              <span>Last Check: <span className="font-semibold text-slate-700 dark:text-slate-300">{formatDateWithTime(domain.last_checked)}</span></span>
+             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-slate-600 dark:text-slate-400" style={{ fontSize: isCompact ? '0.7rem' : '0.75rem' }}>
+                {!isCompact && <span>Registrar: <span className="font-semibold text-slate-700 dark:text-slate-300">{domain.registrar || 'N/A'}</span></span>}
+                {!isCompact && <span>Registered: <span className="font-semibold text-slate-700 dark:text-slate-300">{formatDate(domain.registered_date)}</span></span>}
+                <span>Expires: <span className="font-semibold text-slate-700 dark:text-slate-300">{formatDate(domain.expiration_date)}</span></span>
+                {isCompact && <span>Last Check: <span className="font-semibold text-slate-700 dark:text-slate-300">{formatDateWithTime(domain.last_checked)}</span></span>}
             </div>
              { daysUntilExpiry !== null && daysUntilExpiry <= 90 && (
-                <div className="mt-1 text-xs font-semibold text-slate-700 dark:text-slate-200">
+                <div className="mt-1 font-semibold text-slate-700 dark:text-slate-200" style={{ fontSize: isCompact ? '0.75rem' : '0.8rem' }}>
                     {domain.status === 'expired' ? 'This domain has expired.' : `Expires in ${daysUntilExpiry} days.`}
                 </div>
             )}
@@ -181,7 +185,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, onRemove, onShowInfo, o
 
         <div className="flex-grow"></div>
 
-        <div className="flex items-center gap-1 flex-shrink-0">
+        <div className="flex items-center gap-0 flex-shrink-0">
           <button
             onClick={() => onShowInfo(domain)}
             disabled={domain.status !== 'expired'}
@@ -211,8 +215,8 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, onRemove, onShowInfo, o
       </div>
 
       {domain.status === 'unknown' && (
-        <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700/50 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="text-sm">
+        <div className={`mt-2 pt-2 border-t border-slate-200 dark:border-slate-700/50 flex flex-col sm:flex-row items-center justify-between gap-2 ${isCompact ? 'text-sm' : ''}`}>
+          <div>
             <p className="font-semibold text-yellow-700 dark:text-yellow-300">Could not retrieve WHOIS data.</p>
             <p className="text-slate-500 dark:text-slate-400">Last attempt: {formatDateWithTime(domain.last_checked)}</p>
           </div>
