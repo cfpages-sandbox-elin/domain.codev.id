@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import ModeToggle from './ModeToggle';
+import CompactModeToggle from './CompactModeToggle';
 import { BellIcon } from './icons';
 import { Session } from '@supabase/supabase-js';
 import { signOut } from '../services/supabaseService';
@@ -19,7 +20,7 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
       <div className="container mx-auto px-4 md:px-8">
         <div className="flex items-center justify-between h-16">
           <button onClick={() => setView('dashboard')} className="text-2xl font-bold text-brand-blue">
-            Domain Tracker Pro
+            Domain Codev
           </button>
           <div className="flex items-center space-x-2 sm:space-x-4">
             {session && (
@@ -70,6 +71,7 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
                 </div>
               </>
             )}
+            <CompactModeToggle />
             <ModeToggle />
             {session && (
               <button

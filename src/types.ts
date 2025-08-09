@@ -17,8 +17,8 @@ export interface Domain {
 }
 
 // For creating a new domain. We omit database-generated fields.
-// The `user_id` is assumed to be set by a database policy/default.
-export type NewDomain = {
+// This is defined explicitly to avoid potential type inference issues in supabase-js.
+export interface NewDomain {
   domain_name: string;
   tag: DomainTag;
   status: DomainStatus;
@@ -26,17 +26,19 @@ export type NewDomain = {
   registered_date: string | null;
   registrar: string | null;
   last_checked: string | null;
-};
+}
+
 
 // For updating a domain. All properties are optional.
-export type DomainUpdate = {
+// This is defined explicitly to avoid potential type inference issues in supabase-js.
+export interface DomainUpdate {
   tag?: DomainTag;
   status?: DomainStatus;
   expiration_date?: string | null;
   registered_date?: string | null;
   registrar?: string | null;
   last_checked?: string | null;
-};
+}
 
 
 export interface WhoisData {

@@ -43,7 +43,7 @@ const StatusBadge: React.FC<{ status: DomainStatus }> = ({ status }) => {
     const statusText = status === 'dropped' ? 'available' : status;
 
     return (
-        <span className={`px-2.5 py-0.5 text-xs font-semibold rounded-full capitalize ${statusStyles[status]}`}>
+        <span className={`px-2.5 py-0.5 text-xs font-semibold rounded-full capitalize compact-badge ${statusStyles[status]}`}>
             {statusText}
         </span>
     );
@@ -129,21 +129,21 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, onRemove, onShowInfo, o
   const isAvailableForPurchase = domain.status === 'available' || domain.status === 'dropped';
 
   return (
-    <div className={`p-4 rounded-lg flex flex-col justify-between gap-4 transition-all ${urgencyStyles}`}>
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex-1 space-y-2">
-                <div className="flex items-center gap-4">
-                    <h3 className="text-xl font-bold text-slate-800 dark:text-white break-all">{domain.domain_name}</h3>
+    <div className={`p-4 rounded-lg flex flex-col justify-between gap-4 transition-all domain-item-container ${urgencyStyles}`}>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 domain-item-main-flex">
+            <div className="flex-1 space-y-2 domain-item-info-stack">
+                <div className="flex items-center gap-4 domain-item-header-flex">
+                    <h3 className="text-xl font-bold text-slate-800 dark:text-white break-all domain-item-name">{domain.domain_name}</h3>
                     <div className="flex items-center gap-2">
                         <StatusBadge status={domain.status} />
-                        <span className={`px-2.5 py-0.5 text-xs font-semibold rounded-full capitalize flex items-center gap-1 ${tagStyles[domain.tag]}`}>
+                        <span className={`px-2.5 py-0.5 text-xs font-semibold rounded-full capitalize flex items-center gap-1 compact-badge ${tagStyles[domain.tag]}`}>
                             <TagIcon className="w-3 h-3"/>
                             {domain.tag === 'mine' ? 'Mine' : 'To Snatch'}
                         </span>
                     </div>
                 </div>
                 {!isAvailableForPurchase && domain.status !== 'unknown' && (
-                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-600 dark:text-slate-400">
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-600 dark:text-slate-400 domain-item-details">
                         <span>Registrar: <span className="font-semibold text-slate-700 dark:text-slate-300">{domain.registrar || 'N/A'}</span></span>
                         <span>Registered: <span className="font-semibold text-slate-700 dark:text-slate-300">{formatDate(domain.registered_date)}</span></span>
                         <span>Expires: <span className="font-semibold text-slate-700 dark:text-slate-300">{formatDate(domain.expiration_date)}</span></span>
@@ -151,12 +151,12 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, onRemove, onShowInfo, o
                     </div>
                 )}
                  { daysUntilExpiry !== null && daysUntilExpiry <= 90 && (
-                    <div className="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                    <div className="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-200 domain-item-expiry-text">
                         {domain.status === 'expired' ? 'This domain has expired.' : `Expires in ${daysUntilExpiry} days.`}
                     </div>
                 )}
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-2 flex-shrink-0 domain-item-actions">
                  <button
                     onClick={() => onShowInfo(domain)}
                     disabled={domain.status !== 'expired'}
@@ -186,7 +186,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, onRemove, onShowInfo, o
         </div>
         
         {domain.status === 'unknown' && (
-            <div className="mt-2 pt-4 border-t border-slate-200 dark:border-slate-700/50 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="mt-2 pt-4 border-t border-slate-200 dark:border-slate-700/50 flex flex-col sm:flex-row items-center justify-between gap-3 domain-item-recheck-section">
                 <div className="text-sm">
                     <p className="font-semibold text-yellow-700 dark:text-yellow-300">Could not retrieve WHOIS data.</p>
                     <p className="text-slate-500 dark:text-slate-400">Last attempt: {formatDateWithTime(domain.last_checked)}</p>
@@ -213,7 +213,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, onRemove, onShowInfo, o
         )}
 
         {isAvailableForPurchase && (
-            <div className="mt-2 pt-4 border-t border-slate-200 dark:border-slate-700/50 flex flex-col sm:flex-row items-center gap-3">
+            <div className="mt-2 pt-4 border-t border-slate-200 dark:border-slate-700/50 flex flex-col sm:flex-row items-center gap-3 domain-item-buy-section">
                 <span className="text-sm font-semibold text-green-700 dark:text-green-300">This domain is available!</span>
                 <div className="flex-grow flex items-center gap-3 w-full sm:w-auto sm:justify-end">
                     <select 

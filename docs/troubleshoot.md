@@ -18,7 +18,7 @@ The `marked` library has evolved, and there are two primary ways to customize it
 
 1.  **The "Old" Way (Instance-based):** You create a new renderer instance (`new marked.Renderer()`) and override its methods. The functions for this method take simple arguments, like `renderer.heading = function(text, level) { ... }`. This is how the code was originally written.
 
-2.  **The "New" Way (Extension API):** You pass a plain JavaScript object with renderer functions to `marked.use({ renderer: ... })`. The functions for this newer method receive a single complex **token object**, like `heading(token) { ... }`.
+2.  **The "New" Way (Extension API):** You pass a plain JavaScript object with renderer functions to `marked.use({ renderer: ... })\`. The functions for this newer method receive a single complex **token object**, like `heading(token) { ... }\`.
 
 The problem is that the official TypeScript types for recent versions of `marked` **only describe the new, token-based API**. When the TypeScript compiler sees the old, argument-based functions in the code, it flags them as errors because they don't match the token-based signatures in the type definitions.
 
@@ -32,7 +32,7 @@ This approach has a significant advantage: it provides access to the renderer's 
 
 The fix involves refactoring the component to use a custom class that extends `marked.Renderer`.
 
-```tsx
+\`\`\`tsx
 import { marked } from 'marked';
 import type { Tokens } from 'marked';
 
@@ -44,7 +44,7 @@ class CustomRenderer extends marked.Renderer {
         const text = this.parser.parseInline(token.tokens || []);
         const level = token.depth;
         // ... apply custom styling
-        return `<h${level} class="...">${text}</h${level}>`;
+        return \`<h\${level} class="...">\${text}</h\${level}>\`;
     }
 
     // ... other overrides ...
@@ -61,6 +61,6 @@ useEffect(() => {
     };
     parseMarkdown();
 }, [selectedDoc]);
-```
+\`\`\`
 
 This pattern resolves all the build errors, ensures type safety, and correctly renders the documentation with the desired custom styling.

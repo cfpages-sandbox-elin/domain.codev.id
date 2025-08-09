@@ -1,4 +1,4 @@
-# Product Requirements Document: Domain Tracker Pro
+# Product Requirements Document: Domain Codev
 
 **Author:** World-Class Senior Frontend React Engineer
 **Version:** 1.8
@@ -8,7 +8,7 @@
 
 ## 1. Introduction
 
-Domain Tracker Pro is a web application designed for individuals and businesses to monitor domain name availability, track expiration dates, and strategically acquire expiring domains. The application provides a clean, intuitive, and personalized interface with powerful automation features to help users manage their domain portfolios effectively, preventing accidental loss of valuable domains and identifying opportunities to purchase dropped domains.
+Domain Codev is a web application designed for individuals and businesses to monitor domain name availability, track expiration dates, and strategically acquire expiring domains. The application provides a clean, intuitive, and personalized interface with powerful automation features to help users manage their domain portfolios effectively, preventing accidental loss of valuable domains and identifying opportunities to purchase dropped domains.
 
 ## 2. User Personas
 
@@ -35,6 +35,15 @@ Domain Tracker Pro is a web application designed for individuals and businesses 
 *   **3.3.3:** Users must be able to remove domains from their tracking list.
 *   **3.3.4:** Users must be able to switch the tag of a tracked domain (e.g., from "To Snatch" to "Mine" and vice-versa).
 *   **3.3.5:** The UI shall provide filters to view all domains, or subsets based on tag ("Mine", "To Snatch"), status ("Expired", "Available"), or urgency ("Expiring Soon").
+*   **3.3.6. Sorting:** The application shall provide sorting controls for the tracked domain list.
+    *   **3.3.6.1. UI:** A dropdown menu will be placed next to the filter buttons to allow users to select a sorting method.
+    *   **3.3.6.2. Options:** The following sorting options must be available:
+        *   Domain Name (A-Z, Z-A)
+        *   Expiration Date (Soonest First, Latest First)
+        *   Date Added (Newest First, Oldest First)
+        *   Last Checked (Newest First, Oldest First)
+    *   **3.3.6.3. Default Sort:** The default sort order will be "Date Added (Newest First)".
+    *   **3.3.6.4. State Persistence:** The selected sort option should be maintained as the user interacts with filters but can reset on page reload.
 
 ### 3.4. Tagging System
 *   **3.4.1:** Users must be able to categorize tracked domains with one of two tags:
@@ -138,6 +147,7 @@ It is live now and deployed at https://domain.codev.id
     - [x] 3.3.3: Users must be able to remove domains from their tracking list.
     - [x] 3.3.4: Users must be able to switch the tag of a tracked domain.
     - [x] 3.3.5: Implement UI filters for the domain list, including an "Available" filter.
+    - [x] 3.3.6: Implement sorting controls for the domain list.
 
 - [ ] **3.4. Tagging System**
     - [x] 3.4.1: Users must be able to categorize tracked domains with one of two tags: "Mine" and "To Snatch".
@@ -169,9 +179,9 @@ It is live now and deployed at https://domain.codev.id
 
 - [ ] **3.10. In-App Guidance & Documentation**
     - [x] 3.10.1.1. Domain Form: Add descriptive text below the "Check Domain" heading.
-    - [x] 3.10.1.2. Tracked Domains: Add informational block explaining auto-checks.
-    - [x] 3.10.1.3. Empty State: Ensure the empty state message is directive.
-    - [x] 3.10.1.4. Drop Snatching Modal: Ensure the estimation note is clear.
+    - [x] 3.10.1.2. Tracked Domains: Add an informational block explaining auto-checks.
+    *   **3.10.1.3. Empty State:** The message shown when the tracking list is empty will be encouraging and directive.
+    *   **3.10.1.4. Drop Snatching Modal:** The modal will more clearly state that the provided dates are estimates and can vary.
     - [x] 3.10.2.1. New View: Implement the "Documentation" view.
     - [x] 3.10.2.2. Content: Load markdown files into the application.
     - [x] 3.10.2.3. Navigation: Implement a sidebar for doc navigation.

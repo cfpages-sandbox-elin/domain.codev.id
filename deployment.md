@@ -1,6 +1,6 @@
-# Deployment Guide: Domain Tracker Pro on Cloudflare Pages
+# Deployment Guide: Domain Codev on Cloudflare Pages
 
-This guide provides step-by-step instructions for deploying the Domain Tracker Pro application to Cloudflare Pages.
+This guide provides step-by-step instructions for deploying the Domain Codev application to Cloudflare Pages.
 
 ## Prerequisites
 

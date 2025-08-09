@@ -9,7 +9,7 @@ const Auth: React.FC = () => {
   return (
     <div className="flex justify-center py-12 px-4">
       <div className="max-w-md w-full bg-white dark:bg-slate-800 shadow-xl rounded-2xl p-8 text-center">
-        <h1 className="text-3xl font-bold text-brand-blue mb-2">Domain Tracker Pro</h1>
+        <h1 className="text-3xl font-bold text-brand-blue mb-2">Domain Codev</h1>
         <p className="text-slate-600 dark:text-slate-400 mb-8">
           Sign in with your Google account to securely track your domain portfolio.
         </p>

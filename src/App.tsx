@@ -14,6 +14,7 @@ import Spinner from './components/Spinner';
 import ConfigErrorScreen from './components/ConfigErrorScreen';
 import StatusLog from './components/StatusLog';
 import DocsPage from './components/DocsPage';
+import { PlusIcon } from './components/icons';
 
 const formatDate = (date: Date) => date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
@@ -24,7 +25,8 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [domains, setDomains] = useState<Domain[]>([]);
   const [notifications, setNotifications] = useState<string[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+  const [isAddDomainModalOpen, setIsAddDomainModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState({ title: '', body: '' });
   const [logs, setLogs] = useState<string[]>([]);
   const [view, setView] = useState<View>('dashboard');
@@ -36,16 +38,13 @@ const App: React.FC = () => {
 
   useEffect(() => {
     addLog('ℹ️ Application initializing...');
-    // If supabase is not configured, we can't do anything. Just stop loading.
     if (supabaseConfigError) {
       setLoading(false);
       addLog(`❌ ${supabaseConfigError}`);
       return;
     }
-
     addLog('✅ Supabase configuration loaded.');
 
-    // Log WHOIS Provider status
     const whoisKeys = {
         'who-dat': import.meta.env.VITE_WHO_DAT_URL,
         'WhoisXMLAPI': import.meta.env.VITE_WHOIS_API_KEY,
@@ -53,7 +52,6 @@ const App: React.FC = () => {
         'whoisfreaks.com': import.meta.env.VITE_WHOISFREAKS_API_KEY,
         'whoapi.com': import.meta.env.VITE_WHOAPI_COM_API_KEY,
     };
-
     let hasAnyWhoisKey = false;
     for(const [provider, key] of Object.entries(whoisKeys)) {
         if(key) {
@@ -63,9 +61,7 @@ const App: React.FC = () => {
             addLog(`⚠️ ${provider} provider is not configured.`);
         }
     }
-    if(!hasAnyWhoisKey) {
-        addLog('❌ No WHOIS providers configured. Domain lookups will fail.');
-    }
+    if(!hasAnyWhoisKey) addLog('❌ No WHOIS providers configured. Domain lookups will fail.');
 
 
     const fetchSession = async () => {
@@ -74,15 +70,12 @@ const App: React.FC = () => {
         setLoading(false);
         addLog(currentSession ? '✅ Session found.' : 'ℹ️ No active session.');
     };
-
     fetchSession();
 
-    // The 'supabase' is guaranteed to be non-null here due to the check above.
-    const { data: authListener } = supabase!.auth.onAuthStateChange(
-      (_event, session) => {
+    const { data: authListener } = supabase!.auth.onAuthStateChange((_event, session) => {
         setSession(session);
         if(!session) {
-          setDomains([]); // Clear data on logout
+          setDomains([]);
           addLog('ℹ️ User signed out.');
         } else {
           addLog('ℹ️ Auth state changed, user is signed in.');
@@ -90,10 +83,21 @@ const App: React.FC = () => {
       }
     );
 
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
+    return () => authListener.subscription.unsubscribe();
   }, [addLog]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === 'n') {
+            event.preventDefault();
+            if(session) {
+                setIsAddDomainModalOpen(true);
+            }
+        }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [session]);
 
   const addNotification = useCallback((message: string) => {
     setNotifications(prev => [message, ...prev.filter(m => m !== message)]);
@@ -129,7 +133,6 @@ const App: React.FC = () => {
     }
   }, [session, addLog]);
 
-  // When domain data changes (e.g., on initial load), check for notifications.
   useEffect(() => {
     if (session && domains.length > 0) {
         addLog(`ℹ️ Checking for notifications across ${domains.length} domains.`);
@@ -145,9 +148,18 @@ const App: React.FC = () => {
       return;
     }
     const whoisData = await getWhoisData(domainName, addLog);
+    
+    let finalTag = tag;
+    if (whoisData.status === 'available' || whoisData.status === 'dropped') {
+        finalTag = 'to-snatch';
+        if (tag === 'mine') {
+            addLog(`ℹ️ Domain ${domainName} is available. Overriding tag to 'to-snatch' for accuracy.`);
+        }
+    }
+
     const newDomainData: NewDomain = {
       domain_name: domainName,
-      tag,
+      tag: finalTag,
       status: whoisData.status,
       expiration_date: whoisData.expirationDate,
       registered_date: whoisData.registeredDate,
@@ -162,6 +174,11 @@ const App: React.FC = () => {
     } else {
         addLog(`❌ Failed to add ${domainName}.`);
     }
+  };
+
+  const handleAddDomainFromModal = async (domainName: string, tag: DomainTag) => {
+    await addDomain(domainName, tag);
+    setIsAddDomainModalOpen(false);
   };
 
   const removeDomain = async (id: number) => {
@@ -193,7 +210,6 @@ const App: React.FC = () => {
     addLog(`🔄 Re-checking domain: ${domain.domain_name}`);
     const whoisData = await getWhoisData(domain.domain_name, addLog);
     
-    // Even if the status is still unknown, we update the record with new data and last_checked
     const updates = {
         status: whoisData.status,
         expiration_date: whoisData.expirationDate,
@@ -238,20 +254,12 @@ const App: React.FC = () => {
       title: `Estimated Drop Timeline for ${domain.domain_name}`,
       body: infoBody,
     });
-    setIsModalOpen(true);
+    setIsInfoModalOpen(true);
     addLog(`ℹ️ Displayed drop info for ${domain.domain_name}.`);
   };
   
   const renderDashboard = () => (
     <div className="max-w-4xl mx-auto">
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg mb-8">
-        <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-white">Check Domain</h2>
-        <p className="text-slate-600 dark:text-slate-400 mb-6">
-          Enter a domain to check its availability and add it to your tracking list. Your list is private, secure, and synced to your account.
-        </p>
-        <DomainForm onAddDomain={addDomain} />
-      </div>
-
       <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg">
         <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-white">Tracked Domains</h2>
         <div className="bg-blue-50 dark:bg-blue-900/30 border-l-4 border-brand-blue p-4 rounded-r-lg mb-6 text-sm text-blue-800 dark:text-blue-300">
@@ -282,14 +290,33 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {!loading && (
-          <StatusLog logs={logs} />
+      {!loading && session && (
+        <button
+            onClick={() => setIsAddDomainModalOpen(true)}
+            className="fixed bottom-8 right-8 bg-brand-blue hover:bg-blue-600 text-white rounded-full p-4 shadow-lg transition-transform hover:scale-110 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800"
+            aria-label="Add new domain"
+            title="Add new domain (Ctrl+N)"
+        >
+            <PlusIcon className="w-6 h-6" />
+        </button>
       )}
 
+      {!loading && <StatusLog logs={logs} />}
+
       {!loading && session && (
-        <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={modalContent.title}>
-            <div className="prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: modalContent.body }}></div>
-        </Modal>
+        <>
+            <Modal isOpen={isInfoModalOpen} onClose={() => setIsInfoModalOpen(false)} title={modalContent.title}>
+                <div className="prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: modalContent.body }}></div>
+            </Modal>
+            <Modal isOpen={isAddDomainModalOpen} onClose={() => setIsAddDomainModalOpen(false)} title="Check and Track a New Domain">
+                <div className="flex flex-col gap-4">
+                    <p className="text-slate-600 dark:text-slate-400">
+                        Enter a domain to check its availability. Your list is private, secure, and synced to your account.
+                    </p>
+                    <DomainForm onAddDomain={handleAddDomainFromModal} />
+                </div>
+            </Modal>
+        </>
       )}
     </div>
   );

@@ -9,11 +9,11 @@ export interface DocContent {
 }
 
 const readmeContent = `
-# Domain Tracker Pro
+# Domain Codev
 
 An aesthetically pleasing app to check domain availability and track domain expiration dates. It helps you renew your domains on time or snatch up expiring ones as soon as they drop, with all your data securely stored in your personal account.
 
-![Domain Tracker Pro Screenshot](https://picsum.photos/1200/600)
+![Domain Codev Screenshot](https://picsum.photos/1200/600)
 
 ## Features
 
@@ -251,9 +251,9 @@ Your application is now fully configured to automatically monitor your domains e
 `;
 
 const deploymentContent = `
-# Deployment Guide: Domain Tracker Pro on Cloudflare Pages
+# Deployment Guide: Domain Codev on Cloudflare Pages
 
-This guide provides step-by-step instructions for deploying the Domain Tracker Pro application to Cloudflare Pages.
+This guide provides step-by-step instructions for deploying the Domain Codev application to Cloudflare Pages.
 
 ## Prerequisites
 
