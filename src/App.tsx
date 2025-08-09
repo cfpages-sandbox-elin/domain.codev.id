@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Domain, DomainTag, NewDomain, DomainUpdate } from './types';
+import { Domain, DomainTag } from './types';
 import { getWhoisData } from './services/whoisService';
 import { supabase, supabaseConfigError } from './services/supabaseService';
 import { Session } from '@supabase/supabase-js';
 import * as SupabaseService from './services/supabaseService';
+import type { DomainInsert, DomainUpdate } from './services/supabaseService';
 
 import Header from './components/Header';
 import DomainForm from './components/DomainForm';
@@ -120,17 +121,54 @@ const App: React.FC = () => {
   
   useEffect(() => {
     if (session) {
-      const fetchDomains = async () => {
+      const fetchAndSyncDomains = async () => {
         addLog('➡️ Fetching user domains...');
         const userDomains = await SupabaseService.getDomains();
         if (userDomains) {
           setDomains(userDomains);
           addLog(`✅ Found ${userDomains.length} domains.`);
+
+          const mineDomains = userDomains.filter(d => d.tag === 'mine');
+          if (mineDomains.length > 0) {
+              addLog(`🔄 Syncing ${mineDomains.length} "mine" domains in the background...`);
+              
+              const updatePromises = mineDomains.map(async (domain) => {
+                  const whoisData = await getWhoisData(domain.domain_name); 
+                  if (whoisData.status === 'available' || whoisData.status === 'dropped') {
+                      const updates: DomainUpdate = { 
+                          tag: 'to-snatch',
+                          status: whoisData.status,
+                          expiration_date: whoisData.expirationDate,
+                          registered_date: whoisData.registeredDate,
+                          registrar: whoisData.registrar,
+                          last_checked: new Date().toISOString()
+                      };
+                      const updatedDomain = await SupabaseService.updateDomain(domain.id, updates);
+                      if (updatedDomain) {
+                          addLog(`✅ Synced ${domain.domain_name}: is available, tag switched to 'to-snatch'.`);
+                      }
+                      return updatedDomain;
+                  }
+                  return null;
+              });
+
+              const results = await Promise.all(updatePromises);
+              const successfulUpdates = results.filter((d): d is Domain => d !== null);
+
+              if (successfulUpdates.length > 0) {
+                  setDomains(currentDomains => {
+                      const updatedMap = new Map(successfulUpdates.map(d => [d.id, d]));
+                      // Create a new array to ensure re-render
+                      return currentDomains.map(d => updatedMap.get(d.id) || d);
+                  });
+              }
+              addLog('✅ Background sync complete.');
+          }
         } else {
            addLog(`❌ Failed to fetch domains.`);
         }
       };
-      fetchDomains();
+      fetchAndSyncDomains();
     }
   }, [session, addLog]);
 
@@ -158,7 +196,7 @@ const App: React.FC = () => {
         }
     }
 
-    const newDomainData: NewDomain = {
+    const newDomainData: DomainInsert = {
       domain_name: domainName,
       tag: finalTag,
       status: whoisData.status,

@@ -128,7 +128,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, onRemove, onShowInfo, 
         </div>
       </div>
 
-      <div className="space-y-4 domain-list-stack">
+      <div className="space-y-2">
         {sortedDomains.length > 0 ? (
           sortedDomains.map(domain => (
             <DomainItem key={domain.id} domain={domain} onRemove={onRemove} onShowInfo={onShowInfo} onToggleTag={onToggleTag} onRecheck={onRecheck}/>

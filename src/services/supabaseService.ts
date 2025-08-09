@@ -1,5 +1,5 @@
 import { createClient, Session, SupabaseClient } from '@supabase/supabase-js';
-import { Domain, NewDomain, DomainUpdate, DomainTag, DomainStatus } from '../types';
+import { Domain, DomainTag, DomainStatus } from '../types';
 
 // Define the database schema based on the existing types.
 // This provides type safety for all Supabase queries.
@@ -7,18 +7,11 @@ export interface Database {
   public: {
     Tables: {
       domains: {
-        Row: Domain; // The data shape returned from the database.
-        Insert: NewDomain; // The data shape required to insert a new row.
-        Update: DomainUpdate; // The data shape required to update a row.
-        Relationships: [
-          {
-            foreignKeyName: 'domains_user_id_fkey';
-            columns: ['user_id'];
-            isOneToOne: false;
-            referencedRelation: 'users';
-            referencedColumns: ['id'];
-          }
-        ];
+        // This is our single source of truth for the row type.
+        Row: Domain;
+        // We explicitly define Insert and Update types to avoid inference issues.
+        Insert: Omit<Domain, 'id' | 'user_id' | 'created_at'>;
+        Update: Partial<Domain>;
       };
     };
     Views: {
@@ -28,6 +21,8 @@ export interface Database {
       [_ in never]: never;
     };
     Enums: {
+      // It's still important to tell Supabase about our custom ENUM types
+      // that we created in the database via the Supabase UI.
       domain_status_type: DomainStatus;
       domain_tag_type: DomainTag;
     };
@@ -56,6 +51,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = supabaseInstance;
+
+// Define our Insert and Update types based on Supabase's inference.
+// These are now derived directly from our `Domain` (Row) type.
+export type DomainInsert = Database['public']['Tables']['domains']['Insert'];
+export type DomainUpdate = Database['public']['Tables']['domains']['Update'];
 
 
 // --- Auth Functions ---
@@ -114,7 +114,7 @@ export const getDomains = async (): Promise<Domain[] | null> => {
     return data;
 };
 
-export const addDomain = async (domainData: NewDomain): Promise<Domain | null> => {
+export const addDomain = async (domainData: DomainInsert): Promise<Domain | null> => {
     if (!supabase) return null;
     const { data, error } = await supabase
         .from('domains')

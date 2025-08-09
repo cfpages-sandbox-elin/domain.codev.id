@@ -1,43 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@layer utilities {
-    html.compact .domain-item-container {
-        @apply p-2 gap-2;
-    }
-    html.compact .domain-item-main-flex {
-        @apply gap-2;
-    }
-    html.compact .domain-item-info-stack {
-        @apply space-y-1;
-    }
-    html.compact .domain-item-header-flex {
-        @apply gap-2;
-    }
-    html.compact .domain-item-name {
-        @apply text-lg;
-    }
-    html.compact .compact-badge {
-        @apply px-2 py-0 text-[10px];
-    }
-    html.compact .domain-item-details {
-        @apply text-xs gap-x-4 gap-y-1;
-    }
-    html.compact .domain-item-expiry-text {
-        @apply text-xs mt-1;
-    }
-    html.compact .domain-item-actions {
-        @apply gap-1;
-    }
-    html.compact .domain-item-actions button {
-        @apply p-1.5;
-    }
-    html.compact .domain-item-recheck-section,
-    html.compact .domain-item-buy-section {
-        @apply mt-2 pt-2 gap-2;
-    }
-    html.compact .domain-list-stack {
-        @apply space-y-2;
-    }
-}

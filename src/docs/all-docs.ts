@@ -1049,11 +1049,13 @@ The problem is that the official TypeScript types for recent versions of \`marke
 
 ### The Solution: Extend the Renderer Class
 
-The most robust and type-safe way to resolve this is to adopt the modern approach that aligns with the TypeScript types. While the extension API (\`marked.use()\`) is one option, an even better solution is to **extend the \`marked.Renderer\` class**.
+The most robust and type-safe way to resolve this is to adopt the modern approach that aligns with the TypeScript types. While the extension API (\`marked.use() \`) is one option, an even better solution is to **extend the \`marked.Renderer\` class**.
 
 This approach has a significant advantage: it provides access to the renderer's internal parser via \`this.parser\`. This is crucial for correctly rendering nested markdown elements (e.g., a link inside a paragraph or bold text in a list item), a task that is very difficult with the other methods.
 
 #### Correct Implementation (\`src/components/DocsPage.tsx\`)
+
+The fix involves refactoring the component to use a custom class that extends \`marked.Renderer\`.
 
 \`\`\`tsx
 import { marked } from 'marked';
@@ -1099,75 +1101,90 @@ Type instantiation is excessively deep and possibly infinite.
 \`\`\`
 or errors related to \`Insert<"domains">\` or \`Update<"domains">\`.
 
-### The Problem: Mismatch between Database Schema and TypeScript Types
+### The Problem: Manually Defined Types vs. Inferred Types
 
-This error is a classic sign that the TypeScript types used by the Supabase client are out of sync with your actual database schema. In this project, it's specifically caused by using custom \`ENUM\` types in the database (\`domain_tag_type\` and \`domain_status_type\`) without telling the Supabase client what those types are.
+This error often happens when there's a disconnect between how we think the data should look and how the database is actually structured. In this project's code, we might have:
+1.  A \`Domain\` type in \`src/types.ts\` that represents a full row from our database table.
+2.  Manually created \`NewDomain\` and \`DomainUpdate\` types for creating and updating records.
 
-When the \`createClient\` function is typed with our \`Database\` interface, TypeScript tries to infer the types for \`insert\`, \`update\`, and \`select\` operations. If it encounters a type from the database (like \`domain_tag_type\`) that isn't defined in the \`Enums\` section of the \`Database\` interface, it can't resolve the type and enters a recursive loop, resulting in the "excessively deep" error.
+The problem is that the Supabase client is smart enough to figure out what an "insert" or "update" object should look like just by looking at the main \`Domain\` type (the "Row" type). When we create our own \`NewDomain\` and \`DomainUpdate\` types, we are essentially telling TypeScript, "ignore what Supabase thinks, use my version". This can lead to subtle conflicts that cause confusing, deep-seated type errors.
 
-### The Solution: Align Your Types with the Database Schema
+For example, if we add a new column to our database table in the Supabase UI, we have to remember to update **three** different types in our code: \`Domain\`, \`NewDomain\`, and \`DomainUpdate\`. If we forget one, the types become out of sync and errors can occur.
 
-There are two ways to fix this. The first is a manual fix that solves the immediate problem. The second is the recommended, long-term solution using the Supabase CLI.
+### The Solution: Let Supabase Do the Work
 
-#### 1. Manual Fix (The Quick Fix)
+The most robust and simple solution is to **let the Supabase client infer the types for inserts and updates**. This means we only need to maintain one "source of truth": the \`Domain\` type.
 
-You can manually update the \`Database\` interface in \`src/services/supabaseService.ts\` to include the definitions for your custom ENUM types.
+#### Step 1: Simplify the \`Database\` Interface
+
+First, we ensure our main \`Database\` interface in \`src/services/supabaseService.ts\` is simple and clean. We only need to tell it what a \`Row\` looks like.
 
 **\`src/services/supabaseService.ts\`**
 \`\`\`typescript
-// ... import DomainTag, DomainStatus from '../types' ...
-
+// Define the database schema based on the existing types.
+// This provides type safety for all Supabase queries.
 export interface Database {
   public: {
-    // ... Tables, Views, Functions ...
+    Tables: {
+      domains: {
+        // This is our single source of truth.
+        // Supabase will automatically infer Insert and Update types from this.
+        Row: Domain; 
+      };
+    };
+    Views: { /* ... */ };
+    Functions: { /* ... */ };
     Enums: {
-      // Add these two lines
+      // It's still important to tell Supabase about our custom ENUM types
+      // that we created in the database via the Supabase UI.
       domain_status_type: DomainStatus;
       domain_tag_type: DomainTag;
     };
-    // ... CompositeTypes ...
+    CompositeTypes: { /* ... */ };
   };
 }
 \`\`\`
 
-This tells TypeScript what \`'mine' | 'to-snatch'\` and the other status strings are valid for these enum types, resolving the error. This is the fix that has been applied to the codebase.
+#### Step 2: Remove Manual Insert/Update Types
 
-#### 2. Recommended Solution: Generate Types with Supabase CLI
+Next, we delete the manually created \`NewDomain\` and \`DomainUpdate\` interfaces from \`src/types.ts\`. They are no longer needed because Supabase will generate them for us in memory.
 
-The best practice for keeping your database and application types in sync is to let the Supabase CLI generate the types for you directly from your schema. This eliminates manual errors and makes it easy to update types whenever you change your database.
-
-**Step 1: Generate the Type File**
-Run the following command in your project's root directory. Make sure you have linked your project with \`npx supabase link\`.
-
-\`\`\`bash
-# For local development
-npx supabase gen types typescript --local > src/types/supabase.ts
-
-# For a remote project
-npx supabase gen types typescript --project-id <your-project-id> > src/types/supabase.ts
-\`\`\`
-
-This command inspects your database schema and creates a file \`src/types/supabase.ts\` containing all the necessary interfaces, including your custom enums.
-
-**Step 2: Use the Generated Types**
-Now, modify \`src/services/supabaseService.ts\` to use these generated types.
-
+**\`src/types.ts\`**
 \`\`\`typescript
-// src/services/supabaseService.ts
-import { createClient, Session, SupabaseClient } from '@supabase/supabase-js';
-// 1. Import the generated Database type
-import { Database } from '../types/supabase'; // Adjust path if needed
-
-// We no longer need to manually define the Database interface here.
-// The rest of the file can use the imported \`Database\` type.
-
 // ...
 
-// 2. The createClient call is now correctly typed from the generated file.
-const supabaseInstance = createClient<Database>(supabaseUrl, supabaseAnonKey);
+// The ground truth for a domain record from the database.
+export interface Domain {
+  // ... (this stays the same)
+}
+
+// DELETE the NewDomain interface
+// DELETE the DomainUpdate interface
 \`\`\`
 
-By adopting this workflow, you ensure your application's type safety and prevent this category of errors from happening again.
+#### Step 3: Use the Inferred Types in Service Functions
+
+Finally, we update our service functions in \`src/services/supabaseService.ts\` to use the types Supabase infers for us. This makes the code more resilient to database changes.
+
+**\`src/services/supabaseService.ts\`**
+\`\`\`typescript
+// ...
+
+// Define our Insert and Update types based on Supabase's inference.
+// These are now derived directly from our \`Domain\` (Row) type.
+export type DomainInsert = Database['public']['Tables']['domains']['Insert'];
+export type DomainUpdate = Database['public']['Tables']['domains']['Update'];
+
+// Update function signatures to use the new types
+export const addDomain = async (domainData: DomainInsert): Promise<Domain | null> => {
+    // ... function body remains the same
+};
+
+export const updateDomain = async (id: number, updates: DomainUpdate): Promise<Domain | null> => {
+    // ... function body remains the same
+};
+\`\`\`
+By making these changes, we simplify our type management, reduce the chance of errors, and let Supabase's powerful type inference do the heavy lifting. Now, if we change our database schema, we only need to update the \`Domain\` interface, and the insert/update types will adjust automatically.
 `;
 
 

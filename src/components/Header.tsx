@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import ModeToggle from './ModeToggle';
-import CompactModeToggle from './CompactModeToggle';
 import { BellIcon } from './icons';
 import { Session } from '@supabase/supabase-js';
 import { signOut } from '../services/supabaseService';
@@ -71,7 +70,6 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
                 </div>
               </>
             )}
-            <CompactModeToggle />
             <ModeToggle />
             {session && (
               <button
