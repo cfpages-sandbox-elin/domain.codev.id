@@ -58,11 +58,72 @@ This is the most critical step. You must add all the secret keys and configurati
 2.  Cloudflare will start building and deploying your application. You can watch the progress in the deployment logs.
 3.  Once the deployment is complete, Cloudflare will provide you with a unique `.pages.dev` URL where your live application can be accessed.
 
-### Step 6: Verify Supabase Redirect URL
+---
 
-Your Google OAuth flow will only work if Google knows it's safe to redirect back to your Supabase project after authentication.
+## Supabase Configuration & Troubleshooting
 
-1.  Go to your Supabase project dashboard > **Authentication** > **Providers** > **Google**.
-2.  Ensure the **Redirect URL** shown there is added to your list of **Authorized redirect URIs** in your Google Cloud Console credentials. This step is crucial and is independent of your hosting provider.
+When you deploy your application to a live environment, you may encounter issues related to authentication redirects or database access. These problems usually stem from Supabase's security settings, which need to be explicitly configured for your new live URL.
 
-Your application is now live! Any future pushes to your production branch on GitHub will automatically trigger a new deployment on Cloudflare Pages.
+Here are solutions to the most common problems.
+
+### Problem: Login Redirects to `localhost` on the Live Site
+
+**Symptom:** After you click "Sign in with Google" on your deployed site (e.g., `https://your-app.pages.dev`), you are redirected back to `http://localhost:5173` or see an error.
+
+**Cause:** Supabase, for security, only allows redirects to URLs you have pre-approved. Your app correctly tells Supabase to redirect back to its current address (e.g., `https://your-app.pages.dev`), but if that address isn't in Supabase's "allow list," Supabase falls back to its default **Site URL**, which is probably still set to `localhost` from when you were developing.
+
+**Solution: Update Your Supabase URL Configuration**
+
+1.  Go to your project in the [Supabase Dashboard](https://app.supabase.com/).
+2.  Navigate to **Authentication** (the user icon) in the left sidebar.
+3.  Click on **URL Configuration**.
+
+4.  **Set the Site URL**:
+    *   Change the **Site URL** to your main production URL.
+    *   Example: `https://domain-tracker-pro.pages.dev`
+
+5.  **Add Additional Redirect URLs**:
+    *   This is the most important part. In the **Redirect URLs** section, add the URLs for *every* environment where you want login to work. Use the **Add URL** button.
+    *   **Production**: `https://your-project.pages.dev`
+    *   **Local Development**: `http://localhost:5173` (or whatever your local port is)
+    *   **Preview Deployments (Recommended)**: `https://*.your-project.pages.dev` (The wildcard `*` allows Cloudflare's preview deployments to work automatically).
+    *   **Important:** URLs are exact matches, including `http` vs `https://`.
+
+### Problem: Google Sign-In Fails with a Provider Error
+
+**Symptom:** The Google Sign-In popup appears but shows an error, or the redirect fails completely.
+
+**Cause:** Google Cloud also needs to know which URLs are allowed to use your OAuth credentials. When you deployed to a new Supabase project, you received a new, unique callback URL that must be registered with Google.
+
+**Solution: Update Google Cloud Authorized URIs**
+
+1.  In the Supabase dashboard, navigate to **Authentication** > **Providers** and select **Google**.
+2.  Copy the **Redirect URL**. It will look like `https://<your-project-ref>.supabase.co/auth/v1/callback`.
+3.  Go to your [Google Cloud Console](https://console.cloud.google.com/) and navigate to **APIs & Services > Credentials**.
+4.  Click on the name of your **OAuth 2.0 Client ID** that you are using for this project.
+5.  Under **Authorized redirect URIs**, click **+ ADD URI**.
+6.  Paste the callback URL you copied from Supabase.
+7.  Click **Save**.
+
+### Problem: App Crashes with "Could not find column 'X'"
+
+**Symptom:** The application fails to load or crashes when trying to fetch data, and the browser console shows an error like: `message: "Could not find the 'last_checked' column of 'domains' in the schema cache"`.
+
+**Cause:** This error means the frontend code is trying to access a database column that doesn't exist in your `domains` table. The frontend type definition (in `src/types.ts`) is out of sync with the actual database schema in Supabase. This can happen if you pull new code that requires a database change.
+
+**Solution: Align Your Database Schema**
+
+1.  **Check the Required Schema:** Open the `README.md` file in the project. It contains the official SQL script used to create the `domains` table. This is the "source of truth" for what the table should look like.
+2.  **Compare with Your Table:** Go to the **Table Editor** in your Supabase dashboard and inspect your `domains` table. Check if all the columns from the SQL script exist and have the correct names and types.
+3.  **Add the Missing Column(s):** If a column is missing, you can add it easily.
+    *   In the **Table Editor**, click the **+ Add column** button.
+    *   Enter the `name` of the missing column (e.g., `last_checked`).
+    *   Select the correct `type` (e.g., `timestamptz` for a timestamp with timezone).
+    *   Set a default value or allow `NULL`s if necessary.
+    *   Click **Save**.
+
+    Alternatively, for more complex changes, you can use an `ALTER TABLE` command in the **SQL Editor**. For example:
+    ```sql
+    ALTER TABLE public.domains
+    ADD COLUMN last_checked timestamptz NULL;
+    ```

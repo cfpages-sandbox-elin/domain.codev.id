@@ -95,7 +95,6 @@ const App: React.FC = () => {
           expiration_date: updatedWhois.expirationDate,
           registered_date: updatedWhois.registeredDate,
           registrar: updatedWhois.registrar,
-          last_checked: new Date().toISOString()
       };
 
       const updatedDomain = await SupabaseService.updateDomain(domainToUpdate.id, updatedDomainFields);
@@ -139,7 +138,6 @@ const App: React.FC = () => {
       expiration_date: whoisData.expirationDate,
       registered_date: whoisData.registeredDate,
       registrar: whoisData.registrar,
-      last_checked: new Date().toISOString(),
     };
     const newDomain = await SupabaseService.addDomain(newDomainData);
     if(newDomain){
