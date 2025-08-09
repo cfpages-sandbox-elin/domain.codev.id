@@ -217,53 +217,57 @@ const getWhoisDataFromWhoisFreaks = async (domainName: string): Promise<WhoisDat
 
 // --- Main Service Function (Waterfall) ---
 
-export const getWhoisData = async (domainName: string): Promise<WhoisData> => {
+export const getWhoisData = async (domainName: string, log?: (message: string) => void): Promise<WhoisData> => {
+    log?.(`➡️ Starting WHOIS lookup for ${domainName}...`);
+    
     // Attempt 1: who-dat (Primary)
     try {
-        console.log("Attempting WHOIS lookup with who-dat...");
-        return await getWhoisDataFromWhoDat(domainName);
+        log?.("➡️ Trying provider: who-dat...");
+        const data = await getWhoisDataFromWhoDat(domainName);
+        log?.("✅ Success: who-dat");
+        return data;
     } catch (error) {
-        console.warn("Primary WHOIS provider (who-dat) failed. Trying backup.", error);
+        log?.(`⚠️ Failure: who-dat. ${(error as Error).message}`);
     }
     
     // Attempt 2: WhoisXMLAPI (Backup 1)
     if (WHOISXMLAPI_KEY) {
         try {
-            console.log("Attempting WHOIS lookup with WhoisXMLAPI...");
-            return await getWhoisDataFromWhoisXmlApi(domainName);
+            log?.("➡️ Trying provider: WhoisXMLAPI...");
+            const data = await getWhoisDataFromWhoisXmlApi(domainName);
+            log?.("✅ Success: WhoisXMLAPI");
+            return data;
         } catch (error) {
-            console.warn("Backup WHOIS provider (WhoisXMLAPI) failed. Trying next backup.", error);
+            log?.(`⚠️ Failure: WhoisXMLAPI. ${(error as Error).message}`);
         }
-    } else {
-        console.warn("WhoisXMLAPI key not set, skipping.");
     }
 
     // Attempt 3: apilayer.com (Backup 2)
     if (APILAYER_KEY) {
         try {
-            console.log("Attempting WHOIS lookup with apilayer.com...");
-            return await getWhoisDataFromApiLayer(domainName);
+            log?.("➡️ Trying provider: apilayer.com...");
+            const data = await getWhoisDataFromApiLayer(domainName);
+            log?.("✅ Success: apilayer.com");
+            return data;
         } catch (error) {
-            console.warn("Backup WHOIS provider (apilayer.com) failed. Trying next backup.", error);
+            log?.(`⚠️ Failure: apilayer.com. ${(error as Error).message}`);
         }
-    } else {
-        console.warn("apilayer.com key not set, skipping.");
     }
 
     // Attempt 4: whoisfreaks.com (Backup 3)
     if (WHOISFREAKS_KEY) {
         try {
-            console.log("Attempting WHOIS lookup with whoisfreaks.com...");
-            return await getWhoisDataFromWhoisFreaks(domainName);
+            log?.("➡️ Trying provider: whoisfreaks.com...");
+            const data = await getWhoisDataFromWhoisFreaks(domainName);
+            log?.("✅ Success: whoisfreaks.com");
+            return data;
         } catch (error) {
-            console.error("Backup WHOIS provider (whoisfreaks.com) also failed.", error);
+            log?.(`⚠️ Failure: whoisfreaks.com. ${(error as Error).message}`);
         }
-    } else {
-        console.warn("whoisfreaks.com key not set, skipping.");
     }
 
     // Fallback if all providers fail
-    console.error("All WHOIS providers failed or are not configured.");
+    log?.("❌ All WHOIS providers failed or are not configured.");
     return {
         status: 'unknown',
         expirationDate: null,

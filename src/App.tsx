@@ -12,6 +12,7 @@ import Modal from './components/Modal';
 import Auth from './components/Auth';
 import Spinner from './components/Spinner';
 import ConfigErrorScreen from './components/ConfigErrorScreen';
+import StatusLog from './components/StatusLog';
 
 const formatDate = (date: Date) => date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
@@ -22,18 +23,51 @@ const App: React.FC = () => {
   const [notifications, setNotifications] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState({ title: '', body: '' });
+  const [logs, setLogs] = useState<string[]>([]);
+
+  const addLog = useCallback((message: string) => {
+    const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
+    setLogs(prev => [`[${timestamp}] ${message}`, ...prev.slice(0, 99)]);
+  }, []);
 
   useEffect(() => {
+    addLog('ℹ️ Application initializing...');
     // If supabase is not configured, we can't do anything. Just stop loading.
     if (supabaseConfigError) {
       setLoading(false);
+      addLog(`❌ ${supabaseConfigError}`);
       return;
     }
+
+    addLog('✅ Supabase configuration loaded.');
+
+    // Log WHOIS Provider status
+    const whoisKeys = {
+        'who-dat': import.meta.env.VITE_WHO_DAT_URL || import.meta.env.VITE_WHO_DAT_AUTH_KEY,
+        'WhoisXMLAPI': import.meta.env.VITE_WHOIS_API_KEY,
+        'apilayer.com': import.meta.env.VITE_APILAYER_API_KEY,
+        'whoisfreaks.com': import.meta.env.VITE_WHOISFREAKS_API_KEY
+    };
+
+    let hasAnyWhoisKey = false;
+    for(const [provider, key] of Object.entries(whoisKeys)) {
+        if(key) {
+            addLog(`✅ ${provider} provider is configured.`);
+            hasAnyWhoisKey = true;
+        } else {
+            addLog(`⚠️ ${provider} provider is not configured.`);
+        }
+    }
+    if(!hasAnyWhoisKey) {
+        addLog('❌ No WHOIS providers configured. Domain lookups will fail.');
+    }
+
 
     const fetchSession = async () => {
         const currentSession = await SupabaseService.getSession();
         setSession(currentSession);
         setLoading(false);
+        addLog(currentSession ? '✅ Session found.' : 'ℹ️ No active session.');
     };
 
     fetchSession();
@@ -44,6 +78,9 @@ const App: React.FC = () => {
         setSession(session);
         if(!session) {
           setDomains([]); // Clear data on logout
+          addLog('ℹ️ User signed out.');
+        } else {
+          addLog('ℹ️ Auth state changed, user is signed in.');
         }
       }
     );
@@ -51,19 +88,23 @@ const App: React.FC = () => {
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, []);
+  }, [addLog]);
 
   useEffect(() => {
     if (session) {
       const fetchDomains = async () => {
+        addLog('➡️ Fetching user domains...');
         const userDomains = await SupabaseService.getDomains();
         if (userDomains) {
           setDomains(userDomains);
+          addLog(`✅ Found ${userDomains.length} domains.`);
+        } else {
+           addLog(`❌ Failed to fetch domains.`);
         }
       };
       fetchDomains();
     }
-  }, [session]);
+  }, [session, addLog]);
 
 
   const addNotification = useCallback((message: string) => {
@@ -86,7 +127,7 @@ const App: React.FC = () => {
 
 
   const updateDomainStatus = useCallback(async (domainToUpdate: Domain) => {
-      const updatedWhois = await getWhoisData(domainToUpdate.domain_name);
+      const updatedWhois = await getWhoisData(domainToUpdate.domain_name, addLog);
       
       const finalStatus = domainToUpdate.status === 'expired' && updatedWhois.status === 'available' ? 'dropped' : updatedWhois.status;
 
@@ -105,8 +146,11 @@ const App: React.FC = () => {
             prevDomains.map(d => (d.id === updatedDomain.id ? updatedDomain : d))
         );
         checkAndNotify(updatedDomain);
+        addLog(`✅ Successfully updated ${domainToUpdate.domain_name}.`);
+      } else {
+        addLog(`❌ Failed to update ${domainToUpdate.domain_name} in database.`);
       }
-  }, [checkAndNotify]);
+  }, [addLog, checkAndNotify]);
 
 
   // Simulated Cron Job Effect
@@ -123,13 +167,13 @@ const App: React.FC = () => {
     // It runs less frequently to conserve API credits and avoid rate limits.
     const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
     const checkDomainsJob = () => {
-        console.log("Running simulated daily check for WHOIS updates...");
+        addLog("ℹ️ Running simulated daily check for WHOIS updates...");
         const now = new Date().getTime();
         domains.forEach(domain => {
             const lastCheckedTime = domain.last_checked ? new Date(domain.last_checked).getTime() : 0;
             // Only check if it hasn't been checked in the last 24 hours.
             if (now - lastCheckedTime > ONE_DAY_IN_MS) {
-                 console.log(`Updating WHOIS for ${domain.domain_name} (last checked: ${domain.last_checked})`);
+                 addLog(`➡️ Updating WHOIS for ${domain.domain_name} (last checked: ${domain.last_checked})`);
                  updateDomainStatus(domain);
             }
         });
@@ -144,15 +188,16 @@ const App: React.FC = () => {
         clearInterval(notificationInterval);
         clearInterval(whoisCheckInterval);
     };
-  }, [domains, session, checkAndNotify, updateDomainStatus]);
+  }, [domains, session, checkAndNotify, updateDomainStatus, addLog]);
 
 
   const addDomain = async (domainName: string, tag: DomainTag) => {
     if (domains.some(d => d.domain_name.toLowerCase() === domainName.toLowerCase())) {
+      addLog(`⚠️ Attempted to add duplicate domain: ${domainName}`);
       alert('This domain is already being tracked.');
       return;
     }
-    const whoisData = await getWhoisData(domainName);
+    const whoisData = await getWhoisData(domainName, addLog);
     const newDomainData: NewDomain = {
       domain_name: domainName,
       tag,
@@ -166,13 +211,18 @@ const App: React.FC = () => {
     if(newDomain){
         setDomains(prevDomains => [...prevDomains, newDomain]);
         checkAndNotify(newDomain);
+        addLog(`✅ Successfully added ${domainName}.`);
+    } else {
+        addLog(`❌ Failed to add ${domainName}.`);
     }
   };
 
   const removeDomain = async (id: number) => {
+    const domainToRemove = domains.find(d => d.id === id);
     const success = await SupabaseService.removeDomain(id);
     if(success){
         setDomains(prevDomains => prevDomains.filter(d => d.id !== id));
+        if(domainToRemove) addLog(`✅ Successfully removed ${domainToRemove.domain_name}.`);
     }
   };
   
@@ -185,6 +235,7 @@ const App: React.FC = () => {
         setDomains(prevDomains => prevDomains.map(d => 
             d.id === id ? { ...d, tag: newTag } : d
         ));
+        addLog(`✅ Switched tag for ${domain.domain_name} to "${newTag}".`);
     }
   };
 
@@ -212,6 +263,7 @@ const App: React.FC = () => {
       body: infoBody,
     });
     setIsModalOpen(true);
+    addLog(`ℹ️ Displayed drop info for ${domain.domain_name}.`);
   };
   
   return (
@@ -244,6 +296,10 @@ const App: React.FC = () => {
           </div>
         )}
       </main>
+
+      {!loading && (
+          <StatusLog logs={logs} />
+      )}
 
       {!loading && session && (
         <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={modalContent.title}>
