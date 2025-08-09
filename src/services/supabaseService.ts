@@ -66,7 +66,6 @@ export const signInWithGoogle = async () => {
       alert("Authentication is not available. The application is not configured correctly.");
       return;
     }
-    localStorage.setItem('authRedirectPath', window.location.pathname);
     const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {

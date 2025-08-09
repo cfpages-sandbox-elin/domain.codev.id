@@ -13,31 +13,18 @@ export interface Domain {
   registered_date: string | null;
   registrar: string | null;
   created_at: string;
+  last_checked: string | null;
 }
 
-// For creating a new domain. Derived from Domain to ensure consistency.
-// We omit database-generated fields.
-export interface NewDomain {
-  domain_name: string;
-  tag: DomainTag;
-  status: DomainStatus;
-  expiration_date: string | null;
-  registered_date: string | null;
-  registrar: string | null;
-}
+// For creating a new domain. We omit database-generated fields.
+// The `user_id` is assumed to be set by a database policy/default.
+export type NewDomain = Omit<Domain, 'id' | 'user_id' | 'created_at'>;
 
 // For updating a domain. All properties are optional.
 // The previous definition as a full Partial<Domain> caused "type instantiation
-// is excessively deep" errors with Supabase's generics, as it included
-// immutable properties like `id`, `user_id`, and `created_at`.
-// This explicit interface resolves the issue by only including mutable fields.
-export interface DomainUpdate {
-  tag?: DomainTag;
-  status?: DomainStatus;
-  expiration_date?: string | null;
-  registered_date?: string | null;
-  registrar?: string | null;
-}
+// is excessively deep" errors with Supabase's generics. This explicit type,
+// derived from Domain, resolves the issue by only including mutable fields.
+export type DomainUpdate = Partial<Omit<Domain, 'id' | 'user_id' | 'created_at' | 'domain_name'>>;
 
 
 export interface WhoisData {

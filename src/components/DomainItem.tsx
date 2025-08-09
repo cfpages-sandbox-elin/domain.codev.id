@@ -1,5 +1,3 @@
-
-
 import React from 'react';
 import { Domain, DomainStatus } from '../types';
 import { TrashIcon, InfoIcon, TagIcon, SwitchHorizontalIcon } from './icons';
@@ -18,6 +16,17 @@ const formatDate = (dateString: string | null) => {
     month: 'short',
     day: 'numeric',
   });
+};
+
+const formatDateWithTime = (dateString: string | null) => {
+    if (!dateString) return 'Never';
+    return new Date(dateString).toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
 };
 
 const StatusBadge: React.FC<{ status: DomainStatus }> = ({ status }) => {
@@ -76,6 +85,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, onRemove, onShowInfo, o
                 <span>Registrar: <span className="font-semibold text-slate-700 dark:text-slate-300">{domain.registrar || 'N/A'}</span></span>
                 <span>Registered: <span className="font-semibold text-slate-700 dark:text-slate-300">{formatDate(domain.registered_date)}</span></span>
                 <span>Expires: <span className="font-semibold text-slate-700 dark:text-slate-300">{formatDate(domain.expiration_date)}</span></span>
+                <span>Last Check: <span className="font-semibold text-slate-700 dark:text-slate-300">{formatDateWithTime(domain.last_checked)}</span></span>
             </div>
              { (isExpiringSoon || isExpired) && (
                 <div className={`mt-2 text-sm font-semibold ${isExpired ? 'text-brand-red' : 'text-yellow-600 dark:text-yellow-400'}`}>

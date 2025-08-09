@@ -95,6 +95,7 @@ const App: React.FC = () => {
           expiration_date: updatedWhois.expirationDate,
           registered_date: updatedWhois.registeredDate,
           registrar: updatedWhois.registrar,
+          last_checked: new Date().toISOString(),
       };
 
       const updatedDomain = await SupabaseService.updateDomain(domainToUpdate.id, updatedDomainFields);
@@ -111,18 +112,39 @@ const App: React.FC = () => {
   // Simulated Cron Job Effect
   useEffect(() => {
     if (!session) return;
-    const interval = setInterval(() => {
-      console.log("Running simulated daily check...");
-      domains.forEach(domain => {
-          if (domain.status === 'expired') {
-              updateDomainStatus(domain);
-          }
-          checkAndNotify(domain);
-      });
-    }, 60000);
+    
+    // This interval checks for notifications on existing data without API calls.
+    // It runs frequently to ensure UI alerts are timely.
+    const notificationInterval = setInterval(() => {
+      domains.forEach(checkAndNotify);
+    }, 5 * 60 * 1000); // every 5 minutes
 
-    return () => clearInterval(interval);
-  }, [domains, checkAndNotify, updateDomainStatus, session]);
+    // This interval performs the heavy lifting of WHOIS lookups.
+    // It runs less frequently to conserve API credits and avoid rate limits.
+    const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
+    const checkDomainsJob = () => {
+        console.log("Running simulated daily check for WHOIS updates...");
+        const now = new Date().getTime();
+        domains.forEach(domain => {
+            const lastCheckedTime = domain.last_checked ? new Date(domain.last_checked).getTime() : 0;
+            // Only check if it hasn't been checked in the last 24 hours.
+            if (now - lastCheckedTime > ONE_DAY_IN_MS) {
+                 console.log(`Updating WHOIS for ${domain.domain_name} (last checked: ${domain.last_checked})`);
+                 updateDomainStatus(domain);
+            }
+        });
+    };
+    
+    // Run once on load, then set an interval to run roughly every hour.
+    // The internal logic will prevent re-checking too often.
+    checkDomainsJob();
+    const whoisCheckInterval = setInterval(checkDomainsJob, 60 * 60 * 1000); // Check every hour
+
+    return () => {
+        clearInterval(notificationInterval);
+        clearInterval(whoisCheckInterval);
+    };
+  }, [domains, session, checkAndNotify, updateDomainStatus]);
 
 
   const addDomain = async (domainName: string, tag: DomainTag) => {
@@ -138,6 +160,7 @@ const App: React.FC = () => {
       expiration_date: whoisData.expirationDate,
       registered_date: whoisData.registeredDate,
       registrar: whoisData.registrar,
+      last_checked: new Date().toISOString(),
     };
     const newDomain = await SupabaseService.addDomain(newDomainData);
     if(newDomain){
