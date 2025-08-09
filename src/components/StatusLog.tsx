@@ -26,7 +26,7 @@ const StatusLog: React.FC<StatusLogProps> = ({ logs }) => {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 font-sans">
+    <div className="fixed bottom-4 left-4 z-50 font-sans">
         {isExpanded ? (
             <div className="w-96 h-[400px] bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg rounded-xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-700">
                 <header className="flex items-center justify-between p-3 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">

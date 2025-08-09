@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Domain, DomainTag, NewDomain } from './types';
+import { Domain, DomainTag, NewDomain, DomainUpdate } from './types';
 import { getWhoisData } from './services/whoisService';
 import { supabase, supabaseConfigError } from './services/supabaseService';
 import { Session } from '@supabase/supabase-js';
@@ -192,14 +192,22 @@ const App: React.FC = () => {
   
   const toggleDomainTag = async (id: number) => {
     const domain = domains.find(d => d.id === id);
-    if(!domain) return;
+    if (!domain) return;
+  
     const newTag = domain.tag === 'mine' ? 'to-snatch' : 'mine';
+  
+    if ((domain.status === 'available' || domain.status === 'dropped') && newTag === 'mine') {
+      addLog(`⚠️ Attempted to tag an available domain (${domain.domain_name}) as "mine".`);
+      alert('An available domain cannot be tagged as "Mine". Please register it first.');
+      return;
+    }
+  
     const updatedDomain = await SupabaseService.updateDomain(id, { tag: newTag });
-    if(updatedDomain){
-        setDomains(prevDomains => prevDomains.map(d => 
-            d.id === id ? { ...d, tag: newTag } : d
-        ));
-        addLog(`✅ Switched tag for ${domain.domain_name} to "${newTag}".`);
+    if (updatedDomain) {
+      setDomains(prevDomains => prevDomains.map(d =>
+        d.id === id ? updatedDomain : d
+      ));
+      addLog(`✅ Switched tag for ${domain.domain_name} to "${newTag}".`);
     }
   };
 
@@ -210,13 +218,18 @@ const App: React.FC = () => {
     addLog(`🔄 Re-checking domain: ${domain.domain_name}`);
     const whoisData = await getWhoisData(domain.domain_name, addLog);
     
-    const updates = {
+    const updates: DomainUpdate = {
         status: whoisData.status,
         expiration_date: whoisData.expirationDate,
         registered_date: whoisData.registeredDate,
         registrar: whoisData.registrar,
         last_checked: new Date().toISOString(),
     };
+
+    if ((whoisData.status === 'available' || whoisData.status === 'dropped') && domain.tag === 'mine') {
+        updates.tag = 'to-snatch';
+        addLog(`ℹ️ Domain ${domain.domain_name} is available. Switching tag to "to-snatch" for accuracy.`);
+    }
 
     const updatedDomain = await SupabaseService.updateDomain(id, updates);
 

@@ -19,8 +19,7 @@ export interface Database {
       [_ in never]: never;
     };
     Enums: {
-      domain_status_type: DomainStatus;
-      domain_tag_type: DomainTag;
+      [_ in never]: never;
     };
     CompositeTypes: {
       [_ in never]: never;

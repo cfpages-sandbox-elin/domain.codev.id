@@ -9,15 +9,18 @@ console.log('✅ "check-domains" function loaded');
 //-------------------------------------------------
 // Types
 //-------------------------------------------------
+type DomainTag = 'mine' | 'to-snatch';
 type DomainStatus = 'available' | 'registered' | 'expired' | 'dropped' | 'unknown';
 
 interface Domain {
   id: number;
   domain_name: string;
   status: DomainStatus;
+  tag: DomainTag;
 }
 
 interface DomainUpdate {
+  tag?: DomainTag;
   status?: DomainStatus;
   expiration_date?: string | null;
   registered_date?: string | null;
@@ -195,7 +198,7 @@ serve(async (req) => {
     const now = new Date().toISOString();
     const { data: domains, error: fetchError } = await supabaseAdmin
       .from('domains')
-      .select('id, domain_name, status')
+      .select('id, domain_name, status, tag')
       .or(`(status.eq.registered,expiration_date.lt.${now}),status.eq.expired`);
     
     if (fetchError) throw fetchError;
@@ -231,6 +234,11 @@ serve(async (req) => {
         registrar: whoisData.registrar,
         last_checked: new Date().toISOString(),
       };
+
+      if ((newStatus === 'available' || newStatus === 'dropped') && domain.tag === 'mine') {
+        payload.tag = 'to-snatch';
+        console.log(`✅ Switching tag for ${domain.domain_name} to "to-snatch" as it is now available.`);
+      }
       
       console.log(`✅ Update for ${domain.domain_name}: status -> ${newStatus}`);
       return payload;

@@ -213,9 +213,9 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, onRemove, onShowInfo, o
         )}
 
         {isAvailableForPurchase && (
-            <div className="mt-2 pt-4 border-t border-slate-200 dark:border-slate-700/50 flex flex-col sm:flex-row items-center gap-3 domain-item-buy-section">
+            <div className="mt-2 pt-4 border-t border-slate-200 dark:border-slate-700/50 flex flex-wrap items-center justify-between gap-4 domain-item-buy-section">
                 <span className="text-sm font-semibold text-green-700 dark:text-green-300">This domain is available!</span>
-                <div className="flex-grow flex items-center gap-3 w-full sm:w-auto sm:justify-end">
+                <div className="flex items-center gap-3">
                     <select 
                         value={selectedRegistrar}
                         onChange={(e) => setSelectedRegistrar(e.target.value)}
