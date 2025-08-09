@@ -91,7 +91,7 @@ const APILAYER_KEY = Deno.env.get('VITE_APILAYER_API_KEY');
 // @ts-ignore
 const WHOISFREAKS_KEY = Deno.env.get('VITE_WHOISFREAKS_API_KEY');
 // @ts-ignore
-const WHOAPI_COM_KEY = Deno.env.get('VITE_WHOAPI_COM_API_KEY');
+const WHOAPI_COM_KEY = Deno.env.get('VITE_WHOAPI_COM_KEY');
 // @ts-ignore
 const RAPIDAPI_KEY = Deno.env.get('VITE_RAPIDAPI_KEY');
 
@@ -384,17 +384,26 @@ The function needs API keys to work. It also needs a secret key to prevent unaut
 
     > **Important:** You only need to add secrets for the WHOIS services you plan to use. However, you **must** add the `CRON_SECRET`.
 
-#### Step 4: Schedule the Function
-Now you'll set up a "Cron Job" to run your function automatically every day.
+#### Step 4: Enable the Cron Extension
+Before you can schedule jobs, you need to enable the `pg_cron` extension for your database.
 
-1.  Go back to **Edge Functions** in the left sidebar.
-2.  Click on the `check-domains` function you just created.
-3.  In the function's details page, find the **"Invoke on a schedule"** section.
-4.  Enter a **Name** for your job, like `Daily Domain Check`.
-5.  In the **"Cron schedule"** input, you can choose a preset. Select **"Run once a day"**. This will automatically fill in the expression `0 0 * * *`, which means it will run at midnight UTC.
-6.  Click **Create schedule**.
+1.  In your Supabase project dashboard, go to the **Integrations** section (the puzzle piece icon in the left sidebar).
+2.  Find **Cron** in the list of integrations (you can use the search bar).
+3.  Click on the **Cron** integration.
+4.  You'll be taken to the integration's page. Click the green **"Enable pg_cron"** button. This only needs to be done once per project.
 
-That's it! Your application is now fully configured to automatically monitor your domains every day, all without using the command line.
+#### Step 5: Schedule the Cron Job
+Now that the extension is active, you can schedule the job to run automatically.
+
+1.  On the Cron integration page, click on the **"Jobs"** tab next to "Overview".
+2.  Click the green **"Create job"** button on the right.
+3.  A configuration panel will appear. Fill it out as follows:
+    *   **Name**: Give your job a descriptive name, like `Daily Domain Check`.
+    *   **Schedule**: For once a day at midnight UTC, use the preset "Run once a day" which fills in `0 0 * * *`.
+    *   **Function**: Select the `check-domains` function from the dropdown list.
+4.  Click **"Create job"** to save and activate the schedule.
+
+That's it! Your application is now fully configured to automatically monitor your domains every day.
 
 ---
 
@@ -448,7 +457,7 @@ Deploy the `check-domains` function included in this project.
 npx supabase functions deploy check-domains
 ```
 
-After deploying, you can schedule the job using the Supabase Dashboard as described in **Step 4** of Method 1, or use an external cron service like [fastcron.com](https://fastcron.com/).
+After deploying, enable the Cron extension and schedule the job using the Supabase Dashboard as described in **Steps 4 and 5** of Method 1.
 
 ---
 
