@@ -50,6 +50,8 @@ const APILAYER_KEY = Deno.env.get('VITE_APILAYER_API_KEY');
 const WHOISFREAKS_KEY = Deno.env.get('VITE_WHOISFREAKS_API_KEY');
 // @ts-ignore
 const WHOAPI_COM_KEY = Deno.env.get('VITE_WHOAPI_COM_API_KEY');
+// @ts-ignore
+const RAPIDAPI_KEY = Deno.env.get('VITE_RAPIDAPI_KEY');
 
 
 const getWhoisDataFromWhoDat = async (domainName: string): Promise<WhoisData> => {
@@ -144,6 +146,42 @@ const getWhoisDataFromWhoapi = async (domainName: string): Promise<WhoisData> =>
     };
 };
 
+const getWhoisDataFromRapidApi = async (domainName: string): Promise<WhoisData> => {
+    if (!RAPIDAPI_KEY) throw new Error("RapidAPI Key not provided.");
+
+    const url = `https://domain-whois-lookup-api.p.rapidapi.com/whois?domain_name=${domainName}`;
+    const response = await fetch(url, {
+        headers: {
+            'x-rapidapi-key': RAPIDAPI_KEY,
+            'x-rapidapi-host': 'domain-whois-lookup-api.p.rapidapi.com'
+        }
+    });
+    
+    const data = await response.json();
+
+    if (!response.ok) {
+        if (response.status === 404 && data.status === 'Available for registration') {
+            return {
+                status: 'available',
+                expirationDate: null,
+                registeredDate: null,
+                registrar: null,
+            };
+        }
+        throw new Error(`RapidAPI request failed with status ${response.status}: ${data.error || JSON.stringify(data)}`);
+    }
+
+    const expiryDateStr = data.expiration_date;
+    const status = expiryDateStr && new Date(expiryDateStr) < new Date() ? 'expired' : 'registered';
+    
+    return {
+        status,
+        expirationDate: data.expiration_date || null,
+        registeredDate: data.creation_date || null,
+        registrar: data.registrar || null,
+    };
+};
+
 const getWhoisData = async (domainName: string): Promise<WhoisData> => {
     if (WHO_DAT_URL) {
         try { return await getWhoisDataFromWhoDat(domainName); } catch (e) { console.error(e.message); }
@@ -159,6 +197,9 @@ const getWhoisData = async (domainName: string): Promise<WhoisData> => {
     }
     if (WHOAPI_COM_KEY) {
         try { return await getWhoisDataFromWhoapi(domainName); } catch (e) { console.error(e.message); }
+    }
+    if (RAPIDAPI_KEY) {
+        try { return await getWhoisDataFromRapidApi(domainName); } catch (e) { console.error(e.message); }
     }
     console.error(`❌ All WHOIS providers failed for ${domainName}.`);
     return { status: 'unknown', expirationDate: null, registeredDate: null, registrar: 'Error' };

@@ -18,7 +18,7 @@ An aesthetically pleasing app to check domain availability and track domain expi
 ## Features
 
 *   **Secure User Accounts:** Sign in with your Google account to keep your domain list private and synced.
-*   **Resilient Real-Time Domain Check:** Quickly see if a domain is available using a tiered approach with multiple fallbacks including WhoisXMLAPI, apilayer.com, whoisfreaks.com, and whoapi.com.
+*   **Resilient Real-Time Domain Check:** Quickly see if a domain is available using a tiered approach with multiple fallbacks including WhoisXMLAPI, apilayer.com, whoisfreaks.com, whoapi.com, and rapidapi.com.
 *   **Automated Daily Checks:** A secure, server-side Supabase Edge Function runs daily to automatically update the status of your tracked domains, checking for expirations and drops.
 *   **Manual Re-check:** For any domain where the lookup failed, a simple "Re-check" button allows you to instantly try again.
 *   **Direct Purchase Links:** For available domains, get quick links to recommended registrars to purchase the domain immediately.
@@ -36,7 +36,7 @@ An aesthetically pleasing app to check domain availability and track domain expi
 *   **Tailwind CSS** for styling
 *   **Supabase** for Authentication, Database, and Edge Functions
 *   **Cron Job Schedulers**: Supabase Cron or external services (e.g., fastcron.com)
-*   **\`who-dat\`** (self-hosted), **WhoisXMLAPI**, **apilayer.com API**, **whoisfreaks.com API**, & **whoapi.com API** for live domain data
+*   **\`who-dat\`** (self-hosted), **WhoisXMLAPI**, **apilayer.com API**, **whoisfreaks.com API**, **whoapi.com API**, & **rapidapi.com API** for live domain data
 
 ---
 
@@ -74,6 +74,7 @@ npm install
     VITE_APILAYER_API_KEY=YOUR_APILAYER_KEY
     VITE_WHOISFREAKS_API_KEY=YOUR_WHOISFREAKS_KEY
     VITE_WHOAPI_COM_API_KEY=YOUR_WHOAPI_COM_KEY
+    VITE_RAPIDAPI_KEY=YOUR_RAPIDAPI_KEY
     
     # Optional: Self-hosted who-dat instance for WHOIS lookups
     # The public instance is not recommended due to rate limits and CORS issues.
@@ -194,6 +195,7 @@ The Edge Function needs API keys to work. It also needs a secret key to prevent 
     npx supabase secrets set VITE_APILAYER_API_KEY=YOUR_APILAYER_KEY
     npx supabase secrets set VITE_WHOISFREAKS_API_KEY=YOUR_WHOISFREAKS_KEY
     npx supabase secrets set VITE_WHOAPI_COM_API_KEY=YOUR_WHOAPI_COM_KEY
+    npx supabase secrets set VITE_RAPIDAPI_KEY=YOUR_RAPIDAPI_KEY
 
     # Optional: Set these if you are using a self-hosted who-dat instance
     # npx supabase secrets set VITE_WHO_DAT_URL=https://your-who-dat-instance.vercel.app
@@ -308,6 +310,7 @@ The Edge Function needs API keys to work. It also needs a secret key to prevent 
     npx supabase secrets set VITE_APILAYER_API_KEY=YOUR_APILAYER_KEY
     npx supabase secrets set VITE_WHOISFREAKS_API_KEY=YOUR_WHOISFREAKS_KEY
     npx supabase secrets set VITE_WHOAPI_COM_API_KEY=YOUR_WHOAPI_COM_KEY
+    npx supabase secrets set VITE_RAPIDAPI_KEY=YOUR_RAPIDAPI_KEY
 
     # Optional: Set these if you are using a self-hosted who-dat instance
     # npx supabase secrets set VITE_WHO_DAT_URL=https://your-who-dat-instance.vercel.app
@@ -678,6 +681,71 @@ A successful response (\`status: "0"\`) returns a JSON object. Key fields to loo
 If a request fails, the \`status\` field will contain a non-zero value, and \`status_desc\` will provide a human-readable error message.
 `;
 
+const rapidApiContent = `
+# RapidAPI Domain WHOIS Lookup API Documentation
+
+This document summarizes the key details for integrating the RapidAPI Domain WHOIS Lookup API.
+
+## Overview
+
+The service provides WHOIS data for any registered domain name via a RESTful API.
+
+-   **Endpoint**: \`https://domain-whois-lookup-api.p.rapidapi.com/whois\`
+-   **Method**: \`GET\`
+-   **Response Format**: \`JSON\`
+
+## Authentication
+
+Authentication is required for every request and is handled via custom HTTP headers.
+
+-   **Host Header**: \`x-rapidapi-host: domain-whois-lookup-api.p.rapidapi.com\`
+-   **API Key Header**: \`x-rapidapi-key: YOUR_RAPIDAPI_KEY\`
+
+You must subscribe to the API on the [RapidAPI Marketplace](https://rapidapi.com/is-this-thing-on/api/domain-whois-lookup-api) to get your key.
+
+## Request Parameters
+
+-   \`domain_name\` (string, **required**): The domain name to look up, passed as a query string parameter.
+
+## Example Request (cURL)
+
+\`\`\`bash
+curl --request GET \\
+	--url 'https://domain-whois-lookup-api.p.rapidapi.com/whois?domain_name=example.com' \\
+	--header 'x-rapidapi-host: domain-whois-lookup-api.p.rapidapi.com' \\
+	--header 'x-rapidapi-key: YOUR_RAPIDAPI_KEY'
+\`\`\`
+
+## Response Data
+
+A successful response returns a JSON object with the following key fields:
+
+-   \`name\`: The name of the domain.
+-   \`creation_date\`: The date when the domain was first registered (ISO 8601 format).
+-   \`expiration_date\`: The date when the domain registration will expire (ISO 8601 format).
+-   \`registrar\`: The name of the domain registrar.
+-   \`registrant\`: The name of the domain registrant.
+-   \`email\`: The email address of the domain registrant.
+
+## Error Handling
+
+The API uses standard HTTP status codes.
+
+-   **\`400 - Bad Request\`**: An invalid domain name was provided. The response body will contain an error message.
+    \`\`\`json
+    { "error": "Invalid domain name" }
+    \`\`\`
+-   **\`404 - Not Found\`**: The domain is not found, which indicates it is available for registration. The response body will be:
+    \`\`\`json
+    { "status": "Available for registration" }
+    \`\`\`
+
+## Rate Limiting
+
+-   The API limits requests to 1000 requests per day per IP address on the free (BASIC) plan.
+`;
+
+
 const troubleshootingContent = `
 # Troubleshooting Guide
 
@@ -711,8 +779,6 @@ This approach has a significant advantage: it provides access to the renderer's 
 
 #### Correct Implementation (\`src/components/DocsPage.tsx\`)
 
-The fix involves refactoring the component to use a custom class that extends \`marked.Renderer\`.
-
 \`\`\`tsx
 import { marked } from 'marked';
 import type { Tokens } from 'marked';
@@ -745,6 +811,87 @@ useEffect(() => {
 \`\`\`
 
 This pattern resolves all the build errors, ensures type safety, and correctly renders the documentation with the desired custom styling.
+
+---
+
+## Issue: Supabase TypeScript errors like "Type instantiation is excessively deep"
+
+You might encounter TypeScript errors in \`src/services/supabaseService.ts\` when using the Supabase client, with messages like:
+
+\`\`\`
+Type instantiation is excessively deep and possibly infinite.
+\`\`\`
+or errors related to \`Insert<"domains">\` or \`Update<"domains">\`.
+
+### The Problem: Mismatch between Database Schema and TypeScript Types
+
+This error is a classic sign that the TypeScript types used by the Supabase client are out of sync with your actual database schema. In this project, it's specifically caused by using custom \`ENUM\` types in the database (\`domain_tag_type\` and \`domain_status_type\`) without telling the Supabase client what those types are.
+
+When the \`createClient\` function is typed with our \`Database\` interface, TypeScript tries to infer the types for \`insert\`, \`update\`, and \`select\` operations. If it encounters a type from the database (like \`domain_tag_type\`) that isn't defined in the \`Enums\` section of the \`Database\` interface, it can't resolve the type and enters a recursive loop, resulting in the "excessively deep" error.
+
+### The Solution: Align Your Types with the Database Schema
+
+There are two ways to fix this. The first is a manual fix that solves the immediate problem. The second is the recommended, long-term solution using the Supabase CLI.
+
+#### 1. Manual Fix (The Quick Fix)
+
+You can manually update the \`Database\` interface in \`src/services/supabaseService.ts\` to include the definitions for your custom ENUM types.
+
+**\`src/services/supabaseService.ts\`**
+\`\`\`typescript
+// ... import DomainTag, DomainStatus from '../types' ...
+
+export interface Database {
+  public: {
+    // ... Tables, Views, Functions ...
+    Enums: {
+      // Add these two lines
+      domain_status_type: DomainStatus;
+      domain_tag_type: DomainTag;
+    };
+    // ... CompositeTypes ...
+  };
+}
+\`\`\`
+
+This tells TypeScript what \`'mine' | 'to-snatch'\` and the other status strings are valid for these enum types, resolving the error. This is the fix that has been applied to the codebase.
+
+#### 2. Recommended Solution: Generate Types with Supabase CLI
+
+The best practice for keeping your database and application types in sync is to let the Supabase CLI generate the types for you directly from your schema. This eliminates manual errors and makes it easy to update types whenever you change your database.
+
+**Step 1: Generate the Type File**
+Run the following command in your project's root directory. Make sure you have linked your project with \`npx supabase link\`.
+
+\`\`\`bash
+# For local development
+npx supabase gen types typescript --local > src/types/supabase.ts
+
+# For a remote project
+npx supabase gen types typescript --project-id <your-project-id> > src/types/supabase.ts
+\`\`\`
+
+This command inspects your database schema and creates a file \`src/types/supabase.ts\` containing all the necessary interfaces, including your custom enums.
+
+**Step 2: Use the Generated Types**
+Now, modify \`src/services/supabaseService.ts\` to use these generated types.
+
+\`\`\`typescript
+// src/services/supabaseService.ts
+import { createClient, Session, SupabaseClient } from '@supabase/supabase-js';
+// 1. Import the generated Database type
+import { Database } from '../types/supabase'; // Adjust path if needed
+
+// We no longer need to manually define the Database interface here.
+// The rest of the file can use the imported \`Database\` type.
+
+// ...
+
+// 2. The createClient call is now correctly typed from the generated file.
+const supabaseInstance = createClient<Database>(supabaseUrl, supabaseAnonKey);
+\`\`\`
+
+By adopting this workflow, you ensure your application's type safety and prevent this category of errors from happening again.
 `;
 
 
@@ -788,5 +935,10 @@ export const docs: DocContent[] = [
         slug: 'whoapi',
         title: 'Provider: WhoAPI.com',
         content: whoapiContent
+    },
+    {
+        slug: 'rapidapi',
+        title: 'Provider: RapidAPI',
+        content: rapidApiContent
     },
 ];

@@ -7,7 +7,7 @@ An aesthetically pleasing app to check domain availability and track domain expi
 ## Features
 
 *   **Secure User Accounts:** Sign in with your Google account to keep your domain list private and synced.
-*   **Resilient Real-Time Domain Check:** Quickly see if a domain is available using a tiered approach with multiple fallbacks including WhoisXMLAPI, apilayer.com, whoisfreaks.com, and whoapi.com.
+*   **Resilient Real-Time Domain Check:** Quickly see if a domain is available using a tiered approach with multiple fallbacks including WhoisXMLAPI, apilayer.com, whoisfreaks.com, whoapi.com, and rapidapi.com.
 *   **Automated Daily Checks:** A secure, server-side Supabase Edge Function runs daily to automatically update the status of your tracked domains, checking for expirations and drops.
 *   **Manual Re-check:** For any domain where the lookup failed, a simple "Re-check" button allows you to instantly try again.
 *   **Direct Purchase Links:** For available domains, get quick links to recommended registrars to purchase the domain immediately.
@@ -25,7 +25,7 @@ An aesthetically pleasing app to check domain availability and track domain expi
 *   **Tailwind CSS** for styling
 *   **Supabase** for Authentication, Database, and Edge Functions
 *   **Cron Job Schedulers**: Supabase Cron or external services (e.g., fastcron.com)
-*   **`who-dat`** (self-hosted), **WhoisXMLAPI**, **apilayer.com API**, **whoisfreaks.com API**, & **whoapi.com API** for live domain data
+*   **`who-dat`** (self-hosted), **WhoisXMLAPI**, **apilayer.com API**, **whoisfreaks.com API**, **whoapi.com API**, & **rapidapi.com API** for live domain data
 
 ---
 
@@ -63,6 +63,7 @@ npm install
     VITE_APILAYER_API_KEY=YOUR_APILAYER_KEY
     VITE_WHOISFREAKS_API_KEY=YOUR_WHOISFREAKS_KEY
     VITE_WHOAPI_COM_API_KEY=YOUR_WHOAPI_COM_KEY
+    VITE_RAPIDAPI_KEY=YOUR_RAPIDAPI_KEY
     
     # Optional: Self-hosted who-dat instance for WHOIS lookups
     # The public instance is not recommended due to rate limits and CORS issues.
@@ -184,6 +185,7 @@ The Edge Function needs API keys to work. It also needs a secret key to prevent 
     npx supabase secrets set VITE_APILAYER_API_KEY=YOUR_APILAYER_KEY
     npx supabase secrets set VITE_WHOISFREAKS_API_KEY=YOUR_WHOISFREAKS_KEY
     npx supabase secrets set VITE_WHOAPI_COM_API_KEY=YOUR_WHOAPI_COM_KEY
+    npx supabase secrets set VITE_RAPIDAPI_KEY=YOUR_RAPIDAPI_KEY
 
     # Optional: Set these if you are using a self-hosted who-dat instance
     # npx supabase secrets set VITE_WHO_DAT_URL=https://your-who-dat-instance.vercel.app

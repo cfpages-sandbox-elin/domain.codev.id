@@ -64,3 +64,84 @@ useEffect(() => {
 \`\`\`
 
 This pattern resolves all the build errors, ensures type safety, and correctly renders the documentation with the desired custom styling.
+
+---
+
+## Issue: Supabase TypeScript errors like "Type instantiation is excessively deep"
+
+You might encounter TypeScript errors in `src/services/supabaseService.ts` when using the Supabase client, with messages like:
+
+```
+Type instantiation is excessively deep and possibly infinite.
+```
+or errors related to `Insert<"domains">` or `Update<"domains">`.
+
+### The Problem: Mismatch between Database Schema and TypeScript Types
+
+This error is a classic sign that the TypeScript types used by the Supabase client are out of sync with your actual database schema. In this project, it's specifically caused by using custom `ENUM` types in the database (`domain_tag_type` and `domain_status_type`) without telling the Supabase client what those types are.
+
+When the `createClient` function is typed with our `Database` interface, TypeScript tries to infer the types for `insert`, `update`, and `select` operations. If it encounters a type from the database (like `domain_tag_type`) that isn't defined in the `Enums` section of the `Database` interface, it can't resolve the type and enters a recursive loop, resulting in the "excessively deep" error.
+
+### The Solution: Align Your Types with the Database Schema
+
+There are two ways to fix this. The first is a manual fix that solves the immediate problem. The second is the recommended, long-term solution using the Supabase CLI.
+
+#### 1. Manual Fix (The Quick Fix)
+
+You can manually update the `Database` interface in `src/services/supabaseService.ts` to include the definitions for your custom ENUM types.
+
+**`src/services/supabaseService.ts`**
+```typescript
+// ... import DomainTag, DomainStatus from '../types' ...
+
+export interface Database {
+  public: {
+    // ... Tables, Views, Functions ...
+    Enums: {
+      // Add these two lines
+      domain_status_type: DomainStatus;
+      domain_tag_type: DomainTag;
+    };
+    // ... CompositeTypes ...
+  };
+}
+```
+
+This tells TypeScript what `'mine' | 'to-snatch'` and the other status strings are valid for these enum types, resolving the error. This is the fix that has been applied to the codebase.
+
+#### 2. Recommended Solution: Generate Types with Supabase CLI
+
+The best practice for keeping your database and application types in sync is to let the Supabase CLI generate the types for you directly from your schema. This eliminates manual errors and makes it easy to update types whenever you change your database.
+
+**Step 1: Generate the Type File**
+Run the following command in your project's root directory. Make sure you have linked your project with `npx supabase link`.
+
+```bash
+# For local development
+npx supabase gen types typescript --local > src/types/supabase.ts
+
+# For a remote project
+npx supabase gen types typescript --project-id <your-project-id> > src/types/supabase.ts
+```
+
+This command inspects your database schema and creates a file `src/types/supabase.ts` containing all the necessary interfaces, including your custom enums.
+
+**Step 2: Use the Generated Types**
+Now, modify `src/services/supabaseService.ts` to use these generated types.
+
+```typescript
+// src/services/supabaseService.ts
+import { createClient, Session, SupabaseClient } from '@supabase/supabase-js';
+// 1. Import the generated Database type
+import { Database } from '../types/supabase'; // Adjust path if needed
+
+// We no longer need to manually define the Database interface here.
+// The rest of the file can use the imported `Database` type.
+
+// ...
+
+// 2. The createClient call is now correctly typed from the generated file.
+const supabaseInstance = createClient<Database>(supabaseUrl, supabaseAnonKey);
+```
+
+By adopting this workflow, you ensure your application's type safety and prevent this category of errors from happening again.

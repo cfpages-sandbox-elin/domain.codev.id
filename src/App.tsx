@@ -51,6 +51,7 @@ const App: React.FC = () => {
         'apilayer.com': import.meta.env.VITE_APILAYER_API_KEY,
         'whoisfreaks.com': import.meta.env.VITE_WHOISFREAKS_API_KEY,
         'whoapi.com': import.meta.env.VITE_WHOAPI_COM_API_KEY,
+        'rapidapi.com': import.meta.env.VITE_RAPIDAPI_KEY,
     };
     let hasAnyWhoisKey = false;
     for(const [provider, key] of Object.entries(whoisKeys)) {

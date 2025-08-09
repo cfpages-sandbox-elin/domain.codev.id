@@ -55,6 +55,7 @@ The Edge Function needs API keys to work. It also needs a secret key to prevent 
     npx supabase secrets set VITE_APILAYER_API_KEY=YOUR_APILAYER_KEY
     npx supabase secrets set VITE_WHOISFREAKS_API_KEY=YOUR_WHOISFREAKS_KEY
     npx supabase secrets set VITE_WHOAPI_COM_API_KEY=YOUR_WHOAPI_COM_KEY
+    npx supabase secrets set VITE_RAPIDAPI_KEY=YOUR_RAPIDAPI_KEY
 
     # Optional: Set these if you are using a self-hosted who-dat instance
     # npx supabase secrets set VITE_WHO_DAT_URL=https://your-who-dat-instance.vercel.app

@@ -1,3 +1,4 @@
+
 import { createClient, Session, SupabaseClient } from '@supabase/supabase-js';
 import { Domain, NewDomain, DomainUpdate, DomainTag, DomainStatus } from '../types';
 
@@ -19,7 +20,8 @@ export interface Database {
       [_ in never]: never;
     };
     Enums: {
-      [_ in never]: never;
+      domain_status_type: DomainStatus;
+      domain_tag_type: DomainTag;
     };
     CompositeTypes: {
       [_ in never]: never;

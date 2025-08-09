@@ -7,6 +7,7 @@ const WHOISXMLAPI_KEY = import.meta.env.VITE_WHOIS_API_KEY;
 const APILAYER_KEY = import.meta.env.VITE_APILAYER_API_KEY;
 const WHOISFREAKS_KEY = import.meta.env.VITE_WHOISFREAKS_API_KEY;
 const WHOAPI_COM_KEY = import.meta.env.VITE_WHOAPI_COM_API_KEY;
+const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY;
 
 
 // --- Provider 0: who-dat (Primary) ---
@@ -275,6 +276,69 @@ const getWhoisDataFromWhoapi = async (domainName: string): Promise<WhoisData> =>
 };
 
 
+// --- Provider 5: RapidAPI ---
+const RAPIDAPI_URL = 'https://domain-whois-lookup-api.p.rapidapi.com/whois';
+
+interface RapidApiResponseError {
+    error?: string;
+    status?: string;
+}
+
+interface RapidApiResponseSuccess {
+    name: string;
+    creation_date: string;
+    updated_date: string;
+    expiration_date: string;
+    registrar: string;
+    registrant: string;
+    email: string;
+    address: string;
+    city: string;
+    state: string;
+    zipcode: string;
+    country: string;
+}
+
+const getWhoisDataFromRapidApi = async (domainName: string): Promise<WhoisData> => {
+    if (!RAPIDAPI_KEY) throw new Error("RapidAPI Key not provided.");
+
+    const response = await fetch(`${RAPIDAPI_URL}?domain_name=${domainName}`, {
+        headers: {
+            'x-rapidapi-key': RAPIDAPI_KEY,
+            'x-rapidapi-host': 'domain-whois-lookup-api.p.rapidapi.com'
+        }
+    });
+
+    const data: RapidApiResponseSuccess | RapidApiResponseError = await response.json();
+
+    if (!response.ok) {
+        if (response.status === 404 && (data as RapidApiResponseError).status === 'Available for registration') {
+            return {
+                status: 'available',
+                expirationDate: null,
+                registeredDate: null,
+                registrar: null,
+            };
+        }
+        throw new Error(`RapidAPI request failed: ${response.status} ${response.statusText}. ${(data as RapidApiResponseError).error || ''}`);
+    }
+
+    const result = data as RapidApiResponseSuccess;
+    let status: DomainStatus = 'registered';
+    const expiryDateStr = result.expiration_date;
+    if (expiryDateStr && new Date(expiryDateStr) < new Date()) {
+        status = 'expired';
+    }
+
+    return {
+        status,
+        expirationDate: result.expiration_date || null,
+        registeredDate: result.creation_date || null,
+        registrar: result.registrar || null,
+    };
+};
+
+
 
 // --- Main Service Function (Waterfall) ---
 
@@ -340,6 +404,18 @@ export const getWhoisData = async (domainName: string, log?: (message: string) =
             return data;
         } catch (error) {
             log?.(`⚠️ Failure: whoapi.com. ${(error as Error).message}`);
+        }
+    }
+
+    // Attempt 6: rapidapi.com (Backup 5)
+    if (RAPIDAPI_KEY) {
+        try {
+            log?.("➡️ Trying provider: rapidapi.com...");
+            const data = await getWhoisDataFromRapidApi(domainName);
+            log?.("✅ Success: rapidapi.com");
+            return data;
+        } catch (error) {
+            log?.(`⚠️ Failure: rapidapi.com. ${(error as Error).message}`);
         }
     }
 
