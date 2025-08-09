@@ -29,9 +29,6 @@ export type NewDomain = {
 };
 
 // For updating a domain. All properties are optional.
-// The previous definition using TypeScript utility types (Partial, Omit)
-// caused "type instantiation is excessively deep" errors with Supabase's generics.
-// This explicit, "flattened" type resolves these issues.
 export type DomainUpdate = {
   tag?: DomainTag;
   status?: DomainStatus;

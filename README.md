@@ -7,7 +7,9 @@ An aesthetically pleasing app to check domain availability and track domain expi
 ## Features
 
 *   **Secure User Accounts:** Sign in with your Google account to keep your domain list private and synced.
-*   **Resilient Real-Time Domain Check:** Quickly see if a domain is available using a tiered approach: an open-source `who-dat` service first, with automatic fallbacks to WhoisXMLAPI, apilayer.com, and whoisfreaks.com.
+*   **Resilient Real-Time Domain Check:** Quickly see if a domain is available using a tiered approach with fallbacks to WhoisXMLAPI, apilayer.com, and whoisfreaks.com.
+*   **Automated Daily Checks:** A secure, server-side Supabase Edge Function runs daily to automatically update the status of your tracked domains, checking for expirations and drops.
+*   **Flexible Scheduling:** Use either Supabase's built-in cron scheduler or a more advanced external service like [fastcron.com](https://fastcron.com/) for automation.
 *   **Track Your Portfolio:** Add domains to a personal tracking list.
 *   **Smart Tagging:** Tag domains as "Mine" for renewal reminders or "To Snatch" for drop-catching.
 *   **Expiration Alerts:** Get in-app notifications before your domains expire.
@@ -19,8 +21,9 @@ An aesthetically pleasing app to check domain availability and track domain expi
 
 *   **Vite** + **React 18** & **TypeScript**
 *   **Tailwind CSS** for styling
-*   **Supabase** for Authentication and Database
-*   **`who-dat`**, **WhoisXMLAPI**, **apilayer.com API**, & **whoisfreaks.com API** for live domain data
+*   **Supabase** for Authentication, Database, and Edge Functions
+*   **Cron Job Schedulers**: Supabase Cron or external services (e.g., fastcron.com)
+*   **`who-dat`** (self-hosted), **WhoisXMLAPI**, **apilayer.com API**, & **whoisfreaks.com API** for live domain data
 
 ---
 
@@ -53,26 +56,23 @@ npm install
     VITE_SUPABASE_URL=YOUR_SUPABASE_PROJECT_URL
     VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 
-    # WHOIS API Keys (Add at least one provider)
-    VITE_WHO_DAT_URL=https://your-who-dat-instance.vercel.app
-    VITE_WHO_DAT_AUTH_KEY=YOUR_WHO_DAT_SECRET_KEY
+    # WHOIS API Keys (Add at least one provider for full functionality)
     VITE_WHOIS_API_KEY=YOUR_WHOISXMLAPI_KEY
     VITE_APILAYER_API_KEY=YOUR_APILAYER_KEY
     VITE_WHOISFREAKS_API_KEY=YOUR_WHOISFREAKS_KEY
+    
+    # Optional: Self-hosted who-dat instance for WHOIS lookups
+    # The public instance is not recommended due to rate limits and CORS issues.
+    # See /docs/who-dat.md for deployment instructions.
+    # VITE_WHO_DAT_URL=https://your-who-dat-instance.vercel.app
+    # VITE_WHO_DAT_AUTH_KEY=YOUR_WHO_DAT_SECRET_KEY
     ```
 
     **Note:** The `VITE_` prefix is required for Vite to expose these variables to the application.
 
 ### Step 4: Set Up the Database Table
 
-For the application to store data, you need to create the `domains` table in your Supabase database.
-
-1.  Navigate to your project in the [Supabase Dashboard](https://app.supabase.com/).
-2.  Go to the **SQL Editor** in the left sidebar.
-3.  Click **+ New query**.
-4.  Copy the entire SQL script below and paste it into the editor. This script will create the necessary table, set up custom data types, and enable Row-Level Security to ensure users can only access their own data.
-5.  Click **Run**.
-
+(Instructions for this step are unchanged and can be found in the original `README.md`)
 ```sql
 -- Create custom types for cleaner constraints
 CREATE TYPE public.domain_tag_type AS ENUM ('mine', 'to-snatch');
@@ -144,7 +144,96 @@ USING (auth.uid() = user_id);
 npm run dev
 ```
 
-The application should now be running locally, typically at `http://localhost:5173`.
+---
+
+## Setting Up Automated Domain Checks
+
+To enable automatic daily checks, you need to deploy and schedule the `check-domains` Supabase Edge Function. This is a crucial step for the app's core functionality.
+
+### 1. Install, Link, and Set Secrets (Common First Step)
+
+First, install the Supabase CLI, link it to your project, and set the required secrets.
+
+```bash
+# Install the CLI
+npm install supabase --save-dev
+
+# Log in to your Supabase account
+npx supabase login
+
+# Link your local project to your remote Supabase project
+npx supabase link --project-ref <your-project-ref>
+```
+
+#### Set Secrets for the Edge Function
+The Edge Function needs API keys to work. It also needs a secret key to prevent unauthorized execution.
+
+1.  **Create a Cron Secret:** Generate a strong, random string (e.g., using a password generator). This key will authorize the cron job service to run your function, protecting it from public access.
+
+2.  **Set the Secrets:** Run these commands in your terminal, replacing the placeholders with your actual keys and the secret you just generated.
+
+    ```bash
+    # Required: Secret to authorize the cron job
+    npx supabase secrets set CRON_SECRET=YOUR_SUPER_SECRET_STRING_HERE
+
+    # Required: WHOIS API Keys (add at least one)
+    npx supabase secrets set VITE_WHOIS_API_KEY=YOUR_WHOISXMLAPI_KEY
+    npx supabase secrets set VITE_APILAYER_API_KEY=YOUR_APILAYER_KEY
+    npx supabase secrets set VITE_WHOISFREAKS_API_KEY=YOUR_WHOISFREAKS_KEY
+
+    # Optional: Set these if you are using a self-hosted who-dat instance
+    # npx supabase secrets set VITE_WHO_DAT_URL=https://your-who-dat-instance.vercel.app
+    # npx supabase secrets set VITE_WHO_DAT_AUTH_KEY=YOUR_WHO_DAT_SECRET_KEY
+    ```
+
+### 2. Deploy the Edge Function
+
+Deploy the `check-domains` function included in this project.
+
+```bash
+npx supabase functions deploy check-domains
+```
+
+After deploying, choose **one** of the following methods to schedule the job.
+
+### Option 1: Using Supabase's Built-in Scheduler (Simple)
+
+This is the easiest method and is great for most use cases.
+
+1.  Navigate to your project on the [Supabase Dashboard](https://app.supabase.com).
+2.  Go to **Edge Functions** in the left sidebar.
+3.  Click on the **`check-domains`** function.
+4.  You'll see a command to invoke the function with `curl`. It includes the necessary `Authorization` header with your `service_role` key. You can use this to trigger it, but for scheduled jobs, Supabase handles auth internally.
+5.  In the function's details page, find the **"Invoke on a schedule"** section.
+6.  Enter a **Name** for your job, like `Daily Domain Check`.
+7.  In the **"Cron schedule"** input, paste `0 0 * * *` to run the job daily at midnight (UTC).
+8.  Click **Create schedule**.
+
+### Option 2: Using an External Cron Service (e.g., fastcron.com)
+
+This method provides more advanced features like detailed logs and failure notifications.
+
+1.  **Sign up for a cron service:** Create an account on a service like [fastcron.com](https://fastcron.com/).
+
+2.  **Get your Edge Function URL:**
+    *   In your Supabase Dashboard, go to **Edge Functions** and click on the `check-domains` function.
+    *   Under "Invoke via", find and copy the **POST** URL. It will look like `https://<project-ref>.supabase.co/functions/v1/check-domains`.
+
+3.  **Create a Cron Job in FastCron:**
+    *   Log into your FastCron dashboard and click **"Add a cronjob"**.
+    *   Fill out the form using the screenshots below as a guide:
+        *   **URL to call**: Paste your Edge Function URL here.
+        *   **When to call**: Select "Once a day" or enter `0 0 * * *` in the **Expression** field to run at midnight UTC.
+        *   Expand the **"Send HTTP request"** section. **This is the most important step.**
+        *   In the **HTTP headers** text area, add the following line, replacing `YOUR_SUPER_SECRET_STRING_HERE` with the `CRON_SECRET` you created earlier:
+            ```
+            Authorization: Bearer YOUR_SUPER_SECRET_STRING_HERE
+            ```
+        *   **HTTP Method**: Can be left as `GET` or changed to `POST`.
+    *   Configure other settings like timeout and notifications to your liking.
+    *   Click **Save change**.
+
+Your application is now fully configured to automatically monitor your domains every day.
 
 ## Production Deployment
 

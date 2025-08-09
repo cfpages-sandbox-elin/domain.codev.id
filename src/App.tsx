@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Domain, DomainTag, NewDomain, DomainUpdate } from './types';
+import { Domain, DomainTag, NewDomain } from './types';
 import { getWhoisData } from './services/whoisService';
 import { supabase, supabaseConfigError } from './services/supabaseService';
 import { Session } from '@supabase/supabase-js';
@@ -43,7 +43,7 @@ const App: React.FC = () => {
 
     // Log WHOIS Provider status
     const whoisKeys = {
-        'who-dat': import.meta.env.VITE_WHO_DAT_URL || import.meta.env.VITE_WHO_DAT_AUTH_KEY,
+        'who-dat': import.meta.env.VITE_WHO_DAT_URL,
         'WhoisXMLAPI': import.meta.env.VITE_WHOIS_API_KEY,
         'apilayer.com': import.meta.env.VITE_APILAYER_API_KEY,
         'whoisfreaks.com': import.meta.env.VITE_WHOISFREAKS_API_KEY
@@ -90,23 +90,6 @@ const App: React.FC = () => {
     };
   }, [addLog]);
 
-  useEffect(() => {
-    if (session) {
-      const fetchDomains = async () => {
-        addLog('➡️ Fetching user domains...');
-        const userDomains = await SupabaseService.getDomains();
-        if (userDomains) {
-          setDomains(userDomains);
-          addLog(`✅ Found ${userDomains.length} domains.`);
-        } else {
-           addLog(`❌ Failed to fetch domains.`);
-        }
-      };
-      fetchDomains();
-    }
-  }, [session, addLog]);
-
-
   const addNotification = useCallback((message: string) => {
     setNotifications(prev => [message, ...prev.filter(m => m !== message)]);
   }, []);
@@ -124,71 +107,30 @@ const App: React.FC = () => {
         addNotification(`The domain ${domain.domain_name} has dropped and is now available to register!`);
     }
   }, [addNotification]);
-
-
-  const updateDomainStatus = useCallback(async (domainToUpdate: Domain) => {
-      const updatedWhois = await getWhoisData(domainToUpdate.domain_name, addLog);
-      
-      const finalStatus = domainToUpdate.status === 'expired' && updatedWhois.status === 'available' ? 'dropped' : updatedWhois.status;
-
-      const updatedDomainFields: DomainUpdate = {
-          status: finalStatus,
-          expiration_date: updatedWhois.expirationDate,
-          registered_date: updatedWhois.registeredDate,
-          registrar: updatedWhois.registrar,
-          last_checked: new Date().toISOString(),
-      };
-
-      const updatedDomain = await SupabaseService.updateDomain(domainToUpdate.id, updatedDomainFields);
-
-      if(updatedDomain) {
-        setDomains(prevDomains => 
-            prevDomains.map(d => (d.id === updatedDomain.id ? updatedDomain : d))
-        );
-        checkAndNotify(updatedDomain);
-        addLog(`✅ Successfully updated ${domainToUpdate.domain_name}.`);
-      } else {
-        addLog(`❌ Failed to update ${domainToUpdate.domain_name} in database.`);
-      }
-  }, [addLog, checkAndNotify]);
-
-
-  // Simulated Cron Job Effect
+  
   useEffect(() => {
-    if (!session) return;
-    
-    // This interval checks for notifications on existing data without API calls.
-    // It runs frequently to ensure UI alerts are timely.
-    const notificationInterval = setInterval(() => {
-      domains.forEach(checkAndNotify);
-    }, 5 * 60 * 1000); // every 5 minutes
+    if (session) {
+      const fetchDomains = async () => {
+        addLog('➡️ Fetching user domains...');
+        const userDomains = await SupabaseService.getDomains();
+        if (userDomains) {
+          setDomains(userDomains);
+          addLog(`✅ Found ${userDomains.length} domains.`);
+        } else {
+           addLog(`❌ Failed to fetch domains.`);
+        }
+      };
+      fetchDomains();
+    }
+  }, [session, addLog]);
 
-    // This interval performs the heavy lifting of WHOIS lookups.
-    // It runs less frequently to conserve API credits and avoid rate limits.
-    const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
-    const checkDomainsJob = () => {
-        addLog("ℹ️ Running simulated daily check for WHOIS updates...");
-        const now = new Date().getTime();
-        domains.forEach(domain => {
-            const lastCheckedTime = domain.last_checked ? new Date(domain.last_checked).getTime() : 0;
-            // Only check if it hasn't been checked in the last 24 hours.
-            if (now - lastCheckedTime > ONE_DAY_IN_MS) {
-                 addLog(`➡️ Updating WHOIS for ${domain.domain_name} (last checked: ${domain.last_checked})`);
-                 updateDomainStatus(domain);
-            }
-        });
-    };
-    
-    // Run once on load, then set an interval to run roughly every hour.
-    // The internal logic will prevent re-checking too often.
-    checkDomainsJob();
-    const whoisCheckInterval = setInterval(checkDomainsJob, 60 * 60 * 1000); // Check every hour
-
-    return () => {
-        clearInterval(notificationInterval);
-        clearInterval(whoisCheckInterval);
-    };
-  }, [domains, session, checkAndNotify, updateDomainStatus, addLog]);
+  // When domain data changes (e.g., on initial load), check for notifications.
+  useEffect(() => {
+    if (session && domains.length > 0) {
+        addLog(`ℹ️ Checking for notifications across ${domains.length} domains.`);
+        domains.forEach(checkAndNotify);
+    }
+  }, [domains, session, addLog, checkAndNotify]);
 
 
   const addDomain = async (domainName: string, tag: DomainTag) => {

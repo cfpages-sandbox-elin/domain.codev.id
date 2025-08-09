@@ -1,7 +1,7 @@
 import { WhoisData, DomainStatus } from '../types';
 
 // API keys are managed externally and injected by the deployment environment via Vite.
-const WHO_DAT_URL = import.meta.env.VITE_WHO_DAT_URL || 'https://who-dat.as93.net';
+const WHO_DAT_URL = import.meta.env.VITE_WHO_DAT_URL;
 const WHO_DAT_AUTH_KEY = import.meta.env.VITE_WHO_DAT_AUTH_KEY;
 const WHOISXMLAPI_KEY = import.meta.env.VITE_WHOIS_API_KEY;
 const APILAYER_KEY = import.meta.env.VITE_APILAYER_API_KEY;
@@ -28,7 +28,8 @@ const getWhoisDataFromWhoDat = async (domainName: string): Promise<WhoisData> =>
         headers.append('Authorization', `Bearer ${WHO_DAT_AUTH_KEY}`);
     }
 
-    const response = await fetch(`${WHO_DAT_URL}/${domainName}`, { headers });
+    // The WHO_DAT_URL is guaranteed to be present by the calling function.
+    const response = await fetch(`${WHO_DAT_URL!}/${domainName}`, { headers });
     if (!response.ok) throw new Error(`who-dat request failed with status ${response.status}`);
 
     const data: WhoDatResponse = await response.json();
@@ -220,14 +221,18 @@ const getWhoisDataFromWhoisFreaks = async (domainName: string): Promise<WhoisDat
 export const getWhoisData = async (domainName: string, log?: (message: string) => void): Promise<WhoisData> => {
     log?.(`➡️ Starting WHOIS lookup for ${domainName}...`);
     
-    // Attempt 1: who-dat (Primary)
-    try {
-        log?.("➡️ Trying provider: who-dat...");
-        const data = await getWhoisDataFromWhoDat(domainName);
-        log?.("✅ Success: who-dat");
-        return data;
-    } catch (error) {
-        log?.(`⚠️ Failure: who-dat. ${(error as Error).message}`);
+    // Attempt 1: who-dat (Primary) - ONLY if self-hosted URL is provided
+    if (WHO_DAT_URL) {
+        try {
+            log?.("➡️ Trying provider: self-hosted who-dat...");
+            const data = await getWhoisDataFromWhoDat(domainName);
+            log?.("✅ Success: who-dat");
+            return data;
+        } catch (error) {
+            log?.(`⚠️ Failure: who-dat. ${(error as Error).message}`);
+        }
+    } else {
+        log?.("ℹ️ Skipping who-dat: VITE_WHO_DAT_URL not configured.");
     }
     
     // Attempt 2: WhoisXMLAPI (Backup 1)
