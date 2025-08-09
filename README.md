@@ -146,4 +146,40 @@ The application should now be running locally, typically at `http://localhost:51
 
 ## Production Deployment
 
-For instructions on how to deploy this application and troubleshoot common production issues, see the **[Deployment Guide](./deployment.md)**.
+For instructions on how to deploy this application to a live environment like Cloudflare Pages, see the **[Deployment Guide](./deployment.md)**.
+
+---
+
+## Google OAuth Redirect Configuration
+
+After setting up Google OAuth in both Supabase and the Google Cloud Console, it's crucial to configure the Authorized redirect URIs correctly. This tells Google where it's safe to redirect the user after successful authentication.
+
+You need to add the following URI format to your Authorized redirect URIs in both your Supabase project's Authentication settings (under Providers > Google) and your Google Cloud Console credentials for the OAuth 2.0 Client ID:
+
+`https://[your-domain]/auth-callback`
+
+Replace `[your-domain]` with the actual domain where your application is hosted (e.g., `https://domain.codev.id`). This specific path (`/auth-callback`) is where the application's `AuthCallback` component handles the post-authentication redirect to the user's original page.
+
+### Troubleshooting: Redirect Mismatch Errors
+
+If you encounter redirect mismatch errors during the Google OAuth flow, it almost always means that the Authorized redirect URI configured in your Google Cloud Console or Supabase does not exactly match the callback URL your application is using. Double-check for typos, extra slashes, or differences in HTTP vs. HTTPS. Ensure the URI in both Google Cloud and Supabase precisely matches the path where your `AuthCallback` component is rendered in your deployed application.
+
+
+---
+
+## Troubleshooting Cloudflare Pages Cache
+
+When deploying to Cloudflare Pages, you might notice that recent code changes aren't immediately reflected in your browser. This is often due to Cloudflare's aggressive caching of static assets to improve performance. While this is beneficial for users, it can be annoying during development or when verifying a recent deployment.
+
+Here are some common ways to bypass or deal with Cloudflare Pages cache:
+
+1.  **Hard Refresh:** The quickest way to try and fetch fresh assets is by performing a hard refresh in your browser.
+    *   Windows/Linux: `Ctrl + Shift + R`
+    *   macOS: `Cmd + Shift + R`
+
+2.  **Clear Browser Cache:** If a hard refresh doesn't work, clearing your browser's cache for the specific site is the next step. The exact steps vary by browser but usually involve the browser's developer tools or privacy settings.
+
+3.  **Append Query Strings (Development consideration):** Build tools like Vite (used in this project) automatically append unique hash strings to your production build asset filenames (e.g., `index.js?v=abcdef123`). This cache-busting technique forces the browser to download the new file when the content changes. While you typically don't need to manually manage this in production builds, understanding this mechanism helps explain why Cloudflare's cache is effectively bypassed for changed assets in a proper production deployment. During development, if you are testing a staged deployment or a preview URL, a hard refresh is usually sufficient.
+
+If you continue to see outdated content after a hard refresh and clearing browser cache, verify that your latest changes have been successfully deployed to Cloudflare Pages by checking your project's deployment history in the Cloudflare dashboard.
+

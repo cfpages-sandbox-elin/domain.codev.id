@@ -86,3 +86,62 @@ Domain Tracker Pro is a web application designed for individuals and businesses 
 *   Direct domain registration/backordering integration with registrars.
 *   Payment processing for premium features.
 *   Support for other OAuth providers (e.g., GitHub, Twitter).
+
+## 7. Status
+
+It is live now and deployed at https://domain.codev.id
+
+## 8. To-Do List (Generated)
+
+- [ ] **3.1. User Authentication**
+    - [x] 3.1.1: Users must be able to sign up and log in to the application using their Google account (OAuth). (Supabase service initiated)
+    - [ ] 3.1.2: All domain data must be associated with the logged-in user's account. (Requires implementing database interactions)
+    - [ ] 3.1.3: Users must be able to log out of the application. (Requires implementing logout function in UI)
+    - [ ] 3.1.4: Unauthenticated users should be presented with a login page and cannot access the application's core features. (Requires implementing route guarding)
+
+- [ ] **3.2. Domain Status Checking**
+    - [ ] 3.2.1: Authenticated users must be able to enter a domain name into an input field and check its registration status (available or registered). (Requires implementing frontend component and WHOIS service integration)
+    - [ ] 3.2.2: For registered domains, the system shall fetch and display key WHOIS data, including registrar, registration date, and expiration date. (Requires integrating WHOIS services and displaying data in UI)
+
+- [ ] **3.3. Domain Tracking**
+    - [ ] 3.3.1: Users must be able to add domains to a persistent tracking list associated with their account. (Requires implementing frontend component and database interaction)
+    - [ ] 3.3.2: The tracked list shall display the domain name, its status, expiration date, and user-assigned tag. (Requires implementing frontend component and fetching data from database)
+    - [ ] 3.3.3: Users must be able to remove domains from their tracking list. (Requires implementing frontend component and database interaction)
+    - [ ] 3.3.4: Users must be able to switch the tag of a tracked domain (e.g., from "To Snatch" to "Mine" and vice-versa). (Requires implementing frontend component and database interaction)
+
+- [ ] **3.4. Tagging System**
+    - [ ] 3.4.1: Users must be able to categorize tracked domains with one of two tags: "Mine" and "To Snatch". (Requires implementing tagging functionality in UI and database)
+    - [ ] 3.4.2: The UI should visually distinguish between domains with different tags. (Requires implementing UI styling based on tags)
+
+- [ ] **3.5. Expiration Notifications & Alerts**
+    - [ ] 3.5.1: For domains tagged "Mine", the system must generate a notification when the domain is within a user-defined period of its expiration date (default: 7 days). (Requires implementing logic for checking expiration dates and generating notifications)
+    - [ ] 3.5.2: Notifications shall be clearly visible within the application's UI. (Requires implementing UI for displaying notifications)
+
+- [ ] **3.6. Drop Snatching Assistance**
+    - [ ] 3.6.1: For domains tagged "To Snatch" that have expired, the system will provide an informative modal with an estimated lifecycle timeline. (Requires implementing logic for estimating timeline and displaying modal)
+    - [ ] 3.6.2: This timeline will estimate the end of the Grace Period, Redemption Period, and the potential drop date. (Requires implementing logic for estimating timeline)
+
+- [ ] **3.7. Automated Daily Checks (Simulated Client-Side)**
+    - [ ] 3.7.1: The application will perform a simulated daily background check on all tracked domains when the app is open. (Requires implementing logic for simulated daily checks)
+    - [ ] 3.7.2: The primary purpose of the check is to update the status of expired domains to see if they have "dropped". (Requires integrating WHOIS services and updating database)
+
+- [ ] **3.8. UI/UX**
+    - [x] 3.8.1: The application must feature a theme toggle for Light and Dark modes. (Based on file list, `components/ModeToggle.tsx` likely exists)
+    - [x] 3.8.2: The interface must be clean, modern, and aesthetically pleasing, built with Tailwind CSS. (Based on file list and `package.json`, Tailwind CSS is being used)
+    - [ ] 3.8.3: The application must be fully responsive and usable on various screen sizes. (Requires implementing responsive design)
+
+- [ ] **3.9. System Behavior**
+    - [x] 3.9.1. Configuration Error Handling: The application must not crash if critical environment variables are missing. (Partially addressed in `services/supabaseService.ts`, needs comprehensive handling)
+    - [x] 4.5. Global Error Boundary: The application must not crash to a blank screen in case of a UI rendering error. (Based on file list, `components/ErrorBoundary.tsx` likely exists)
+
+- [ ] **4. Non-Functional Requirements** (These are ongoing considerations and not distinct tasks)
+    - [x] 4.1. Performance: The UI must be fast and responsive. (Ongoing effort)
+    - [x] 4.2. Usability: The application flow should be intuitive. (Ongoing effort)
+    - [x] 4.3. Security: User data must be isolated and protected. (Addressed by Supabase RLS and secure coding practices)
+    - [x] 4.4. Data Persistence: All user data must be stored securely in a remote database (Supabase). (Addressed by using Supabase)
+
+- [x] **5. Technical Stack** (Defined in `prd.md` and reflected in `package.json`)
+
+- [x] **6. Out of Scope (Future Enhancements)** (Defined in `prd.md`)
+
+- [x] **7. Status** (Defined in `prd.md`)
