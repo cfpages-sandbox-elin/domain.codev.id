@@ -8,10 +8,8 @@ export interface Database {
     Tables: {
       domains: {
         Row: Domain; // The type of a row from the database. (alias for our Domain type)
-        // The type for inserting a new row. DB handles id, user_id, and created_at.
-        Insert: Omit<Domain, 'id' | 'user_id' | 'created_at'>;
-        // The type for updating a row. id, user_id and created_at should not be updatable.
-        Update: Partial<Omit<Domain, 'id' | 'user_id' | 'created_at'>>;
+        // By only defining Row, we allow the Supabase client to correctly infer
+        // the types for Insert and Update operations, preventing type errors.
       };
     };
     Views: {
@@ -50,9 +48,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = supabaseInstance;
 
-// Derive Insert and Update types from the Database interface to ensure consistency.
-export type DomainInsert = Database['public']['Tables']['domains']['Insert'];
-export type DomainUpdate = Database['public']['Tables']['domains']['Update'];
+// Manually define Insert and Update types based on the Domain type.
+// This decouples them from the `Database` interface and prevents circular type definitions.
+// The type for inserting a new row. DB handles id, user_id, and created_at.
+export type DomainInsert = Omit<Domain, 'id' | 'user_id' | 'created_at'>;
+// The type for updating a row. id, user_id and created_at should not be updatable.
+export type DomainUpdate = Partial<Omit<Domain, 'id' | 'user_id' | 'created_at'>>;
 
 
 // --- Auth Functions ---

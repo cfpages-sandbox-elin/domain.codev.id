@@ -1,8 +1,8 @@
 # Product Requirements Document: Domain Codev
 
 **Author:** World-Class Senior Frontend React Engineer
-**Version:** 1.9
-**Date:** 2024-05-29
+**Version:** 2.0
+**Date:** 2024-05-30
 
 ---
 
@@ -24,11 +24,12 @@ Domain Codev is a web application designed for individuals and businesses to mon
 *   **3.1.4:** Unauthenticated users should be presented with a login page and cannot access the application's core features.
 
 ### 3.2. Domain Status Checking
-*   **3.2.1:** Authenticated users must be able to enter a domain name into an input field and check its registration status (available or registered).
-*   **3.2.2:** For registered domains, the system shall fetch and display key WHOIS data, including registrar, registration date, and expiration date.
-*   **3.2.3:** For available domains, the application shall present a "Buy" button and a dropdown of recommended registrars to facilitate immediate acquisition.
-    *   **3.2.3.1. Layout:** The availability status text, registrar dropdown, and "Buy Now" button must be rendered inline with the domain name on a single line in the domain list view to provide a compact and efficient user interface. These elements should be visually grouped and appear after the domain's tags.
-*   **3.2.4:** The registrar list will be context-aware, suggesting relevant registrars based on the domain's TLD (e.g., specific options for `.id` domains vs. gTLDs).
+*   **3.2.1:** Authenticated users must be able to enter a domain name into an input field and check its registration status (available or registered) in real-time.
+*   **3.2.2:** Real-time checks are performed by invoking a secure Supabase Edge Function, which acts as a proxy to query multiple WHOIS providers. This approach resolves browser CORS limitations and enhances security by keeping API keys on the server.
+*   **3.2.3:** For registered domains, the system shall fetch and display key WHOIS data, including registrar, registration date, and expiration date.
+*   **3.2.4:** For available domains, the application shall present a "Buy" button and a dropdown of recommended registrars to facilitate immediate acquisition.
+    *   **3.2.4.1. Layout:** The availability status text, registrar dropdown, and "Buy Now" button must be rendered inline with the domain name on a single line in the domain list view to provide a compact and efficient user interface. These elements should be visually grouped and appear after the domain's tags.
+*   **3.2.5:** The registrar list will be context-aware, suggesting relevant registrars based on the domain's TLD (e.g., specific options for `.id` domains vs. gTLDs).
 
 ### 3.3. Domain Tracking
 *   **3.3.1:** Users must be able to add domains to a persistent tracking list associated with their account.
@@ -68,7 +69,7 @@ Domain Codev is a web application designed for individuals and businesses to mon
 
 ### 3.7. Automated Daily Checks (Server-Side)
 *   **3.7.1:** The application backend will perform a daily background check on all tracked domains that require a status update (e.g., those that have recently expired).
-*   **3.7.2:** This check is implemented as a Supabase Edge Function, triggered by a cron job. The trigger can be configured via Supabase's built-in scheduler or an external service (e.g., fastcron.com).
+*   **3.7.2:** This check is implemented as a Supabase Edge Function (`check-domains`), triggered by a cron job. The trigger can be configured via Supabase's built-in scheduler or an external service (e.g., fastcron.com).
 *   **3.7.3:** The primary purpose of the check is to update the status of expired domains to see if they have been renewed or if they have "dropped" and become available.
 
 ### 3.8. UI/UX
@@ -107,7 +108,7 @@ To enhance user-friendliness and reduce the learning curve, the application will
 
 *   **4.1. Performance:** The UI must be fast and responsive, with loading states to indicate background operations. Bulk operations must not lock the UI.
 *   **4.2. Usability:** The application flow should be intuitive, requiring minimal instruction for a new user.
-*   **4.3. Security:** User data must be isolated and protected. The `check-domains` Edge Function must be protected by a secret key.
+*   **4.3. Security:** User data must be isolated and protected. All WHOIS API keys are stored securely as Supabase secrets and are not exposed to the client. The `check-domains` Edge Function must be protected by a secret key. Real-time checks are proxied through an authenticated Edge Function.
 *   **4.4. Data Persistence:** All user data must be stored securely in a remote database (Supabase).
 *   **4.5. Global Error Boundary:** The application must not crash to a blank screen in case of a UI rendering error. A global error boundary shall catch such errors and display a user-friendly fallback screen with an option to recover (e.g., refresh the page).
 
@@ -118,13 +119,15 @@ To enhance user-friendliness and reduce the learning curve, the application will
 *   **Content Parsing:** `marked` for rendering documentation
 *   **Authentication:** Supabase Auth (with Google OAuth)
 *   **Database:** Supabase (PostgreSQL with RLS)
-*   **Backend Automation:** Supabase Edge Function with Cron Jobs
-*   **WHOIS Data:**
+*   **Backend Logic:** Supabase Edge Functions
+    *   `get-whois`: Real-time, on-demand WHOIS lookups (invoked from client).
+    *   `check-domains`: Daily automated checks for all tracked domains (triggered by cron job).
+*   **WHOIS Data (used by Edge Functions):**
     *   Primary (Optional, Self-hosted): `who-dat`
     *   Backup 1: WhoisXMLAPI
     *   Backup 2: apilayer.com API
     *   Backup 3: whoisfreaks.com API
-*   **Automation (Production):** Supabase's built-in scheduler or an external cron service (e.g., fastcron.com, cron-job.org) triggering the secure Supabase Edge Function.
+*   **Automation (Production):** Supabase's built-in scheduler or an external cron service (e.g., fastcron.com, cron-job.org) triggering the secure `check-domains` Supabase Edge Function.
 
 ## 6. Out of Scope (Future Enhancements)
 
@@ -140,16 +143,17 @@ It is live now and deployed at https://domain.codev.id
 ## 8. To-Do List (Generated)
 
 - [ ] **3.1. User Authentication**
-    - [x] 3.1.1: Users must be able to sign up and log in to the application using their Google account (OAuth). (Supabase service initiated)
-    - [x] 3.1.2: All domain data must be associated with the logged-in user's account. (Requires implementing database interactions)
-    - [x] 3.1.3: Users must be able to log out of the application. (Requires implementing logout function in UI)
-    - [x] 3.1.4: Unauthenticated users should be presented with a login page and cannot access the application's core features. (Requires implementing route guarding)
+    - [x] 3.1.1: Users must be able to sign up and log in to the application using their Google account (OAuth).
+    - [x] 3.1.2: All domain data must be associated with the logged-in user's account.
+    - [x] 3.1.3: Users must be able to log out of the application.
+    - [x] 3.1.4: Unauthenticated users should be presented with a login page.
 
 - [ ] **3.2. Domain Status Checking**
-    - [x] 3.2.1: Authenticated users must be able to enter a domain name into an input field and check its registration status (available or registered).
-    - [x] 3.2.2: For registered domains, the system shall fetch and display key WHOIS data.
-    - [x] 3.2.3: For available domains, present a "Buy" button and registrar dropdown.
-    - [x] 3.2.4: Make registrar list context-aware based on TLD.
+    - [x] 3.2.1: Implement real-time domain status checking.
+    - [x] 3.2.2: Proxy WHOIS checks through a Supabase Edge Function for security and CORS compliance.
+    - [x] 3.2.3: Display key WHOIS data for registered domains.
+    - [x] 3.2.4: For available domains, present a "Buy" button and registrar dropdown.
+    - [x] 3.2.5: Make registrar list context-aware based on TLD.
 
 - [ ] **3.3. Domain Tracking**
     - [x] 3.3.1: Users must be able to add domains to a persistent tracking list.
@@ -166,33 +170,33 @@ It is live now and deployed at https://domain.codev.id
 
 - [ ] **3.5. Expiration Notifications & Alerts**
     - [x] 3.5.1: Generate in-app notifications for expiring domains.
-    - [x] 3.5.2: Implement multi-level, color-coded highlighting for expiring domains (90, 30, 7 days, and expired).
+    - [x] 3.5.2: Implement multi-level, color-coded highlighting for expiring domains.
     - [x] 3.5.3: Notifications shall be clearly visible within the application's UI.
 
 - [ ] **3.6. Drop Snatching Assistance**
-    - [x] 3.6.1: For domains tagged "To Snatch" that have expired, the system will provide an informative modal with an estimated lifecycle timeline.
-    - [x] 3.6.2: This timeline will estimate the end of the Grace Period, Redemption Period, and the potential drop date.
+    - [x] 3.6.1: Provide an informative modal with an estimated lifecycle timeline for expired domains.
+    - [x] 3.6.2: This timeline will estimate key dates in the drop-catching process.
 
 - [ ] **3.7. Automated Daily Checks (Server-Side)**
-    - [x] 3.7.1: The application backend will perform a daily background check on all tracked domains that require a status update. (Implemented with Supabase Edge Function)
-    - [x] 3.7.2: This check is implemented as a Supabase Edge Function, triggered by a daily cron job. (Requires developer setup as per README)
-    - [x] 3.7.3: The primary purpose of the check is to update the status of expired domains to see if they have been renewed or if they have "dropped". (Logic implemented in Edge Function)
+    - [x] 3.7.1: The application backend will perform a daily background check on all tracked domains that require a status update.
+    - [x] 3.7.2: This check is implemented as a Supabase Edge Function (`check-domains`), triggered by a daily cron job.
+    - [x] 3.7.3: The check's purpose is to update the status of expired domains.
 
 - [ ] **3.8. UI/UX**
-    - [x] 3.8.1: The application must feature a theme toggle for Light and Dark modes.
-    - [x] 3.8.2: The interface must be clean, modern, and aesthetically pleasing, built with Tailwind CSS.
-    - [x] 3.8.3: The application must be fully responsive and usable on various screen sizes.
-    - [x] 3.8.4: Implement Compact View toggle and functionality.
+    - [x] 3.8.1: Implement a theme toggle for Light and Dark modes.
+    - [x] 3.8.2: Build a clean, modern, and aesthetically pleasing interface with Tailwind CSS.
+    - [x] 3.8.3: Ensure the application is fully responsive.
+    - [x] 3.8.4: Implement a Compact View toggle and functionality.
 
 - [ ] **3.9. System Behavior**
     - [x] 3.9.1. Configuration Error Handling: The application must not crash if critical environment variables are missing.
     - [x] 4.5. Global Error Boundary: The application must not crash to a blank screen in case of a UI rendering error.
 
 - [ ] **3.10. In-App Guidance & Documentation**
-    - [x] 3.10.1.1. Domain Form: Add descriptive text below the "Check Domain" heading.
-    - [x] 3.10.1.2. Tracked Domains: Add an informational block explaining auto-checks.
-    - [x] 3.10.1.3. Empty State: The message shown when the tracking list is empty will be encouraging and directive.
-    - [x] 3.10.1.4. Drop Snatching Modal: The modal will more clearly state that the provided dates are estimates and can vary.
+    - [x] 3.10.1.1: Domain Form: Add descriptive text.
+    - [x] 3.10.1.2. Tracked Domains: Add informational block explaining auto-checks.
+    - [x] 3.10.1.3. Empty State: Implement an encouraging message.
+    - [x] 3.10.1.4. Drop Snatching Modal: Clarify that dates are estimates.
     - [x] 3.10.2.1. New View: Implement the "Documentation" view.
     - [x] 3.10.2.2. Content: Load markdown files into the application.
     - [x] 3.10.2.3. Navigation: Implement a sidebar for doc navigation.
@@ -204,14 +208,14 @@ It is live now and deployed at https://domain.codev.id
     - [x] 3.11.3: Implement data export to JSON and CSV files.
     - [x] 3.11.4: Implement concurrent, rate-limited processing for bulk additions.
 
-- [ ] **4. Non-Functional Requirements** (These are ongoing considerations and not distinct tasks)
-    - [x] 4.1. Performance: The UI must be fast and responsive. (Ongoing effort)
-    - [x] 4.2. Usability: The application flow should be intuitive. (Ongoing effort)
-    - [x] 4.3. Security: User data must be isolated and protected. (Addressed by Supabase RLS and secure coding practices)
-    - [x] 4.4. Data Persistence: All user data must be stored securely in a remote database (Supabase). (Addressed by using Supabase)
+- [ ] **4. Non-Functional Requirements**
+    - [x] 4.1. Performance: The UI must be fast and responsive.
+    - [x] 4.2. Usability: The application flow should be intuitive.
+    - [x] 4.3. Security: User data must be protected, and API keys must be kept server-side.
+    - [x] 4.4. Data Persistence: All user data must be stored securely in Supabase.
 
-- [x] **5. Technical Stack** (Defined in `prd.md` and reflected in `package.json`)
+- [x] **5. Technical Stack** (Defined and implemented)
 
-- [x] **6. Out of Scope (Future Enhancements)** (Defined in `prd.md`)
+- [x] **6. Out of Scope (Future Enhancements)** (Defined)
 
-- [x] **7. Status** (Defined in `prd.md`)
+- [x] **7. Status** (Defined)

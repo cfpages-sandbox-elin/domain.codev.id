@@ -50,25 +50,7 @@ const App: React.FC = () => {
       return;
     }
     addLog('✅ Supabase configuration loaded.');
-
-    const whoisKeys = {
-        'who-dat': import.meta.env.VITE_WHO_DAT_URL,
-        'WhoisXMLAPI': import.meta.env.VITE_WHOIS_API_KEY,
-        'apilayer.com': import.meta.env.VITE_APILAYER_API_KEY,
-        'whoisfreaks.com': import.meta.env.VITE_WHOISFREAKS_API_KEY,
-        'whoapi.com': import.meta.env.VITE_WHOAPI_COM_API_KEY,
-        'rapidapi.com': import.meta.env.VITE_RAPIDAPI_KEY,
-    };
-    let hasAnyWhoisKey = false;
-    for(const [provider, key] of Object.entries(whoisKeys)) {
-        if(key) {
-            addLog(`✅ ${provider} provider is configured.`);
-            hasAnyWhoisKey = true;
-        } else {
-            addLog(`⚠️ ${provider} provider is not configured.`);
-        }
-    }
-    if(!hasAnyWhoisKey) addLog('❌ No WHOIS providers configured. Domain lookups will fail.');
+    addLog('ℹ️ WHOIS checks are performed server-side for security.');
 
 
     const fetchSession = async () => {
