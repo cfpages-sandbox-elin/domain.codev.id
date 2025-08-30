@@ -1,40 +1,32 @@
-// This file contains shared WHOIS logic to be used by multiple Supabase Edge Functions.
+// This file contains shared WHOIS logic to be used by multiple Cloudflare Pages Functions.
 
 //-------------------------------------------------
 // Types
 //-------------------------------------------------
 type DomainStatus = 'available' | 'registered' | 'expired' | 'dropped' | 'unknown';
 
-interface WhoisData {
+export interface WhoisData {
   status: DomainStatus;
   expirationDate: string | null;
   registeredDate: string | null;
   registrar: string | null;
 }
 
-//-------------------------------------------------
-// Environment Variable Access
-//-------------------------------------------------
-// @ts-ignore
-const WHO_DAT_URL = Deno.env.get('WHO_DAT_URL');
-// @ts-ignore
-const WHO_DAT_AUTH_KEY = Deno.env.get('WHO_DAT_AUTH_KEY');
-// @ts-ignore
-const WHOISXMLAPI_KEY = Deno.env.get('WHOIS_API_KEY');
-// @ts-ignore
-const APILAYER_KEY = Deno.env.get('APILAYER_API_KEY');
-// @ts-ignore
-const WHOISFREAKS_KEY = Deno.env.get('WHOISFREAKS_API_KEY');
-// @ts-ignore
-const WHOAPI_COM_KEY = Deno.env.get('WHOAPI_COM_API_KEY');
-// @ts-ignore
-const RAPIDAPI_KEY = Deno.env.get('RAPIDAPI_KEY');
+interface Env {
+    WHO_DAT_URL?: string;
+    WHO_DAT_AUTH_KEY?: string;
+    WHOIS_API_KEY?: string;
+    APILAYER_API_KEY?: string;
+    WHOISFREAKS_API_KEY?: string;
+    WHOAPI_COM_API_KEY?: string;
+    RAPIDAPI_KEY?: string;
+}
 
 // --- Provider 0: who-dat (Primary) ---
-const getWhoisDataFromWhoDat = async (domainName: string): Promise<WhoisData> => {
+const getWhoisDataFromWhoDat = async (domainName: string, env: Env): Promise<WhoisData> => {
     const headers = new Headers();
-    if (WHO_DAT_AUTH_KEY) headers.append('Authorization', `Bearer ${WHO_DAT_AUTH_KEY}`);
-    const response = await fetch(`${WHO_DAT_URL!}/${domainName}`, { headers });
+    if (env.WHO_DAT_AUTH_KEY) headers.append('Authorization', `Bearer ${env.WHO_DAT_AUTH_KEY}`);
+    const response = await fetch(`${env.WHO_DAT_URL!}/${domainName}`, { headers });
     if (!response.ok) throw new Error(`who-dat failed: ${response.status}`);
     const data = await response.json();
     if (data.error) throw new Error(`who-dat error: ${data.error}`);
@@ -48,9 +40,9 @@ const getWhoisDataFromWhoDat = async (domainName: string): Promise<WhoisData> =>
 };
 
 // --- Provider 1: WhoisXMLAPI ---
-const getWhoisDataFromWhoisXmlApi = async (domainName: string): Promise<WhoisData> => {
-    if (!WHOISXMLAPI_KEY) throw new Error("WhoisXMLAPI Key not provided.");
-    const url = `https://www.whoisxmlapi.com/whoisserver/WhoisService?apiKey=${WHOISXMLAPI_KEY}&domainName=${domainName}&outputFormat=JSON&da=2`;
+const getWhoisDataFromWhoisXmlApi = async (domainName: string, env: Env): Promise<WhoisData> => {
+    if (!env.WHOIS_API_KEY) throw new Error("WhoisXMLAPI Key not provided.");
+    const url = `https://www.whoisxmlapi.com/whoisserver/WhoisService?apiKey=${env.WHOIS_API_KEY}&domainName=${domainName}&outputFormat=JSON&da=2`;
     const response = await fetch(url);
     if (!response.ok) throw new Error(`WhoisXMLAPI failed: ${response.status}`);
     const data = await response.json();
@@ -70,13 +62,13 @@ const getWhoisDataFromWhoisXmlApi = async (domainName: string): Promise<WhoisDat
 // --- Provider 2: apilayer.com ---
 const APILAYER_SUPPORTED_TLDS = new Set(['com', 'me', 'net', 'org', 'sh', 'io', 'co', 'club', 'biz', 'mobi', 'info', 'us', 'domains', 'cloud', 'fr', 'au', 'ru', 'uk', 'nl', 'fi', 'br', 'hr', 'ee', 'ca', 'sk', 'se', 'no', 'cz', 'it', 'in', 'icu', 'top', 'xyz', 'cn', 'cf', 'hk', 'sg', 'pt', 'site', 'kz', 'si', 'ae', 'do', 'yoga', 'xxx', 'ws', 'work', 'wiki', 'watch', 'wtf', 'world', 'website', 'vip', 'ly', 'dev', 'network', 'company', 'page', 'rs', 'run', 'science', 'sex', 'shop', 'solutions', 'so', 'studio', 'style', 'tech', 'travel', 'vc', 'pub', 'pro', 'app', 'press', 'ooo', 'de']);
 
-const getWhoisDataFromApiLayer = async (domainName: string): Promise<WhoisData> => {
-    if (!APILAYER_KEY) throw new Error("apilayer.com Key not provided.");
+const getWhoisDataFromApiLayer = async (domainName: string, env: Env): Promise<WhoisData> => {
+    if (!env.APILAYER_API_KEY) throw new Error("apilayer.com Key not provided.");
     const tld = domainName.split('.').pop();
     if (!tld || !APILAYER_SUPPORTED_TLDS.has(tld)) {
         throw new Error(`TLD ".${tld}" is not supported by apilayer.com`);
     }
-    const response = await fetch(`https://api.apilayer.com/whois/check?domain=${domainName}`, { headers: { 'apikey': APILAYER_KEY } });
+    const response = await fetch(`https://api.apilayer.com/whois/check?domain=${domainName}`, { headers: { 'apikey': env.APILAYER_API_KEY } });
     if (!response.ok) throw new Error(`apilayer.com failed: ${response.status}`);
     const data = await response.json();
     if (data.message || !data.result) throw new Error(`apilayer.com Error: ${data.message || 'Invalid response'}`);
@@ -91,9 +83,9 @@ const getWhoisDataFromApiLayer = async (domainName: string): Promise<WhoisData> 
 }
 
 // --- Provider 3: WhoisFreaks ---
-const getWhoisDataFromWhoisFreaks = async (domainName: string): Promise<WhoisData> => {
-    if (!WHOISFREAKS_KEY) throw new Error("WhoisFreaks Key not provided.");
-    const url = `https://api.whoisfreaks.com/v1.0/whois?apiKey=${WHOISFREAKS_KEY}&whois=live&domainName=${domainName}`;
+const getWhoisDataFromWhoisFreaks = async (domainName: string, env: Env): Promise<WhoisData> => {
+    if (!env.WHOISFREAKS_API_KEY) throw new Error("WhoisFreaks Key not provided.");
+    const url = `https://api.whoisfreaks.com/v1.0/whois?apiKey=${env.WHOISFREAKS_API_KEY}&whois=live&domainName=${domainName}`;
     const response = await fetch(url);
     if (!response.ok) throw new Error(`WhoisFreaks failed: ${response.status}`);
     const data = await response.json();
@@ -108,9 +100,9 @@ const getWhoisDataFromWhoisFreaks = async (domainName: string): Promise<WhoisDat
 };
 
 // --- Provider 4: whoapi.com ---
-const getWhoisDataFromWhoapi = async (domainName: string): Promise<WhoisData> => {
-    if (!WHOAPI_COM_KEY) throw new Error("whoapi.com API Key not provided.");
-    const url = `https://api.whoapi.com/?apikey=${WHOAPI_COM_KEY}&r=whois&domain=${domainName}`;
+const getWhoisDataFromWhoapi = async (domainName: string, env: Env): Promise<WhoisData> => {
+    if (!env.WHOAPI_COM_API_KEY) throw new Error("whoapi.com API Key not provided.");
+    const url = `https://api.whoapi.com/?apikey=${env.WHOAPI_COM_API_KEY}&r=whois&domain=${domainName}`;
     const response = await fetch(url);
     if (!response.ok) throw new Error(`whoapi.com failed: ${response.status}`);
     const data = await response.json();
@@ -128,13 +120,13 @@ const getWhoisDataFromWhoapi = async (domainName: string): Promise<WhoisData> =>
 };
 
 // --- Provider 5: RapidAPI ---
-const getWhoisDataFromRapidApi = async (domainName: string): Promise<WhoisData> => {
-    if (!RAPIDAPI_KEY) throw new Error("RapidAPI Key not provided.");
+const getWhoisDataFromRapidApi = async (domainName: string, env: Env): Promise<WhoisData> => {
+    if (!env.RAPIDAPI_KEY) throw new Error("RapidAPI Key not provided.");
 
     const url = `https://domain-whois-lookup-api.p.rapidapi.com/whois?domain_name=${domainName}`;
     const response = await fetch(url, {
         headers: {
-            'x-rapidapi-key': RAPIDAPI_KEY,
+            'x-rapidapi-key': env.RAPIDAPI_KEY,
             'x-rapidapi-host': 'domain-whois-lookup-api.p.rapidapi.com'
         }
     });
@@ -166,24 +158,24 @@ const getWhoisDataFromRapidApi = async (domainName: string): Promise<WhoisData> 
 
 
 // --- Main Service Function (Waterfall) ---
-export const getWhoisData = async (domainName: string): Promise<WhoisData> => {
-    if (WHO_DAT_URL) {
-        try { return await getWhoisDataFromWhoDat(domainName); } catch (e) { console.error(`who-dat failed for ${domainName}: ${e.message}`); }
+export const getWhoisData = async (domainName: string, env: Env): Promise<WhoisData> => {
+    if (env.WHO_DAT_URL) {
+        try { return await getWhoisDataFromWhoDat(domainName, env); } catch (e) { console.error(`who-dat failed for ${domainName}: ${e.message}`); }
     }
-    if (WHOISXMLAPI_KEY) {
-        try { return await getWhoisDataFromWhoisXmlApi(domainName); } catch (e) { console.error(`WhoisXMLAPI failed for ${domainName}: ${e.message}`); }
+    if (env.WHOIS_API_KEY) {
+        try { return await getWhoisDataFromWhoisXmlApi(domainName, env); } catch (e) { console.error(`WhoisXMLAPI failed for ${domainName}: ${e.message}`); }
     }
-    if (APILAYER_KEY) {
-        try { return await getWhoisDataFromApiLayer(domainName); } catch (e) { console.error(`apilayer.com failed for ${domainName}: ${e.message}`); }
+    if (env.APILAYER_API_KEY) {
+        try { return await getWhoisDataFromApiLayer(domainName, env); } catch (e) { console.error(`apilayer.com failed for ${domainName}: ${e.message}`); }
     }
-    if (WHOISFREAKS_KEY) {
-        try { return await getWhoisDataFromWhoisFreaks(domainName); } catch (e) { console.error(`whoisfreaks.com failed for ${domainName}: ${e.message}`); }
+    if (env.WHOISFREAKS_API_KEY) {
+        try { return await getWhoisDataFromWhoisFreaks(domainName, env); } catch (e) { console.error(`whoisfreaks.com failed for ${domainName}: ${e.message}`); }
     }
-    if (WHOAPI_COM_KEY) {
-        try { return await getWhoisDataFromWhoapi(domainName); } catch (e) { console.error(`whoapi.com failed for ${domainName}: ${e.message}`); }
+    if (env.WHOAPI_COM_API_KEY) {
+        try { return await getWhoisDataFromWhoapi(domainName, env); } catch (e) { console.error(`whoapi.com failed for ${domainName}: ${e.message}`); }
     }
-    if (RAPIDAPI_KEY) {
-        try { return await getWhoisDataFromRapidApi(domainName); } catch (e) { console.error(`rapidapi.com failed for ${domainName}: ${e.message}`); }
+    if (env.RAPIDAPI_KEY) {
+        try { return await getWhoisDataFromRapidApi(domainName, env); } catch (e) { console.error(`rapidapi.com failed for ${domainName}: ${e.message}`); }
     }
     console.error(`❌ All WHOIS providers failed for ${domainName}.`);
     return { status: 'unknown', expirationDate: null, registeredDate: null, registrar: 'Error' };

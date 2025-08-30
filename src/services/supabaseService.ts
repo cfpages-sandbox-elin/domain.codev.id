@@ -1,15 +1,30 @@
-
 import { createClient, Session, SupabaseClient } from '@supabase/supabase-js';
 import { Domain, DomainTag, DomainStatus } from '../types';
 
-// Define the database schema. This is our single source of truth for types.
+// Define the database schema with all necessary types
 export interface Database {
   public: {
     Tables: {
       domains: {
-        Row: Domain; // The type of a row from the database. (alias for our Domain type)
-        // By only defining Row, we allow the Supabase client to correctly infer
-        // the types for Insert and Update operations, preventing type errors.
+        Row: Domain;
+        Insert: {
+          domain_name: string;
+          tag: DomainTag;
+          status: DomainStatus;
+          expiration_date: string | null;
+          registered_date: string | null;
+          registrar: string | null;
+          last_checked: string | null;
+        };
+        Update: {
+          domain_name?: string;
+          tag?: DomainTag;
+          status?: DomainStatus;
+          expiration_date?: string | null;
+          registered_date?: string | null;
+          registrar?: string | null;
+          last_checked?: string | null;
+        };
       };
     };
     Views: {
@@ -28,7 +43,6 @@ export interface Database {
   };
 }
 
-
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -46,15 +60,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
   }
 }
 
-export const supabase = supabaseInstance;
+export const supabase = supabaseInstance as SupabaseClient<any> | null;
 
-// Manually define Insert and Update types based on the Domain type.
-// This decouples them from the `Database` interface and prevents circular type definitions.
-// The type for inserting a new row. DB handles id, user_id, and created_at.
-export type DomainInsert = Omit<Domain, 'id' | 'user_id' | 'created_at'>;
-// The type for updating a row. id, user_id and created_at should not be updatable.
-export type DomainUpdate = Partial<Omit<Domain, 'id' | 'user_id' | 'created_at'>>;
-
+// Make sure to export these types
+export type DomainInsert = Database['public']['Tables']['domains']['Insert'];
+export type DomainUpdate = Database['public']['Tables']['domains']['Update'];
 
 // --- Auth Functions ---
 
@@ -116,7 +126,7 @@ export const addDomain = async (domainData: DomainInsert): Promise<Domain | null
     if (!supabase) return null;
     const { data, error } = await supabase
         .from('domains')
-        .insert([domainData])
+        .insert(domainData)
         .select()
         .single();
     
