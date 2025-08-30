@@ -17,26 +17,43 @@ export const getWhoisData = async (domainName: string, log?: (message: string) =
     }
 
     try {
-        const { data, error } = await supabase.functions.invoke('get-whois', {
-            body: { domainName },
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError) {
+            log?.(`❌ Error getting user session: ${sessionError.message}`);
+            console.error("Error getting session:", sessionError);
+            return {
+                status: 'unknown',
+                expirationDate: null,
+                registeredDate: null,
+                registrar: 'Error: Could not authenticate.',
+            };
+        }
+
+        if (!session) {
+            log?.('❌ You must be logged in to perform a WHOIS check.');
+            return {
+                status: 'unknown',
+                expirationDate: null,
+                registeredDate: null,
+                registrar: 'Error: Not logged in.',
+            };
+        }
+
+        const response = await fetch('/api/get-whois', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ domainName }),
         });
 
-        if (error) {
-            // Handle different kinds of errors that can occur
-            let errorMessage = `Error invoking function: ${error.message}`;
-            if (error instanceof Error && 'details' in error) {
-                errorMessage = `${errorMessage} - Details: ${JSON.stringify((error as any).details)}`;
-            } else if (error instanceof Error && 'context' in error) {
-                 const context = (error as any).context;
-                 if (context?.code === 401) {
-                    errorMessage = "Unauthorized: You may need to sign in again.";
-                 } else if (context?.text) {
-                     errorMessage = `Function returned an error: ${context.text}`;
-                 }
-            }
-
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: 'Could not parse error response' }));
+            const errorMessage = `Error from server: ${errorData.error || response.statusText}`;
             log?.(`❌ ${errorMessage}`);
-            console.error("Error fetching whois data:", error);
+            console.error("Error fetching whois data:", errorMessage);
             return {
                 status: 'unknown',
                 expirationDate: null,
@@ -44,6 +61,8 @@ export const getWhoisData = async (domainName: string, log?: (message: string) =
                 registrar: `Error: Server-side check failed.`,
             };
         }
+
+        const data = await response.json();
         
         log?.(`✅ Successfully received WHOIS data for ${domainName}.`);
         return data as WhoisData;
@@ -51,7 +70,7 @@ export const getWhoisData = async (domainName: string, log?: (message: string) =
     } catch (e) {
         const error = e as Error;
         log?.(`❌ A critical error occurred while invoking the function: ${error.message}`);
-        console.error("Critical error invoking Supabase function:", error);
+        console.error("Critical error invoking Cloudflare function:", error);
         return {
             status: 'unknown',
             expirationDate: null,

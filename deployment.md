@@ -10,129 +10,70 @@ This guide provides step-by-step instructions for deploying the Domain Codev app
 
 ## Deployment Steps
 
-(Steps 1-5 for deploying the frontend application remain unchanged and can be found in the original `deployment.md`)
-
 ### Step 1: Push Your Code to GitHub
+Push your project code to a GitHub repository.
+
 ### Step 2: Create a Cloudflare Pages Project
+1.  Log in to your Cloudflare dashboard.
+2.  Go to **Workers & Pages** -> **Create application** -> **Pages** -> **Connect to Git**.
+3.  Select your GitHub repository and begin setup.
+
 ### Step 3: Configure Build Settings
+- **Project name**: Choose a name for your project.
+- **Production branch**: Select your main branch.
+- **Framework preset**: `Vite`.
+- **Build command**: `npm run build` or `vite build`.
+- **Build output directory**: `dist`.
+
 ### Step 4: Add Environment Variables
+This is the most critical step for configuring the application's backend functionality. In your Cloudflare Pages project, go to **Settings** -> **Environment variables**. Add the following variables, making sure to add them for both **Production** and **Preview** environments.
+
+#### Supabase Configuration
+- `VITE_SUPABASE_URL`: Your Supabase project URL.
+- `VITE_SUPABASE_ANON_KEY`: Your Supabase project's anonymous key.
+- `SUPABASE_SERVICE_ROLE_KEY`: Your Supabase project's service role key (this is a secret).
+- `SUPABASE_JWT_SECRET`: Your Supabase project's JWT secret (this is a secret). You can find this in your Supabase project's settings under API -> JWT Settings.
+
+#### Cron Job Secret
+- `CRON_SECRET`: A strong, random string you generate. This is used to secure the scheduled task that checks domain statuses.
+
+#### WHOIS Provider API Keys (Add at least one)
+- `WHOIS_API_KEY`: Your key from WhoisXMLAPI.
+- `APILAYER_API_KEY`: Your key from apilayer.com.
+- `WHOISFREAKS_API_KEY`: Your key from WhoisFreaks.
+- `WHOAPI_COM_API_KEY`: Your key from whoapi.com.
+- `RAPIDAPI_KEY`: Your key from RapidAPI.
+
+#### Optional: Self-Hosted `who-dat`
+- `WHO_DAT_URL`: The URL of your self-hosted who-dat instance.
+- `WHO_DAT_AUTH_KEY`: The authentication key for your who-dat instance.
+
 ### Step 5: Deploy the Application
+Click **Save and Deploy**. Cloudflare Pages will build and deploy your application. The backend functions in the `/functions` directory will be deployed automatically.
 
 ---
 
-## Setting Up Backend Functions (Post-Deployment)
+## Backend and Cron Job Configuration
 
-To enable both real-time domain lookups and automatic daily checks, you need to deploy the Supabase Edge Functions. This is a crucial step for the app's core functionality.
+The application's backend logic for WHOIS lookups and daily domain checks is handled by **Cloudflare Functions**, which are included in this repository.
 
-Choose one of the following methods based on your comfort level.
+- **Real-time Lookups (`/api/get-whois`):** This function is called by the frontend to perform WHOIS lookups in real-time. It authenticates users by verifying their Supabase JWT.
+- **Scheduled Checks (`/api/check-domains`):** This function checks the status of registered domains daily. It is triggered by a cron job.
 
----
+### Setting Up the Cron Job
 
-### Method 1: Using the Supabase Dashboard (Recommended for Beginners)
+To automate the daily domain checks, you need to set up a cron job that calls the `/api/check-domains` endpoint on your deployed application. You can use a free service like [cron-job.org](https://cron-job.org/) or a GitHub Actions workflow.
 
-This method uses the Supabase website interface and is perfect if you are not comfortable with command-line tools.
+**Example using `cron-job.org`:**
 
-#### Step 1: Deploy the Edge Functions
-You will deploy two functions: `get-whois` (for real-time checks) and `check-domains` (for daily cron jobs).
+1.  **URL:** `https://your-project-name.pages.dev/api/check-domains`
+2.  **Schedule:** Set it to run once a day (e.g., at midnight).
+3.  **HTTP Method:** `POST` (or `GET`, the function supports both for cron triggers).
+4.  **Custom Headers:** You must add an `Authorization` header to secure the endpoint.
+    -   **Name:** `Authorization`
+    -   **Value:** `Bearer YOUR_CRON_SECRET` (replace `YOUR_CRON_SECRET` with the value you set in your Cloudflare environment variables).
 
-1.  Go to your project on the [Supabase Dashboard](https://app.supabase.com).
-2.  In the left sidebar, click on the **Edge Functions** icon (a lightning bolt).
-3.  **For `get-whois`:**
-    *   Click **"Create a function"**. Name it `get-whois` and click **"Create function"**.
-    *   You will be taken to an online code editor. **Delete** all the boilerplate code.
-    *   **Paste** the complete code from the project's `supabase/functions/get-whois/index.ts` file into the editor.
-    *   Click the **"Save and Deploy"** button.
-4.  **For `check-domains`:**
-    *   Click **"Create a function"**. Name it `check-domains` and click **"Create function"**.
-    *   Delete the boilerplate code.
-    *   **Paste** the complete code from the project's `supabase/functions/check-domains/index.ts` file into the editor.
-    *   Click **"Save and Deploy"**.
-
-> **Note:** For the functions to work, you may also need to create and paste the content of `supabase/functions/_shared/whois-logic.ts` if the online editor requires it, or use the CLI deployment method which handles shared files automatically.
-
-#### Step 2: Set the Required Secrets
-The functions need API keys and a cron secret to work. These are stored securely in your project's settings and are never exposed to the public.
-
-1.  **Generate a Cron Secret:**
-    *   Use an online password generator to create a strong, random string. Copy this secret value.
-
-2.  **Add Secrets in Supabase:**
-    *   In the Supabase Dashboard, go to **Settings** -> **Edge Functions**.
-    *   Click **"+ Add new secret"** for each of the following. The names are case-sensitive and must not have the `VITE_` prefix.
-        *   `CRON_SECRET`: Paste the secret string you generated.
-        *   `WHOIS_API_KEY`: Your key from WhoisXMLAPI.
-        *   `APILAYER_API_KEY`: Your key from apilayer.com.
-        *   ... and so on for any other WHOIS API keys you have. Add at least one provider for the functions to work.
-
-#### Step 3: Enable the Cron Extension
-Before you can schedule jobs, you need to enable the `pg_cron` extension for your database. This only needs to be done once per project.
-
-1.  In your Supabase project dashboard, go to the **Integrations** section.
-2.  Find and enable **Cron**.
-
-#### Step 4: Schedule the Cron Job for `check-domains`
-Now you can schedule the `check-domains` job to run automatically.
-
-1.  On the Cron integration page, navigate to the **"Jobs"** tab.
-2.  Click **"Create job"**.
-3.  Fill out the form:
-    *   **Name**: `Daily Domain Check`.
-    *   **Schedule**: Use the preset for "Run once a day" (`0 0 * * *`).
-    *   **Type**: **Supabase Edge Function**.
-    *   **Edge Function**: Choose `check-domains`.
-    *   **HTTP Headers**:
-        *   **Name**: `Authorization`.
-        *   **Value**: `Bearer YOUR_CRON_SECRET` (replace with your actual secret).
-4.  Click **"Create cron job"**.
-
----
-
-### Method 2: Using the Supabase CLI (For Developers)
-
-This method is faster if you are familiar with the command line.
-
-#### 1. Install, Link, and Set Secrets
-
-```bash
-# Install the CLI
-npm install supabase --save-dev
-
-# Log in to your Supabase account
-npx supabase login
-
-# Link your local project to your remote Supabase project
-npx supabase link --project-ref <your-project-ref>
-```
-
-##### Set Secrets for the Edge Functions
-Run these commands in your terminal, replacing the placeholders.
-
-```bash
-# Required: Secret to authorize the cron job
-npx supabase secrets set CRON_SECRET=YOUR_SUPER_SECRET_STRING_HERE
-
-# Required: WHOIS API Keys (add at least one)
-npx supabase secrets set WHOIS_API_KEY=YOUR_WHOISXMLAPI_KEY
-npx supabase secrets set APILAYER_API_KEY=YOUR_APILAYER_KEY
-npx supabase secrets set WHOISFREAKS_API_KEY=YOUR_WHOISFREAKS_KEY
-npx supabase secrets set WHOAPI_COM_API_KEY=YOUR_WHOAPI_COM_KEY
-npx supabase secrets set RAPIDAPI_KEY=YOUR_RAPIDAPI_KEY
-
-# Optional: for a self-hosted who-dat instance
-# npx supabase secrets set WHO_DAT_URL=https://your-who-dat-instance.vercel.app
-# npx supabase secrets set WHO_DAT_AUTH_KEY=YOUR_WHO_DAT_SECRET_KEY
-```
-
-#### 2. Deploy the Edge Functions
-
-Deploy both functions. The CLI automatically handles shared files.
-
-```bash
-npx supabase functions deploy get-whois
-npx supabase functions deploy check-domains
-```
-
-After deploying, enable the Cron extension and schedule the job for `check-domains` using the Supabase Dashboard as described in **Steps 3 and 4** of Method 1.
+This setup will trigger the `check-domains` function securely on a daily schedule.
 
 ---
 

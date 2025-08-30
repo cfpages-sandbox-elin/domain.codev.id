@@ -1,10 +1,6 @@
-// This function runs on a cron schedule to check for domain status changes.
-
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getWhoisData } from '../_shared/whois-logic.ts'
-
-console.log('✅ "check-domains" function loaded');
+import { getWhoisData } from '../_shared/whois-logic';
+import { createClient } from '@supabase/supabase-js';
+import type { PagesFunction } from '@cloudflare/workers-types';
 
 //-------------------------------------------------
 // Types
@@ -31,30 +27,28 @@ interface DomainUpdate {
 //-------------------------------------------------
 // Main Server Logic
 //-------------------------------------------------
-serve(async (req) => {
+export const onRequest: PagesFunction = async (context) => {
+  const { request, env } = context;
+
   try {
     // Check for the cron secret from the Authorization header
-    // @ts-ignore
-    const cronSecret = Deno.env.get('CRON_SECRET');
+    const cronSecret = env.CRON_SECRET;
     if (!cronSecret) {
       console.error('CRON_SECRET is not set in environment variables. Function cannot run securely.');
       return new Response('Configuration error: Cron secret not set.', { status: 500 });
     }
-    
-    const authHeader = req.headers.get('Authorization');
+
+    const authHeader = request.headers.get('Authorization');
     if (authHeader !== `Bearer ${cronSecret}`) {
       console.warn('Unauthorized cron job access attempt.');
       return new Response('Unauthorized', { status: 401 });
     }
-    
+
     console.log('✅ Cron job authorized.');
 
     // Create a Supabase client with the service_role key
-    // @ts-ignore
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    // @ts-ignore
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
+    const supabaseUrl = env.SUPABASE_URL!;
+    const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY!;
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
     // Fetch domains that are registered and past their expiry date, or already marked as expired.
@@ -63,7 +57,7 @@ serve(async (req) => {
       .from('domains')
       .select('id, domain_name, status, tag')
       .or(`(status.eq.registered,expiration_date.lt.${now}),status.eq.expired`);
-    
+
     if (fetchError) throw fetchError;
 
     if (!domains || domains.length === 0) {
@@ -78,15 +72,15 @@ serve(async (req) => {
     // Process each domain
     const updatePromises = domains.map(async (domain: Domain) => {
       console.log(`➡️ Checking ${domain.domain_name}...`);
-      const whoisData = await getWhoisData(domain.domain_name);
+      const whoisData = await getWhoisData(domain.domain_name, env);
 
       if (whoisData.status === 'unknown') {
         console.log(`⚠️ WHOIS check failed for ${domain.domain_name}. Skipping update.`);
         return null; // Skip update if WHOIS fails
       }
-      
-      const newStatus = (domain.status === 'expired' && whoisData.status === 'available') 
-        ? 'dropped' 
+
+      const newStatus = (domain.status === 'expired' && whoisData.status === 'available')
+        ? 'dropped'
         : whoisData.status;
 
       const payload: DomainUpdate & { id: number } = {
@@ -102,7 +96,7 @@ serve(async (req) => {
         payload.tag = 'to-snatch';
         console.log(`✅ Switching tag for ${domain.domain_name} to "to-snatch" as it is now available.`);
       }
-      
+
       console.log(`✅ Update for ${domain.domain_name}: status -> ${newStatus}`);
       return payload;
     });
@@ -120,7 +114,7 @@ serve(async (req) => {
       if (updateError) throw updateError;
       console.log('✅ Batch update successful.');
     } else {
-        console.log('No domains needed updates.');
+      console.log('No domains needed updates.');
     }
 
     return new Response(JSON.stringify({ message: `Checked ${domains.length} domains. Updated ${updatesToApply.length}.` }), {
@@ -132,4 +126,4 @@ serve(async (req) => {
     console.error('An error occurred:', err.message);
     return new Response(String(err?.message ?? err), { status: 500 });
   }
-});
+};
