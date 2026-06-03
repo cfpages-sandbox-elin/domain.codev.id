@@ -51,6 +51,7 @@ The current implementation uses `whois_provider_telemetry` when the Supabase mig
 | Monthly free-tier estimates | Coordinated through `whois_provider_telemetry.estimated_month_used` for providers with known free monthly limits. |
 | Quota headers | APILayer quota headers are read, persisted in `quota`, and exposed in the dashboard when present. If remaining day/month quota reaches zero, that provider is skipped until the next UTC day/month. |
 | 429/rate-limit failures | Persist a temporary provider block for 60 seconds and try the next provider. |
+| Incomplete provider results | A provider response is not considered usable just because the HTTP request succeeded. If a provider says a domain is `registered` or `expired` but does not return an expiry date, the waterfall records that provider attempt as failed and continues to the next configured provider. |
 | Bulk add concurrency | Browser bulk add now uses a 6-worker pool instead of 5-domain batches with a fixed 2-second delay. Six is chosen to stay compatible with Cloudflare Workers/Pages' documented simultaneous outgoing connection limit when this flow later moves server-side. |
 
 The current Supabase schema for provider telemetry is in `supabase/migrations/20260603222500_add_whois_provider_telemetry.sql`. The future D1 migration should port the same concept to D1 or a Durable Object if strict global coordination becomes necessary.

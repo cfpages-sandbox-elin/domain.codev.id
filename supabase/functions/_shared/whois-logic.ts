@@ -591,6 +591,18 @@ const withProviderMetadata = (
   };
 };
 
+const getUnusableWhoisReason = (data: WhoisData): string | null => {
+  if (data.status === 'unknown') {
+    return 'Provider returned unknown status.';
+  }
+
+  if ((data.status === 'registered' || data.status === 'expired') && !data.expirationDate) {
+    return 'Provider confirmed the domain is registered but did not return an expiry date.';
+  }
+
+  return null;
+};
+
 const getErrorMessage = (error: unknown): string => {
   return error instanceof Error ? error.message : String(error);
 };
@@ -865,6 +877,19 @@ export const getWhoisData = async (domainName: string, options: WhoisRuntimeOpti
       const data = await handler(domainName);
       updateRuntimeQuota(provider.id, data.quota);
       await persistPersistentTelemetry(provider.id, options.telemetryClient);
+      const unusableReason = getUnusableWhoisReason(data);
+      if (unusableReason) {
+        attempts.push({
+          provider: provider.id,
+          providerLabel: provider.label,
+          status: 'failed',
+          errorMessage: unusableReason,
+          quota: hasQuotaData(data.quota) ? data.quota : undefined,
+        });
+        console.warn(`${provider.label} returned incomplete WHOIS data for ${domainName}: ${unusableReason}`);
+        continue;
+      }
+
       attempts.push({
         provider: provider.id,
         providerLabel: provider.label,
