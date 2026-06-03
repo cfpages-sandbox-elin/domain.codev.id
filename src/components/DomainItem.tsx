@@ -13,6 +13,7 @@ interface DomainItemProps {
   onToggleTag: (id: number) => void;
   onRecheck: (id: number) => Promise<void>;
   isAutoRefreshing?: boolean;
+  isPending?: boolean;
 }
 
 const formatDate = (dateString: string | null) => {
@@ -165,7 +166,7 @@ const PlainTooltipText: React.FC<{ title: string; body?: string }> = ({ title, b
   </span>
 );
 
-const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove, onShowInfo, onToggleTag, onRecheck, isAutoRefreshing = false }) => {
+const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove, onShowInfo, onToggleTag, onRecheck, isAutoRefreshing = false, isPending = false }) => {
   const [selectedRegistrar, setSelectedRegistrar] = useState<string>('');
   const [isRechecking, setIsRechecking] = useState(false);
   const { isCompact } = useCompactMode();
@@ -222,7 +223,8 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
   const registryStatuses = domain.domain_statuses || whoisDetails?.domainStatuses || [];
   const nameServers = domain.name_servers || whoisDetails?.nameServers || [];
   const isWhoisIncomplete = hasIncompleteWhoisData(domain, registryStatuses, nameServers);
-  const isWhoisProcessing = isRechecking || isAutoRefreshing;
+  const isWhoisFailed = domain.status === 'unknown' && Boolean(domain.last_checked);
+  const isWhoisProcessing = isRechecking || isAutoRefreshing || isPending;
   const whoisUrl = `https://www.whois.com/whois/${encodeURIComponent(domain.domain_name)}`;
   const TagIconComponent = effectiveTag === 'mine' ? HomeIcon : TargetIcon;
   const tagLabel = effectiveTag === 'mine' ? 'Mine' : 'To Snatch';
@@ -287,7 +289,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
       {(isWhoisIncomplete || isWhoisProcessing) && (
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center">
           <span className="rounded-b-md bg-slate-800/90 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white dark:bg-slate-100/90 dark:text-slate-900">
-            {isWhoisProcessing ? 'WHOIS retrieval processing' : 'WHOIS data incomplete'}
+            {isPending ? 'Checking WHOIS' : isWhoisProcessing ? 'WHOIS retrieval processing' : isWhoisFailed ? 'WHOIS check failed' : 'WHOIS data incomplete'}
           </span>
         </div>
       )}
@@ -320,7 +322,9 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
             </span>
           )}
           {domain.status === 'unknown' && (
-            <span className="block text-xs font-semibold text-yellow-700 dark:text-yellow-300">Re-check needed</span>
+            <span className="block text-xs font-semibold text-yellow-700 dark:text-yellow-300">
+              {isWhoisFailed ? 'WHOIS failed' : 'Re-check needed'}
+            </span>
           )}
           {needsExpiryDate && domain.status !== 'unknown' && (
             <span className="block text-xs font-semibold text-yellow-700 dark:text-yellow-300">Missing expiry</span>
@@ -354,6 +358,10 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
         </div>
 
         <div className="flex items-center justify-start gap-1 md:justify-end">
+          {isPending ? (
+            <Spinner size="sm" color="border-brand-blue" />
+          ) : (
+            <>
           <Tooltip content={<PlainTooltipText title="Re-check WHOIS data" body="Refresh status, expiry, registry status, and name servers." />}>
             <button
               onClick={handleRecheck}
@@ -404,6 +412,8 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
               <TrashIcon className="w-5 h-5" />
             </button>
           </Tooltip>
+            </>
+          )}
         </div>
       </div>
 

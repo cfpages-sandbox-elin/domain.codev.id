@@ -25,18 +25,40 @@ type View = 'dashboard' | 'docs';
 
 type BulkDomain = { domainName: string; tag?: DomainTag };
 type DomainEntryTab = 'single' | 'bulk';
+type AddDomainOptions = { optimistic?: boolean };
 const WHOIS_AUTO_REPAIR_CONCURRENCY = 3;
 
-const getWhoisSaveBlockReason = (whoisData: WhoisData): string | null => {
-  if (whoisData.status === 'unknown') {
-    return 'WHOIS check failed or no provider could confirm the domain status.';
-  }
-
+const getWhoisFailureReason = (whoisData: WhoisData): string | null => {
   if ((whoisData.status === 'registered' || whoisData.status === 'expired') && !whoisData.expirationDate) {
     return 'WHOIS provider confirmed the domain is registered, but did not return an expiry date.';
   }
 
   return null;
+};
+
+const getWhoisFailureAdvice = (whoisData: WhoisData): string => {
+  const attemptMessages = (whoisData.providerAttempts || [])
+    .map(attempt => attempt.errorMessage || '')
+    .join(' ')
+    .toLowerCase();
+
+  if (/month|monthly|free-tier/.test(attemptMessages)) {
+    return 'The provider quota looks monthly-limited, so try again after the provider quota resets next month. The dashboard will keep it visible for future re-check.';
+  }
+
+  if (/day|daily/.test(attemptMessages)) {
+    return 'The provider quota looks daily-limited, so try again tomorrow or after the provider daily reset.';
+  }
+
+  if (/429|too many requests|rate[\s-]?limit|per-minute|retry after|temporarily blocked/.test(attemptMessages)) {
+    return 'This looks rate-limited, so try re-checking again in another minute.';
+  }
+
+  if (/missing required environment|key not provided|missing-key/.test(attemptMessages)) {
+    return 'Some backup providers are not configured, so check the WHOIS provider dashboard before retrying.';
+  }
+
+  return 'Try re-checking later; the domain stays in your list so you do not need to enter it again.';
 };
 
 const isDomainMissingWhoisData = (domain: Domain) => {
@@ -69,7 +91,9 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<string[]>([]);
   const [view, setView] = useState<View>('dashboard');
   const [autoRepairingDomainIds, setAutoRepairingDomainIds] = useState<Set<number>>(() => new Set());
+  const [pendingDomainIds, setPendingDomainIds] = useState<Set<number>>(() => new Set());
   const autoRepairAttemptedIdsRef = useRef<Set<number>>(new Set());
+  const nextPendingDomainIdRef = useRef(-1);
   const [isAutoRepairingWhois, setIsAutoRepairingWhois] = useState(false);
 
   const addLog = useCallback((message: string) => {
@@ -135,6 +159,7 @@ const App: React.FC = () => {
           setDomains([]);
           setWhoisDetailsByDomainId({});
           setAutoRepairingDomainIds(new Set());
+          setPendingDomainIds(new Set());
           autoRepairAttemptedIdsRef.current.clear();
           addLog('ℹ️ User signed out.');
         } else {
@@ -207,43 +232,92 @@ const App: React.FC = () => {
   }, [domains, session, addLog, checkAndNotify]);
 
 
-  const addDomain = async (domainName: string, tag: DomainTag): Promise<Domain | null> => {
+  const addDomain = async (domainName: string, tag: DomainTag, options: AddDomainOptions = {}): Promise<Domain | null> => {
     const normalizedDomainName = domainName.trim().toLowerCase();
     if (domains.some(d => d.domain_name.toLowerCase() === normalizedDomainName)) {
       addLog(`⚠️ Attempted to add duplicate domain: ${normalizedDomainName}`);
       return null;
     }
+
+    const now = new Date().toISOString();
+    const pendingDomain: Domain | null = options.optimistic ? {
+      id: nextPendingDomainIdRef.current--,
+      user_id: session?.user.id || 'pending',
+      domain_name: normalizedDomainName,
+      tag,
+      status: 'unknown',
+      expiration_date: null,
+      registered_date: null,
+      registrar: null,
+      domain_statuses: null,
+      name_servers: null,
+      created_at: now,
+      last_checked: null,
+    } : null;
+
+    if (pendingDomain) {
+      setDomains(prevDomains => [pendingDomain, ...prevDomains]);
+      setPendingDomainIds(prev => {
+        const next = new Set(prev);
+        next.add(pendingDomain.id);
+        return next;
+      });
+    }
+
+    const clearPendingDomain = () => {
+      if (!pendingDomain) return;
+      setPendingDomainIds(prev => {
+        const next = new Set(prev);
+        next.delete(pendingDomain.id);
+        return next;
+      });
+    };
+
+    const removePendingDomain = () => {
+      if (!pendingDomain) return;
+      setDomains(prevDomains => prevDomains.filter(domain => domain.id !== pendingDomain.id));
+      clearPendingDomain();
+    };
+
     const whoisData = await getWhoisData(normalizedDomainName, addLog);
     updateProviderFromWhoisData(whoisData);
 
-    const saveBlockReason = getWhoisSaveBlockReason(whoisData);
-    if (saveBlockReason) {
-      addLog(`⚠️ ${normalizedDomainName} was not saved. ${saveBlockReason}`);
-      alert(`${normalizedDomainName} was not saved.\n\n${saveBlockReason}\n\nTry re-adding it later or check the WHOIS provider dashboard.`);
-      return null;
-    }
-
+    const failureReason = whoisData.status === 'unknown'
+      ? 'WHOIS check failed or no provider could confirm the domain status.'
+      : getWhoisFailureReason(whoisData);
+    const shouldStoreAsFailed = Boolean(failureReason);
     const savedTag = whoisData.status === 'available' || whoisData.status === 'dropped' ? 'to-snatch' : tag;
     
     const newDomainData: DomainInsert = {
       domain_name: normalizedDomainName,
       tag: savedTag,
-      status: whoisData.status,
-      expiration_date: whoisData.expirationDate,
-      registered_date: whoisData.registeredDate,
-      registrar: whoisData.registrar,
-      domain_statuses: whoisData.domainStatuses || null,
-      name_servers: whoisData.nameServers || null,
+      status: shouldStoreAsFailed ? 'unknown' : whoisData.status,
+      expiration_date: shouldStoreAsFailed ? null : whoisData.expirationDate,
+      registered_date: shouldStoreAsFailed ? null : whoisData.registeredDate,
+      registrar: shouldStoreAsFailed ? null : whoisData.registrar,
+      domain_statuses: shouldStoreAsFailed ? null : whoisData.domainStatuses || null,
+      name_servers: shouldStoreAsFailed ? null : whoisData.nameServers || null,
       last_checked: new Date().toISOString(),
     };
     const newDomain = await SupabaseService.addDomain(newDomainData);
     if(newDomain){
-        setDomains(prevDomains => [...prevDomains, newDomain]);
+        setDomains(prevDomains => pendingDomain
+          ? prevDomains.map(domain => domain.id === pendingDomain.id ? newDomain : domain)
+          : [...prevDomains, newDomain]);
+        clearPendingDomain();
         setWhoisDetailsByDomainId(prev => ({ ...prev, [newDomain.id]: whoisData }));
-        checkAndNotify(newDomain);
-        addLog(`✅ Successfully added ${normalizedDomainName}.`);
+        if (shouldStoreAsFailed) {
+          autoRepairAttemptedIdsRef.current.add(newDomain.id);
+          const advice = getWhoisFailureAdvice(whoisData);
+          addLog(`⚠️ Added ${normalizedDomainName} as WHOIS failed. ${failureReason} ${advice}`);
+          alert(`${normalizedDomainName} was saved as WHOIS failed.\n\n${failureReason}\n\n${advice}`);
+        } else {
+          checkAndNotify(newDomain);
+          addLog(`✅ Successfully added ${normalizedDomainName}.`);
+        }
         return newDomain;
     } else {
+        removePendingDomain();
         addLog(`❌ Failed to add ${normalizedDomainName}.`);
         return null;
     }
@@ -301,12 +375,10 @@ const App: React.FC = () => {
     }
   };
 
-  const handleAddDomainFromModal = async (domainName: string, tag: DomainTag) => {
-    const newDomain = await addDomain(domainName, tag);
-    if (newDomain) {
-      setIsDomainEntryModalOpen(false);
-    }
-    return newDomain;
+  const handleAddDomainFromModal = (domainName: string, tag: DomainTag) => {
+    setIsDomainEntryModalOpen(false);
+    void addDomain(domainName, tag, { optimistic: true });
+    return true;
   };
 
   const removeDomain = async (id: number) => {
@@ -382,6 +454,7 @@ const App: React.FC = () => {
 
     const domainsToRepair = domains.filter(domain => {
       if (!isDomainMissingWhoisData(domain)) return false;
+      if (pendingDomainIds.has(domain.id)) return false;
       return !autoRepairAttemptedIdsRef.current.has(domain.id);
     });
 
@@ -433,7 +506,7 @@ const App: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [session, view, domains, isAutoRepairingWhois, isBulkProcessing, syncWhoisForDomain, addLog]);
+  }, [session, view, domains, pendingDomainIds, isAutoRepairingWhois, isBulkProcessing, syncWhoisForDomain, addLog]);
 
   const handleShowInfo = (domain: Domain) => {
     if (!domain.expiration_date) return;
@@ -512,6 +585,7 @@ const App: React.FC = () => {
             onToggleTag={toggleDomainTag}
             onRecheck={recheckDomain}
             autoRepairingDomainIds={autoRepairingDomainIds}
+            pendingDomainIds={pendingDomainIds}
             onExportRequest={handleExport}
             onImportRequest={() => {
               setDomainEntryInitialTab('bulk');

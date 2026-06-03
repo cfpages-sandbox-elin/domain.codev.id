@@ -12,7 +12,7 @@ interface BulkAddModalProps {
     isOpen: boolean;
     onClose: () => void;
     initialTab?: ActiveTab;
-    onAddDomain: (domainName: string, tag: DomainTag) => Promise<unknown>;
+    onAddDomain: (domainName: string, tag: DomainTag) => unknown;
     onBulkAdd: (domains: BulkDomain[], defaultTag: DomainTag) => Promise<void>;
     isLoading: boolean;
     addLog: (message: string) => void;
@@ -103,13 +103,12 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
     const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
     const [singleDomain, setSingleDomain] = useState('');
     const [singleTag, setSingleTag] = useState<DomainTag>('mine');
-    const [singleLoading, setSingleLoading] = useState(false);
     const [textValue, setTextValue] = useState('');
     const [defaultTag, setDefaultTag] = useState<DomainTag>('mine');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const singleInputRef = useRef<HTMLInputElement>(null);
     const bulkInputRef = useRef<HTMLTextAreaElement>(null);
-    const isBusy = isLoading || singleLoading;
+    const isBusy = isLoading;
 
     useEffect(() => {
         if (!isOpen) return;
@@ -147,14 +146,9 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
             return;
         }
 
-        try {
-            setSingleLoading(true);
-            const result = await onAddDomain(normalizedDomain, tag);
-            if (result) {
-                setSingleDomain('');
-            }
-        } finally {
-            setSingleLoading(false);
+        const result = onAddDomain(normalizedDomain, tag);
+        if (result) {
+            setSingleDomain('');
         }
     };
 
@@ -318,7 +312,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                                     disabled={isBusy || !singleDomain.trim()}
                                     className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-blue px-6 py-3 font-semibold text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-blue-300 dark:disabled:bg-blue-800"
                                 >
-                                    {singleLoading ? <><Spinner /> Checking WHOIS...</> : 'Check and Save'}
+                                    Check and Save
                                 </button>
                             </Tooltip>
                         </div>
