@@ -19,6 +19,23 @@ interface DomainListProps {
 type FilterType = 'all' | 'mine' | 'to-snatch' | 'expiring' | 'expired' | 'available';
 type SortOption = 'added-desc' | 'added-asc' | 'name-asc' | 'name-desc' | 'expiry-asc' | 'expiry-desc' | 'checked-desc' | 'checked-asc';
 
+const FILTER_STORAGE_KEY = 'domain-codev-filter';
+const SORT_STORAGE_KEY = 'domain-codev-sort';
+const FILTER_OPTIONS: FilterType[] = ['all', 'mine', 'to-snatch', 'expiring', 'expired', 'available'];
+const SORT_OPTIONS: SortOption[] = ['added-desc', 'added-asc', 'name-asc', 'name-desc', 'expiry-asc', 'expiry-desc', 'checked-desc', 'checked-asc'];
+
+const readStoredFilter = (): FilterType => {
+  if (typeof window === 'undefined') return 'all';
+  const stored = window.localStorage.getItem(FILTER_STORAGE_KEY);
+  return FILTER_OPTIONS.includes(stored as FilterType) ? stored as FilterType : 'all';
+};
+
+const readStoredSort = (): SortOption => {
+  if (typeof window === 'undefined') return 'added-desc';
+  const stored = window.localStorage.getItem(SORT_STORAGE_KEY);
+  return SORT_OPTIONS.includes(stored as SortOption) ? stored as SortOption : 'added-desc';
+};
+
 const hasMissingData = (domain: Domain) => {
   if (!domain.last_checked || domain.status === 'unknown') return true;
   if (domain.status === 'available' || domain.status === 'dropped') return false;
@@ -35,8 +52,8 @@ const hasMissingData = (domain: Domain) => {
 };
 
 const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId, onRemove, onShowInfo, onToggleTag, onRecheck, onImportRequest, onExportRequest, isProcessing }) => {
-  const [filter, setFilter] = useState<FilterType>('all');
-  const [sortOption, setSortOption] = useState<SortOption>('added-desc');
+  const [filter, setFilter] = useState<FilterType>(readStoredFilter);
+  const [sortOption, setSortOption] = useState<SortOption>(readStoredSort);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isRecheckMenuOpen, setIsRecheckMenuOpen] = useState(false);
   const [isRecheckingVisible, setIsRecheckingVisible] = useState(false);
@@ -55,6 +72,14 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(FILTER_STORAGE_KEY, filter);
+  }, [filter]);
+
+  useEffect(() => {
+    window.localStorage.setItem(SORT_STORAGE_KEY, sortOption);
+  }, [sortOption]);
 
   const filteredDomains = useMemo(() => domains.filter(domain => {
     switch (filter) {
