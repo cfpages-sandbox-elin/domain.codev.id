@@ -73,6 +73,8 @@ For a hobby project on Cloudflare:
 
 Provider limits, implementation state, and runtime health should be visible in the app dashboard. See `docs/WHOIS_DASHBOARD.md` for the provider table, quota tracking model, and backup-provider implementation guide.
 
+For Supabase Dashboard setup steps, including deploying `get-whois-providers` and adding `WHOISJSON_API_KEY` / `IP2WHOIS_API_KEY` through supabase.com, see the "Supabase UI Setup" section in `docs/WHOIS_DASHBOARD.md`.
+
 ## Cloudflare Worker Shape
 
 ```ts

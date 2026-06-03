@@ -19,6 +19,87 @@ This project depends on external WHOIS APIs. If a provider is exhausted, misconf
 | Show fallback order | Helps explain why a result came from provider B instead of provider A. |
 | Warn before bulk re-check | Bulk actions should estimate API cost before running. |
 
+## Supabase UI Setup
+
+Use this if you prefer the Supabase website instead of CLI commands.
+
+### 1. Deploy `get-whois-providers`
+
+1. Open https://supabase.com and go to your project.
+2. In the left sidebar, open **Edge Functions**.
+3. Click **Create a function**.
+4. Name it `get-whois-providers`.
+5. Open the new function editor.
+6. Delete the default starter code.
+7. Copy the full contents of `supabase/functions/get-whois-providers/index.ts` from this repository.
+8. Paste it into the Supabase function editor.
+9. Click **Save and deploy**.
+
+### 2. Make sure shared WHOIS logic is available
+
+The `get-whois-providers` function imports:
+
+```ts
+import { getWhoisProviderStatuses } from '../_shared/whois-logic.ts'
+```
+
+If the Supabase Dashboard editor does not automatically include shared files, deploy with the Supabase CLI instead, because the CLI handles the `_shared` folder cleanly:
+
+```bash
+npx supabase functions deploy get-whois-providers
+```
+
+If you want to stay fully in the UI, check whether your project's Edge Function editor exposes the `_shared/whois-logic.ts` file. If it does, paste the current contents of `supabase/functions/_shared/whois-logic.ts` there too. If it does not, use the CLI for this function.
+
+### 3. Add optional backup provider secrets
+
+1. In the Supabase project sidebar, open **Project Settings**.
+2. Open **Edge Functions**.
+3. Find **Secrets**.
+4. Click **Add new secret**.
+5. Add any optional backup provider keys you want to activate:
+
+| Secret name | Required? | Purpose |
+| --- | --- | --- |
+| `WHOISJSON_API_KEY` | Optional | Enables the WhoisJSON backup provider. |
+| `IP2WHOIS_API_KEY` | Optional | Enables the IP2WHOIS / IP2Location.io backup provider. |
+
+6. Save the secrets.
+7. Re-deploy affected Edge Functions if Supabase prompts you or if the dashboard still shows the provider as missing-key.
+
+### 4. Confirm in the app
+
+1. Open the app dashboard.
+2. Find the **WHOIS Providers** panel.
+3. Click **Refresh**.
+4. Confirm these states:
+
+| Expected state | Meaning |
+| --- | --- |
+| `Active` | Provider code exists and the required secret/config is present. |
+| `Missing key` | Provider is implemented but its secret is not set. |
+| `Disabled` | Provider exists but is disabled in code. |
+| `Not implemented` | Known provider is documented but no adapter exists yet. |
+
+The panel does not expose secret values. It only reports whether required environment keys are configured.
+
+### 5. Existing provider secret names
+
+If you want all currently implemented providers visible as active, configure the relevant secrets:
+
+| Provider | Secret name(s) |
+| --- | --- |
+| who-dat | `WHO_DAT_URL`, optional `WHO_DAT_AUTH_KEY` |
+| WhoisXMLAPI | `WHOIS_API_KEY` or legacy `VITE_WHOIS_API_KEY` |
+| APILayer Whois API | `APILAYER_API_KEY` or legacy `VITE_APILAYER_API_KEY` |
+| WhoisFreaks | `WHOISFREAKS_API_KEY` or legacy `VITE_WHOISFREAKS_API_KEY` |
+| WhoAPI | `WHOAPI_COM_API_KEY` or legacy `VITE_WHOAPI_COM_API_KEY` |
+| RapidAPI Domain WHOIS Lookup | `RAPIDAPI_KEY` or legacy `VITE_RAPIDAPI_KEY` |
+| WhoisJSON | `WHOISJSON_API_KEY` or legacy `VITE_WHOISJSON_API_KEY` |
+| IP2WHOIS / IP2Location.io | `IP2WHOIS_API_KEY` or legacy `VITE_IP2WHOIS_API_KEY` |
+
+For hobby use, do not enable every provider at once unless you need them. Start with one or two reliable providers, then add backups after checking quota behavior.
+
 ## Recommended Dashboard Widget
 
 Add a compact "WHOIS Providers" panel above or beside the domain list.

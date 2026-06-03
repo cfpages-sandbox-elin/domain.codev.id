@@ -76,19 +76,19 @@ const WHO_DAT_URL = Deno.env.get('WHO_DAT_URL');
 // @ts-ignore
 const WHO_DAT_AUTH_KEY = Deno.env.get('WHO_DAT_AUTH_KEY');
 // @ts-ignore
-const WHOISXMLAPI_KEY = Deno.env.get('WHOIS_API_KEY');
+const WHOISXMLAPI_KEY = Deno.env.get('WHOIS_API_KEY') || Deno.env.get('VITE_WHOIS_API_KEY');
 // @ts-ignore
-const APILAYER_KEY = Deno.env.get('APILAYER_API_KEY');
+const APILAYER_KEY = Deno.env.get('APILAYER_API_KEY') || Deno.env.get('VITE_APILAYER_API_KEY');
 // @ts-ignore
-const WHOISFREAKS_KEY = Deno.env.get('WHOISFREAKS_API_KEY');
+const WHOISFREAKS_KEY = Deno.env.get('WHOISFREAKS_API_KEY') || Deno.env.get('VITE_WHOISFREAKS_API_KEY');
 // @ts-ignore
-const WHOAPI_COM_KEY = Deno.env.get('WHOAPI_COM_API_KEY');
+const WHOAPI_COM_KEY = Deno.env.get('WHOAPI_COM_API_KEY') || Deno.env.get('VITE_WHOAPI_COM_API_KEY');
 // @ts-ignore
-const RAPIDAPI_KEY = Deno.env.get('RAPIDAPI_KEY');
+const RAPIDAPI_KEY = Deno.env.get('RAPIDAPI_KEY') || Deno.env.get('VITE_RAPIDAPI_KEY');
 // @ts-ignore
-const WHOISJSON_API_KEY = Deno.env.get('WHOISJSON_API_KEY');
+const WHOISJSON_API_KEY = Deno.env.get('WHOISJSON_API_KEY') || Deno.env.get('VITE_WHOISJSON_API_KEY');
 // @ts-ignore
-const IP2WHOIS_API_KEY = Deno.env.get('IP2WHOIS_API_KEY');
+const IP2WHOIS_API_KEY = Deno.env.get('IP2WHOIS_API_KEY') || Deno.env.get('VITE_IP2WHOIS_API_KEY');
 
 //-------------------------------------------------
 // Provider Registry
@@ -112,7 +112,7 @@ const WHOIS_PROVIDER_REGISTRY: WhoisProviderConfig[] = [
     implemented: true,
     enabled: true,
     priority: 2,
-    envKeys: ['WHOIS_API_KEY'],
+    envKeys: ['WHOIS_API_KEY', 'VITE_WHOIS_API_KEY'],
     freeTierLabel: '500 free WHOIS queries',
     supportsQuotaHeaders: false,
     notes: 'Good parsed WHOIS fallback.',
@@ -124,7 +124,7 @@ const WHOIS_PROVIDER_REGISTRY: WhoisProviderConfig[] = [
     implemented: true,
     enabled: true,
     priority: 3,
-    envKeys: ['APILAYER_API_KEY'],
+    envKeys: ['APILAYER_API_KEY', 'VITE_APILAYER_API_KEY'],
     freeTierLabel: '3,000 requests/month',
     supportsQuotaHeaders: true,
     notes: 'Exposes monthly/daily rate-limit headers.',
@@ -136,7 +136,7 @@ const WHOIS_PROVIDER_REGISTRY: WhoisProviderConfig[] = [
     implemented: true,
     enabled: true,
     priority: 4,
-    envKeys: ['WHOISFREAKS_API_KEY'],
+    envKeys: ['WHOISFREAKS_API_KEY', 'VITE_WHOISFREAKS_API_KEY'],
     freeTierLabel: '500 signup credits',
     supportsQuotaHeaders: false,
     notes: 'Live WHOIS endpoint.',
@@ -148,7 +148,7 @@ const WHOIS_PROVIDER_REGISTRY: WhoisProviderConfig[] = [
     implemented: true,
     enabled: true,
     priority: 5,
-    envKeys: ['WHOAPI_COM_API_KEY'],
+    envKeys: ['WHOAPI_COM_API_KEY', 'VITE_WHOAPI_COM_API_KEY'],
     freeTierLabel: 'Verify in account',
     supportsQuotaHeaders: false,
     notes: 'Implemented fallback; current free quota not confirmed.',
@@ -160,7 +160,7 @@ const WHOIS_PROVIDER_REGISTRY: WhoisProviderConfig[] = [
     implemented: true,
     enabled: true,
     priority: 6,
-    envKeys: ['RAPIDAPI_KEY'],
+    envKeys: ['RAPIDAPI_KEY', 'VITE_RAPIDAPI_KEY'],
     freeTierLabel: 'Marketplace plan varies',
     supportsQuotaHeaders: false,
     notes: 'Optional last fallback.',
@@ -172,7 +172,7 @@ const WHOIS_PROVIDER_REGISTRY: WhoisProviderConfig[] = [
     implemented: true,
     enabled: true,
     priority: 7,
-    envKeys: ['WHOISJSON_API_KEY'],
+    envKeys: ['WHOISJSON_API_KEY', 'VITE_WHOISJSON_API_KEY'],
     freeTierLabel: '1,000 requests/month shared across endpoints',
     supportsQuotaHeaders: false,
     notes: 'New backup provider. Response mapping may need adjustment after live testing.',
@@ -184,7 +184,7 @@ const WHOIS_PROVIDER_REGISTRY: WhoisProviderConfig[] = [
     implemented: true,
     enabled: true,
     priority: 8,
-    envKeys: ['IP2WHOIS_API_KEY'],
+    envKeys: ['IP2WHOIS_API_KEY', 'VITE_IP2WHOIS_API_KEY'],
     freeTierLabel: '500 domain WHOIS queries/month',
     supportsQuotaHeaders: false,
     notes: 'New backup provider. Response mapping may need adjustment after live testing.',
