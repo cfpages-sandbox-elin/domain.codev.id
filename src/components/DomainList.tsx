@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Domain, WhoisData } from '../types';
 import DomainItem from './DomainItem';
 import { ChevronUpDownIcon, ArrowUpOnSquareIcon, ArrowDownOnSquareIcon, RefreshIcon } from './icons';
+import Tooltip from './Tooltip';
 
 interface DomainListProps {
   domains: Domain[];
@@ -38,9 +39,9 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
   const filteredDomains = useMemo(() => domains.filter(domain => {
     switch (filter) {
       case 'mine':
-        return domain.tag === 'mine';
+        return domain.tag === 'mine' && domain.status !== 'available' && domain.status !== 'dropped';
       case 'to-snatch':
-        return domain.tag === 'to-snatch';
+        return domain.tag === 'to-snatch' || domain.status === 'available' || domain.status === 'dropped';
       case 'available':
         return domain.status === 'available' || domain.status === 'dropped';
       case 'expiring':
@@ -154,36 +155,39 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
         <div className="flex-grow"></div>
 
         <div className="flex flex-wrap items-center gap-3">
-            <button
-                onClick={handleRecheckVisible}
-                disabled={isProcessing || isRecheckingVisible || sortedDomains.length === 0}
-                title="Re-check all domains in the current filter"
-                className="flex items-center gap-2 px-3 py-2 text-sm font-medium bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-full transition-colors disabled:opacity-50"
-            >
-                <RefreshIcon className={`w-5 h-5 ${isRecheckingVisible ? 'animate-spin' : ''}`} />
-                <span>{isRecheckingVisible ? 'Re-checking...' : 'Re-check Visible'}</span>
-            </button>
-
-            <button
-                onClick={onImportRequest}
-                disabled={isProcessing}
-                title="Import or Add a list of domains"
-                className="flex items-center gap-2 px-3 py-2 text-sm font-medium bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-full transition-colors disabled:opacity-50"
-            >
-                <ArrowUpOnSquareIcon className="w-5 h-5" />
-                <span>Import / Add Bulk</span>
-            </button>
-
-            <div className="relative" ref={exportMenuRef}>
+            <Tooltip content="Re-check all domains in the current filter. This may use WHOIS API quota.">
                 <button
-                    onClick={() => setIsExportMenuOpen(prev => !prev)}
-                    disabled={isProcessing}
-                    title="Export your domain list"
+                    onClick={handleRecheckVisible}
+                    disabled={isProcessing || isRecheckingVisible || sortedDomains.length === 0}
                     className="flex items-center gap-2 px-3 py-2 text-sm font-medium bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-full transition-colors disabled:opacity-50"
                 >
-                    <ArrowDownOnSquareIcon className="w-5 h-5" />
-                    <span>Export</span>
+                    <RefreshIcon className={`w-5 h-5 ${isRecheckingVisible ? 'animate-spin' : ''}`} />
+                    <span>{isRecheckingVisible ? 'Re-checking...' : 'Re-check Visible'}</span>
                 </button>
+            </Tooltip>
+
+            <Tooltip content="Import or add a list of domains.">
+                <button
+                    onClick={onImportRequest}
+                    disabled={isProcessing}
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-full transition-colors disabled:opacity-50"
+                >
+                    <ArrowUpOnSquareIcon className="w-5 h-5" />
+                    <span>Import / Add Bulk</span>
+                </button>
+            </Tooltip>
+
+            <div className="relative" ref={exportMenuRef}>
+                <Tooltip content="Export your domain list.">
+                    <button
+                        onClick={() => setIsExportMenuOpen(prev => !prev)}
+                        disabled={isProcessing}
+                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-full transition-colors disabled:opacity-50"
+                    >
+                        <ArrowDownOnSquareIcon className="w-5 h-5" />
+                        <span>Export</span>
+                    </button>
+                </Tooltip>
                 {isExportMenuOpen && (
                     <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-slate-700 rounded-md shadow-lg overflow-hidden z-10 ring-1 ring-black ring-opacity-5">
                         <button onClick={() => handleExportClick('json')} className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600">

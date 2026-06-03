@@ -11,7 +11,7 @@ Current WHOIS checks are server-side through Supabase Edge Functions.
 | Client call | `src/services/whoisService.ts` | Calls `supabase.functions.invoke('get-whois', { body: { domainName } })`, logs progress, and returns `unknown` on failure. |
 | Authenticated lookup function | `supabase/functions/get-whois/index.ts` | Handles CORS, verifies the Supabase user from the Authorization header, validates `domainName`, calls shared logic, and returns normalized JSON. |
 | Scheduled lookup function | `supabase/functions/check-domains/index.ts` | Requires `CRON_SECRET`, uses Supabase service role, selects expired/past-expiry domains, checks WHOIS, and updates status. |
-| Provider waterfall | `supabase/functions/_shared/whois-logic.ts` | Tries providers in this order: `who-dat`, WhoisXMLAPI, APILayer, WhoisFreaks, WhoAPI, RapidAPI. |
+| Provider selection | `supabase/functions/_shared/whois-logic.ts` | Tries configured providers with runtime quota pre-skipping and in-flight balancing across `who-dat`, WhoisXMLAPI, APILayer, WhoisFreaks, WhoAPI, RapidAPI, WhoisJSON, and IP2WHOIS. |
 
 Normalized return shape:
 
@@ -20,7 +20,9 @@ Normalized return shape:
   status: 'available' | 'registered' | 'expired' | 'dropped' | 'unknown',
   expirationDate: string | null,
   registeredDate: string | null,
-  registrar: string | null
+  registrar: string | null,
+  domainStatuses?: string[],
+  nameServers?: string[]
 }
 ```
 
@@ -34,13 +36,31 @@ Normalized return shape:
 | WhoisFreaks | `WHOISFREAKS_API_KEY` |
 | WhoAPI | `WHOAPI_COM_API_KEY` |
 | RapidAPI marketplace API | `RAPIDAPI_KEY` |
+| WhoisJSON | `WHOISJSON_API_KEY` |
+| IP2WHOIS | `IP2WHOIS_API_KEY` |
+
+## Runtime Quota And Bulk Behavior
+
+The current implementation uses `whois_provider_telemetry` when the Supabase migration has been applied. If the table or RPC is missing, the Edge Function logs a warning and falls back to warm-runtime telemetry only.
+
+| Behavior | Current implementation |
+| --- | --- |
+| Provider balancing | Concurrent checks prefer providers with fewer in-flight requests, then fall back to provider priority. This helps bulk imports spread across configured providers instead of hammering only the first provider. |
+| Missing keys | Skipped before making a request. |
+| Per-minute limits | Coordinated through `claim_whois_provider_attempt(...)` using the `recent_starts` array in `whois_provider_telemetry`. WhoisJSON is capped at 20 requests/minute; other providers use conservative caps until their exact per-minute limits are confirmed. |
+| Monthly free-tier estimates | Coordinated through `whois_provider_telemetry.estimated_month_used` for providers with known free monthly limits. |
+| Quota headers | APILayer quota headers are read, persisted in `quota`, and exposed in the dashboard when present. If remaining day/month quota reaches zero, that provider is skipped until the next UTC day/month. |
+| 429/rate-limit failures | Persist a temporary provider block for 60 seconds and try the next provider. |
+| Bulk add concurrency | Browser bulk add now uses a 6-worker pool instead of 5-domain batches with a fixed 2-second delay. Six is chosen to stay compatible with Cloudflare Workers/Pages' documented simultaneous outgoing connection limit when this flow later moves server-side. |
+
+The current Supabase schema for provider telemetry is in `supabase/migrations/20260603222500_add_whois_provider_telemetry.sql`. The future D1 migration should port the same concept to D1 or a Durable Object if strict global coordination becomes necessary.
 
 ## Current Implementation Risks
 
 | Risk | Detail | Fix |
 | --- | --- | --- |
 | Provider failures are only logged | The app stores `unknown` but not which provider failed or why. | Store provider attempts in `app_domain_checks`. |
-| No rate-limit accounting | Bulk add can consume API credits quickly. | Track per-provider daily counters or implement queue throttling. |
+| Telemetry migration must be applied | Persistent provider pre-skipping only works after `whois_provider_telemetry` and `claim_whois_provider_attempt(...)` exist in Supabase. | Apply the SQL migration in Supabase SQL Editor or through `supabase db push` with the DB password. |
 | Availability vs WHOIS varies | Some APIs have separate domain availability endpoints and WHOIS endpoints. | Prefer availability endpoint for new target checks, WHOIS endpoint for owned domain metadata. |
 | `dropped` is inferred | Current code marks `dropped` only in scheduled checks when a previously expired domain becomes available. | Keep transition history so `dropped` is based on previous tracked state, not just live provider response. |
 

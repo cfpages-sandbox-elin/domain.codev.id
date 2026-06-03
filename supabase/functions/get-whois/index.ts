@@ -41,6 +41,13 @@ serve(async (req) => {
     }
     console.log(`✅ User ${user.id} authorized.`);
 
+    const supabaseAdmin = createClient(
+      // @ts-ignore
+      Deno.env.get('SUPABASE_URL') ?? '',
+      // @ts-ignore
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    );
+
     // 2. Get the domain name from the request body
     const { domainName } = await req.json();
     if (!domainName || typeof domainName !== 'string') {
@@ -52,7 +59,7 @@ serve(async (req) => {
     console.log(`➡️ Processing request for domain: ${domainName}`);
     
     // 3. Perform the WHOIS lookup using shared logic
-    const whoisData = await getWhoisData(domainName);
+    const whoisData = await getWhoisData(domainName, { telemetryClient: supabaseAdmin });
     console.log(`✅ WHOIS lookup complete for ${domainName}. Status: ${whoisData.status}`);
 
     // 4. Return the result

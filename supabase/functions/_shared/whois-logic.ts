@@ -55,6 +55,7 @@ export interface WhoisProviderStatus {
   supportsQuotaHeaders: boolean;
   status: 'active' | 'missing-key' | 'not-implemented' | 'disabled';
   notes: string;
+  quota?: WhoisQuota;
 }
 
 interface WhoisProviderConfig {
@@ -66,8 +67,25 @@ interface WhoisProviderConfig {
   envKeys: string[];
   freeTierLabel: string;
   supportsQuotaHeaders: boolean;
+  monthlyFreeLimit: number | null;
+  perMinuteLimit: number | null;
   notes: string;
   isConfigured: () => boolean;
+}
+
+interface WhoisProviderRuntimeState {
+  inFlight: number;
+  recentStarts: number[];
+  estimatedMonthUsed: number;
+  monthKey: string;
+  blockedUntil: number | null;
+  blockReason?: string;
+  lastUsedAt?: number;
+  quota?: WhoisQuota;
+}
+
+interface WhoisRuntimeOptions {
+  telemetryClient?: any;
 }
 
 //-------------------------------------------------
@@ -105,6 +123,8 @@ const WHOIS_PROVIDER_REGISTRY: WhoisProviderConfig[] = [
     envKeys: ['WHO_DAT_URL', 'WHO_DAT_AUTH_KEY'],
     freeTierLabel: 'Self-hosted; depends on deployment',
     supportsQuotaHeaders: false,
+    monthlyFreeLimit: null,
+    perMinuteLimit: null,
     notes: 'Primary if WHO_DAT_URL exists.',
     isConfigured: () => Boolean(WHO_DAT_URL),
   },
@@ -117,6 +137,8 @@ const WHOIS_PROVIDER_REGISTRY: WhoisProviderConfig[] = [
     envKeys: ['WHOIS_API_KEY', 'VITE_WHOIS_API_KEY'],
     freeTierLabel: '500 free WHOIS queries',
     supportsQuotaHeaders: false,
+    monthlyFreeLimit: 500,
+    perMinuteLimit: 10,
     notes: 'Good parsed WHOIS fallback.',
     isConfigured: () => Boolean(WHOISXMLAPI_KEY),
   },
@@ -129,6 +151,8 @@ const WHOIS_PROVIDER_REGISTRY: WhoisProviderConfig[] = [
     envKeys: ['APILAYER_API_KEY', 'VITE_APILAYER_API_KEY'],
     freeTierLabel: '3,000 requests/month',
     supportsQuotaHeaders: true,
+    monthlyFreeLimit: 3000,
+    perMinuteLimit: 30,
     notes: 'Exposes monthly/daily rate-limit headers.',
     isConfigured: () => Boolean(APILAYER_KEY),
   },
@@ -141,6 +165,8 @@ const WHOIS_PROVIDER_REGISTRY: WhoisProviderConfig[] = [
     envKeys: ['WHOISFREAKS_API_KEY', 'VITE_WHOISFREAKS_API_KEY'],
     freeTierLabel: '500 signup credits',
     supportsQuotaHeaders: false,
+    monthlyFreeLimit: 500,
+    perMinuteLimit: 10,
     notes: 'Live WHOIS endpoint.',
     isConfigured: () => Boolean(WHOISFREAKS_KEY),
   },
@@ -153,6 +179,8 @@ const WHOIS_PROVIDER_REGISTRY: WhoisProviderConfig[] = [
     envKeys: ['WHOAPI_COM_API_KEY', 'VITE_WHOAPI_COM_API_KEY'],
     freeTierLabel: 'Verify in account',
     supportsQuotaHeaders: false,
+    monthlyFreeLimit: null,
+    perMinuteLimit: 10,
     notes: 'Implemented fallback; current free quota not confirmed.',
     isConfigured: () => Boolean(WHOAPI_COM_KEY),
   },
@@ -165,6 +193,8 @@ const WHOIS_PROVIDER_REGISTRY: WhoisProviderConfig[] = [
     envKeys: ['RAPIDAPI_KEY', 'VITE_RAPIDAPI_KEY'],
     freeTierLabel: 'Marketplace plan varies',
     supportsQuotaHeaders: false,
+    monthlyFreeLimit: null,
+    perMinuteLimit: 10,
     notes: 'Optional last fallback.',
     isConfigured: () => Boolean(RAPIDAPI_KEY),
   },
@@ -175,8 +205,10 @@ const WHOIS_PROVIDER_REGISTRY: WhoisProviderConfig[] = [
     enabled: true,
     priority: 7,
     envKeys: ['WHOISJSON_API_KEY', 'VITE_WHOISJSON_API_KEY'],
-    freeTierLabel: '1,000 requests/month shared across endpoints',
+    freeTierLabel: '1,000 requests/month, 20 requests/minute',
     supportsQuotaHeaders: false,
+    monthlyFreeLimit: 1000,
+    perMinuteLimit: 20,
     notes: 'New backup provider. Response mapping may need adjustment after live testing.',
     isConfigured: () => Boolean(WHOISJSON_API_KEY),
   },
@@ -189,17 +221,294 @@ const WHOIS_PROVIDER_REGISTRY: WhoisProviderConfig[] = [
     envKeys: ['IP2WHOIS_API_KEY', 'VITE_IP2WHOIS_API_KEY'],
     freeTierLabel: '500 domain WHOIS queries/month',
     supportsQuotaHeaders: false,
+    monthlyFreeLimit: 500,
+    perMinuteLimit: 10,
     notes: 'New backup provider. Response mapping may need adjustment after live testing.',
     isConfigured: () => Boolean(IP2WHOIS_API_KEY),
   },
 ];
 
-export const getWhoisProviderStatuses = (): WhoisProviderStatus[] => {
+const providerRuntimeState = new Map<WhoisProviderId, WhoisProviderRuntimeState>();
+const WHOIS_PROVIDER_TELEMETRY_TABLE = 'whois_provider_telemetry';
+let telemetryWarningLogged = false;
+
+const monthKey = (date = new Date()) => `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+
+const nextUtcDay = (now: number) => {
+  const date = new Date(now);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1);
+};
+
+const nextUtcMonth = (now: number) => {
+  const date = new Date(now);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1);
+};
+
+const getRuntimeState = (providerId: WhoisProviderId): WhoisProviderRuntimeState => {
+  const currentMonth = monthKey();
+  const existing = providerRuntimeState.get(providerId);
+  if (existing) {
+    if (existing.monthKey !== currentMonth) {
+      existing.estimatedMonthUsed = 0;
+      existing.monthKey = currentMonth;
+      existing.blockedUntil = null;
+      existing.blockReason = undefined;
+    }
+    return existing;
+  }
+
+  const created: WhoisProviderRuntimeState = {
+    inFlight: 0,
+    recentStarts: [],
+    estimatedMonthUsed: 0,
+    monthKey: currentMonth,
+    blockedUntil: null,
+  };
+  providerRuntimeState.set(providerId, created);
+  return created;
+};
+
+const isTelemetrySchemaError = (error: any) => {
+  const code = error?.code || '';
+  const message = `${error?.message || ''} ${error?.details || ''}`;
+  return code === '42P01'
+    || code === '42883'
+    || code === 'PGRST202'
+    || code === 'PGRST205'
+    || /whois_provider_telemetry|claim_whois_provider_attempt|schema cache|does not exist/i.test(message);
+};
+
+const warnTelemetryUnavailable = (error: any) => {
+  if (telemetryWarningLogged) return;
+  telemetryWarningLogged = true;
+  console.warn(`WHOIS provider telemetry persistence is unavailable; using runtime-only quota state. ${error?.message || error}`);
+};
+
+const hydrateRuntimeFromTelemetryRow = (row: any) => {
+  if (!row?.provider_id) return;
+  const providerId = row.provider_id as WhoisProviderId;
+  const state = getRuntimeState(providerId);
+  const currentMonth = monthKey();
+  const rowMonthKey = row.month_key || currentMonth;
+
+  state.monthKey = rowMonthKey;
+  state.estimatedMonthUsed = rowMonthKey === currentMonth ? Number(row.estimated_month_used || 0) : 0;
+  state.recentStarts = Array.isArray(row.recent_starts)
+    ? row.recent_starts
+        .map((value: string) => new Date(value).getTime())
+        .filter((value: number) => Number.isFinite(value))
+    : [];
+  state.blockedUntil = row.blocked_until ? new Date(row.blocked_until).getTime() : null;
+  state.blockReason = row.block_reason || undefined;
+  state.lastUsedAt = row.last_used_at ? new Date(row.last_used_at).getTime() : undefined;
+  state.quota = row.quota || undefined;
+  const now = Date.now();
+  state.recentStarts = state.recentStarts.filter(startedAt => now - startedAt < 60_000);
+};
+
+const loadPersistentTelemetry = async (telemetryClient?: any) => {
+  if (!telemetryClient) return;
+
+  const { data, error } = await telemetryClient
+    .from(WHOIS_PROVIDER_TELEMETRY_TABLE)
+    .select('*');
+
+  if (error) {
+    if (isTelemetrySchemaError(error)) {
+      warnTelemetryUnavailable(error);
+      return;
+    }
+    console.warn(`Could not load WHOIS provider telemetry: ${error.message || error}`);
+    return;
+  }
+
+  (data || []).forEach(hydrateRuntimeFromTelemetryRow);
+};
+
+const persistPersistentTelemetry = async (providerId: WhoisProviderId, telemetryClient?: any) => {
+  if (!telemetryClient) return;
+
+  const state = getRuntimeState(providerId);
+  const payload = {
+    provider_id: providerId,
+    month_key: state.monthKey,
+    blocked_until: state.blockedUntil ? new Date(state.blockedUntil).toISOString() : null,
+    block_reason: state.blockReason || null,
+    quota: state.quota || null,
+    last_used_at: state.lastUsedAt ? new Date(state.lastUsedAt).toISOString() : null,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await telemetryClient
+    .from(WHOIS_PROVIDER_TELEMETRY_TABLE)
+    .upsert(payload, { onConflict: 'provider_id' });
+
+  if (error) {
+    if (isTelemetrySchemaError(error)) {
+      warnTelemetryUnavailable(error);
+      return;
+    }
+    console.warn(`Could not persist WHOIS provider telemetry for ${providerId}: ${error.message || error}`);
+  }
+};
+
+const claimPersistentProviderAttempt = async (
+  provider: WhoisProviderConfig,
+  telemetryClient?: any,
+): Promise<{ skipReason: string | null; claimed: boolean }> => {
+  if (!telemetryClient) return { skipReason: null, claimed: false };
+
+  const { data, error } = await telemetryClient.rpc('claim_whois_provider_attempt', {
+    p_provider_id: provider.id,
+    p_month_key: monthKey(),
+    p_per_minute_limit: provider.perMinuteLimit,
+    p_monthly_limit: provider.monthlyFreeLimit,
+  });
+
+  if (error) {
+    if (isTelemetrySchemaError(error)) {
+      warnTelemetryUnavailable(error);
+      return { skipReason: null, claimed: false };
+    }
+    console.warn(`Could not claim WHOIS provider telemetry for ${provider.id}: ${error.message || error}`);
+    return { skipReason: null, claimed: false };
+  }
+
+  const claim = Array.isArray(data) ? data[0] : data;
+  if (!claim) return { skipReason: null, claimed: false };
+
+  const state = getRuntimeState(provider.id);
+  state.estimatedMonthUsed = Number(claim.estimated_month_used || state.estimatedMonthUsed);
+
+  if (claim.allowed === false) {
+    const retryAt = claim.retry_after ? new Date(claim.retry_after).getTime() : null;
+    state.blockedUntil = retryAt;
+    state.blockReason = claim.reason || 'Provider is blocked by persistent quota telemetry.';
+    return {
+      claimed: true,
+      skipReason: retryAt
+      ? `${state.blockReason} Retry after ${new Date(retryAt).toISOString()}.`
+      : state.blockReason,
+    };
+  }
+
+  const { data: row, error: rowError } = await telemetryClient
+    .from(WHOIS_PROVIDER_TELEMETRY_TABLE)
+    .select('*')
+    .eq('provider_id', provider.id)
+    .single();
+
+  if (!rowError && row) {
+    hydrateRuntimeFromTelemetryRow(row);
+  }
+
+  return { skipReason: null, claimed: true };
+};
+
+const pruneRecentStarts = (state: WhoisProviderRuntimeState, now: number) => {
+  state.recentStarts = state.recentStarts.filter(startedAt => now - startedAt < 60_000);
+};
+
+const updateRuntimeQuota = (providerId: WhoisProviderId, quota?: WhoisQuota) => {
+  if (!hasQuotaData(quota)) return;
+  const now = Date.now();
+  const state = getRuntimeState(providerId);
+  state.quota = quota;
+
+  if (quota.remainingDay !== null && quota.remainingDay <= 0) {
+    state.blockedUntil = nextUtcDay(now);
+    state.blockReason = 'Provider daily quota is exhausted.';
+  }
+
+  if (quota.remainingMonth !== null && quota.remainingMonth <= 0) {
+    state.blockedUntil = nextUtcMonth(now);
+    state.blockReason = 'Provider monthly quota is exhausted.';
+  }
+};
+
+const getRuntimeSkipReason = (provider: WhoisProviderConfig, now = Date.now()): string | null => {
+  const state = getRuntimeState(provider.id);
+  pruneRecentStarts(state, now);
+
+  if (state.blockedUntil && state.blockedUntil > now) {
+    const resetAt = new Date(state.blockedUntil).toISOString();
+    return `${state.blockReason || 'Provider is temporarily blocked.'} Retry after ${resetAt}.`;
+  }
+
+  if (state.blockedUntil && state.blockedUntil <= now) {
+    state.blockedUntil = null;
+    state.blockReason = undefined;
+  }
+
+  if (provider.perMinuteLimit !== null && state.recentStarts.length >= provider.perMinuteLimit) {
+    const oldestStart = state.recentStarts[0] || now;
+    const retryAt = oldestStart + 60_000;
+    return `Provider per-minute limit reached in this runtime. Retry after ${new Date(retryAt).toISOString()}.`;
+  }
+
+  if (provider.monthlyFreeLimit !== null && state.estimatedMonthUsed >= provider.monthlyFreeLimit) {
+    state.blockedUntil = nextUtcMonth(now);
+    state.blockReason = 'Provider monthly free-tier estimate is exhausted in this runtime.';
+    return `${state.blockReason} Retry after ${new Date(state.blockedUntil).toISOString()}.`;
+  }
+
+  return null;
+};
+
+const markProviderStart = (provider: WhoisProviderConfig, countUsage = true) => {
+  const now = Date.now();
+  const state = getRuntimeState(provider.id);
+  pruneRecentStarts(state, now);
+  state.inFlight += 1;
+  state.lastUsedAt = now;
+  if (!countUsage) return;
+
+  state.recentStarts.push(now);
+  if (provider.monthlyFreeLimit !== null) {
+    state.estimatedMonthUsed += 1;
+  }
+};
+
+const markProviderFinished = (providerId: WhoisProviderId) => {
+  const state = getRuntimeState(providerId);
+  state.inFlight = Math.max(0, state.inFlight - 1);
+};
+
+const isQuotaFailure = (message: string) => {
+  return /\b429\b|too many requests|rate[\s-]?limit|quota|requests.*consumed|limit.*reached|exhausted/i.test(message);
+};
+
+const markProviderFailure = (providerId: WhoisProviderId, message: string) => {
+  if (!isQuotaFailure(message)) return;
+  const state = getRuntimeState(providerId);
+  state.blockedUntil = Date.now() + 60_000;
+  state.blockReason = `Provider returned a quota or rate-limit error: ${message}`;
+};
+
+const getProviderExecutionOrder = () => {
+  return providerHandlers
+    .slice()
+    .sort(([providerIdA], [providerIdB]) => {
+      const providerA = providerById(providerIdA);
+      const providerB = providerById(providerIdB);
+      const stateA = getRuntimeState(providerIdA);
+      const stateB = getRuntimeState(providerIdB);
+
+      if (stateA.inFlight !== stateB.inFlight) return stateA.inFlight - stateB.inFlight;
+      return providerA.priority - providerB.priority;
+    });
+};
+
+export const getWhoisProviderStatuses = async (telemetryClient?: any): Promise<WhoisProviderStatus[]> => {
+  await loadPersistentTelemetry(telemetryClient);
+
   return WHOIS_PROVIDER_REGISTRY
     .slice()
     .sort((a, b) => a.priority - b.priority)
     .map((provider) => {
       const configured = provider.isConfigured();
+      const runtime = getRuntimeState(provider.id);
+      const skipReason = getRuntimeSkipReason(provider);
       const status = !provider.implemented
         ? 'not-implemented'
         : !provider.enabled
@@ -219,7 +528,8 @@ export const getWhoisProviderStatuses = (): WhoisProviderStatus[] => {
         freeTierLabel: provider.freeTierLabel,
         supportsQuotaHeaders: provider.supportsQuotaHeaders,
         status,
-        notes: provider.notes,
+        notes: skipReason ? `${skipReason} ${provider.notes}` : provider.notes,
+        quota: runtime.quota,
       };
     });
 };
@@ -507,10 +817,11 @@ const providerHandlers: Array<[WhoisProviderId, (domainName: string) => Promise<
   ['ip2whois', getWhoisDataFromIp2Whois],
 ];
 
-export const getWhoisData = async (domainName: string): Promise<WhoisData> => {
+export const getWhoisData = async (domainName: string, options: WhoisRuntimeOptions = {}): Promise<WhoisData> => {
   const attempts: WhoisProviderAttempt[] = [];
+  await loadPersistentTelemetry(options.telemetryClient);
 
-  for (const [providerId, handler] of providerHandlers) {
+  for (const [providerId, handler] of getProviderExecutionOrder()) {
     const provider = providerById(providerId);
 
     if (!provider.enabled || !provider.implemented || !provider.isConfigured()) {
@@ -527,8 +838,33 @@ export const getWhoisData = async (domainName: string): Promise<WhoisData> => {
       continue;
     }
 
+    const runtimeSkipReason = getRuntimeSkipReason(provider);
+    if (runtimeSkipReason) {
+      attempts.push({
+        provider: provider.id,
+        providerLabel: provider.label,
+        status: 'skipped',
+        errorMessage: runtimeSkipReason,
+      });
+      continue;
+    }
+
+    const persistentClaim = await claimPersistentProviderAttempt(provider, options.telemetryClient);
+    if (persistentClaim.skipReason) {
+      attempts.push({
+        provider: provider.id,
+        providerLabel: provider.label,
+        status: 'skipped',
+        errorMessage: persistentClaim.skipReason,
+      });
+      continue;
+    }
+
+    markProviderStart(provider, !persistentClaim.claimed);
     try {
       const data = await handler(domainName);
+      updateRuntimeQuota(provider.id, data.quota);
+      await persistPersistentTelemetry(provider.id, options.telemetryClient);
       attempts.push({
         provider: provider.id,
         providerLabel: provider.label,
@@ -538,6 +874,8 @@ export const getWhoisData = async (domainName: string): Promise<WhoisData> => {
       return withProviderMetadata(provider.id, data, attempts);
     } catch (error) {
       const message = getErrorMessage(error);
+      markProviderFailure(provider.id, message);
+      await persistPersistentTelemetry(provider.id, options.telemetryClient);
       attempts.push({
         provider: provider.id,
         providerLabel: provider.label,
@@ -545,6 +883,8 @@ export const getWhoisData = async (domainName: string): Promise<WhoisData> => {
         errorMessage: message,
       });
       console.error(`${provider.label} failed for ${domainName}: ${message}`);
+    } finally {
+      markProviderFinished(provider.id);
     }
   }
 

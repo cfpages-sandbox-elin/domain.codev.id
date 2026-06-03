@@ -5,10 +5,12 @@ Guidance for AI coding agents working in this repository.
 ## Operating Style
 
 - Be proactive: when you notice a bug, missing test, fragile implementation, security risk, UX issue, or simpler architecture, record it in `docs/SUGGESTION.md`.
+- Keep `docs/CODEBASE.md` current when changing file responsibilities, runtime flow, database schema, Edge Function behavior, or major UI/data logic. Treat it as the quick project map for future context.
 - Keep user-facing progress reports short. Prefer finishing the task, verifying it, then reporting the result.
 - Save tokens where practical: read targeted files, summarize long docs instead of pasting them, use `rg` for search, and avoid repeating unchanged context.
 - Do not sacrifice implementation quality for brevity. Token saving must not reduce code correctness, verification, or maintainability.
 - Before editing, inspect the relevant existing patterns and keep changes scoped.
+- Before larger edits, check `docs/CODEBASE.md` for the current architecture map, then update it after the implementation if the map changed.
 - Do not revert user changes unless explicitly asked.
 
 ## Suggestions Log

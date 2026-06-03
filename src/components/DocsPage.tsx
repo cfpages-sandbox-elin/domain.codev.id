@@ -61,7 +61,7 @@ class CustomRenderer extends marked.Renderer {
 
     link(token: Tokens.Link): string {
         const text = this.parser.parseInline(token.tokens || []);
-        return `<a href="${token.href}" title="${token.title || ''}" target="_blank" rel="noopener noreferrer" class="text-brand-blue hover:underline font-semibold">${text}</a>`;
+        return `<a href="${token.href}" target="_blank" rel="noopener noreferrer" class="text-brand-blue hover:underline font-semibold">${text}</a>`;
     }
 
     strong(token: Tokens.Strong): string {

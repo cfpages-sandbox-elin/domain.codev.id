@@ -33,7 +33,16 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ providers: getWhoisProviderStatuses() }), {
+    const supabaseAdmin = createClient(
+      // @ts-ignore
+      Deno.env.get('SUPABASE_URL') ?? '',
+      // @ts-ignore
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    );
+
+    const providers = await getWhoisProviderStatuses(supabaseAdmin);
+
+    return new Response(JSON.stringify({ providers }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

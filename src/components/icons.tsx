@@ -117,6 +117,47 @@ export const TagIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
+export const HomeIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M3 11l9-8 9 8"></path>
+    <path d="M5 10v10h14V10"></path>
+    <path d="M9 20v-6h6v6"></path>
+  </svg>
+);
+
+export const TargetIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <circle cx="12" cy="12" r="8"></circle>
+    <circle cx="12" cy="12" r="3"></circle>
+    <line x1="12" y1="2" x2="12" y2="5"></line>
+    <line x1="12" y1="19" x2="12" y2="22"></line>
+    <line x1="2" y1="12" x2="5" y2="12"></line>
+    <line x1="19" y1="12" x2="22" y2="12"></line>
+  </svg>
+);
+
 export const SwitchHorizontalIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg
         xmlns="http://www.w3.org/2000/svg"

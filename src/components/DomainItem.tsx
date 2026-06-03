@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Domain, DomainStatus, WhoisData } from '../types';
 import { useCompactMode } from '../contexts/CompactModeContext';
-import { TrashIcon, InfoIcon, TagIcon, ShoppingCartIcon, RefreshIcon } from './icons';
+import { TrashIcon, InfoIcon, ShoppingCartIcon, RefreshIcon, HomeIcon, TargetIcon } from './icons';
 import Spinner from './Spinner';
 import Tooltip from './Tooltip';
 
@@ -145,13 +145,20 @@ const DetailRow: React.FC<{ label: string; value: React.ReactNode }> = ({ label,
   </div>
 );
 
+const PlainTooltipText: React.FC<{ title: string; body?: string }> = ({ title, body }) => (
+  <span>
+    <span className="block font-semibold text-slate-800 dark:text-slate-100">{title}</span>
+    {body && <span className="mt-0.5 block text-slate-500 dark:text-slate-400">{body}</span>}
+  </span>
+);
+
 const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove, onShowInfo, onToggleTag, onRecheck }) => {
   const [selectedRegistrar, setSelectedRegistrar] = useState<string>('');
   const [isRechecking, setIsRechecking] = useState(false);
   const { isCompact } = useCompactMode();
   
   const isIdDomain = domain.domain_name.endsWith('.id');
-  const registrars = isIdDomain
+  const registrars: Record<string, string> = isIdDomain
     ? { 
         'idwebhost.com': 'IDWebHost', 
         'idcloudhost.com': 'IDCloudHost', 
@@ -200,19 +207,29 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
   };
   
   const isAvailableStatus = domain.status === 'available' || domain.status === 'dropped';
-  const isAvailableForPurchase = isAvailableStatus && domain.tag === 'to-snatch';
+  const effectiveTag = isAvailableStatus ? 'to-snatch' : domain.tag;
+  const isAvailableForPurchase = isAvailableStatus;
   const canShowDropTimeline = domain.status === 'expired' && Boolean(domain.expiration_date);
   const actionButtonClass = 'p-1.5 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-wait';
   const registryStatuses = domain.domain_statuses || whoisDetails?.domainStatuses || [];
   const nameServers = domain.name_servers || whoisDetails?.nameServers || [];
   const whoisUrl = `https://www.whois.com/whois/${encodeURIComponent(domain.domain_name)}`;
+  const TagIconComponent = effectiveTag === 'mine' ? HomeIcon : TargetIcon;
+  const tagLabel = effectiveTag === 'mine' ? 'Mine' : 'To Snatch';
+  const selectedRegistrarName = registrars[selectedRegistrar] || selectedRegistrar;
+  const buyTooltip = (
+    <PlainTooltipText
+      title={`Open ${selectedRegistrarName}`}
+      body="Confirm availability at the registrar before buying. WHOIS providers can return stale or unsupported-TLD results."
+    />
+  );
 
   const tooltipContent = (
     <div className="space-y-3">
       <div className="space-y-1">
         <DetailRow label="Domain" value={domain.domain_name} />
         <DetailRow label="Status" value={domain.status === 'dropped' ? 'available' : domain.status} />
-        <DetailRow label="Tag" value={domain.tag === 'mine' ? 'Mine' : 'To Snatch'} />
+        <DetailRow label="Tag" value={tagLabel} />
         <DetailRow label="Expires" value={formatDate(domain.expiration_date)} />
         <DetailRow label="Registered" value={formatDate(domain.registered_date)} />
         <DetailRow label="Registrar" value={domain.registrar || 'N/A'} />
@@ -251,7 +268,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
 
   return (
     <div className={`rounded-md border transition-all ${rowStyles} ${isCompact ? 'px-3 py-2' : 'px-4 py-3'}`}>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(180px,1.5fr)_minmax(110px,0.7fr)_minmax(120px,0.8fr)_minmax(170px,1fr)_auto] md:items-center">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(180px,1.5fr)_minmax(110px,0.7fr)_minmax(120px,0.8fr)_minmax(160px,0.9fr)_auto] md:items-center">
         <div className="min-w-0">
           <Tooltip content={tooltipContent}>
             <a
@@ -283,78 +300,91 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
 
         <div className="min-h-[32px]">
           {isAvailableForPurchase ? (
-            <div className="flex flex-wrap items-center gap-2 md:justify-end">
+            <div className="flex items-center gap-1.5 md:justify-end">
               <select
                 value={selectedRegistrar}
                 onChange={(e) => setSelectedRegistrar(e.target.value)}
-                className="min-w-0 flex-1 md:flex-none px-2 py-1 text-xs bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-brand-blue focus:border-brand-blue"
+                className="min-w-0 w-full max-w-[132px] px-2 py-1.5 text-xs bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-brand-blue focus:border-brand-blue"
                 aria-label={`Select registrar for ${domain.domain_name}`}
               >
                 {Object.entries(registrars).map(([value, name]) => (
                   <option key={value} value={value}>{name}</option>
                 ))}
               </select>
-              <button
-                onClick={handleBuyClick}
-                className="inline-flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-brand-green hover:bg-green-600 rounded-md transition-colors"
-                aria-label={`Buy ${domain.domain_name} on ${selectedRegistrar}`}
-              >
-                <ShoppingCartIcon className="w-4 h-4" />
-                Buy
-              </button>
+              <Tooltip content={buyTooltip}>
+                <button
+                  onClick={handleBuyClick}
+                  className="inline-flex h-8 w-8 items-center justify-center text-white bg-brand-green hover:bg-green-600 rounded-md transition-colors"
+                  aria-label={`Open registrar page for ${domain.domain_name} on ${selectedRegistrarName}`}
+                >
+                  <ShoppingCartIcon className="w-4 h-4" />
+                </button>
+              </Tooltip>
             </div>
           ) : null}
         </div>
 
         <div className="flex items-center justify-start gap-1 md:justify-end">
-          <button
-            onClick={handleRecheck}
-            disabled={isRechecking}
-            className={actionButtonClass}
-            title="Re-check WHOIS data"
-            aria-label={`Re-check WHOIS data for ${domain.domain_name}`}
-          >
-            {isRechecking ? <Spinner size="sm" color="border-brand-blue" /> : <RefreshIcon className="w-5 h-5" />}
-          </button>
-          {canShowDropTimeline && (
+          <Tooltip content={<PlainTooltipText title="Re-check WHOIS data" body="Refresh status, expiry, registry status, and name servers." />}>
             <button
-              onClick={() => onShowInfo(domain)}
+              onClick={handleRecheck}
+              disabled={isRechecking}
               className={actionButtonClass}
-              title="Show drop timeline"
-              aria-label={`Show drop timeline for ${domain.domain_name}`}
+              aria-label={`Re-check WHOIS data for ${domain.domain_name}`}
             >
-              <InfoIcon className="w-5 h-5" />
+              {isRechecking ? <Spinner size="sm" color="border-brand-blue" /> : <RefreshIcon className="w-5 h-5" />}
             </button>
+          </Tooltip>
+          {canShowDropTimeline && (
+            <Tooltip content={<PlainTooltipText title="Show drop timeline" body="Estimate grace, redemption, and release timing." />}>
+              <button
+                onClick={() => onShowInfo(domain)}
+                className={actionButtonClass}
+                aria-label={`Show drop timeline for ${domain.domain_name}`}
+              >
+                <InfoIcon className="w-5 h-5" />
+              </button>
+            </Tooltip>
           )}
-          <button
-            onClick={() => onToggleTag(domain.id)}
-            className={actionButtonClass}
-            title={`Switch tag. Current: ${domain.tag === 'mine' ? 'Mine' : 'To Snatch'}`}
-            aria-label={`Switch tag for ${domain.domain_name}`}
-          >
-            <span className={`inline-flex rounded px-1 ${tagStyles[domain.tag]}`}>
-              <TagIcon className="w-4 h-4" />
-            </span>
-          </button>
-          <button
-            onClick={() => onRemove(domain.id)}
-            className="p-1.5 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-md transition-colors"
-            title="Remove domain"
-            aria-label={`Remove ${domain.domain_name} from tracking list`}
-          >
-            <TrashIcon className="w-5 h-5" />
-          </button>
+          {isAvailableStatus ? (
+            <Tooltip content={<PlainTooltipText title="To Snatch" body="Available domains are treated as target domains. Re-check before buying." />}>
+              <span
+                className={`${actionButtonClass} inline-flex cursor-default items-center`}
+                aria-label={`${domain.domain_name} is marked To Snatch because it is available`}
+              >
+                <span className={`inline-flex rounded px-1 ${tagStyles['to-snatch']}`}>
+                  <TargetIcon className="w-4 h-4" />
+                </span>
+              </span>
+            </Tooltip>
+          ) : (
+            <Tooltip content={<PlainTooltipText title={`Tag: ${tagLabel}`} body={`Click to switch to ${effectiveTag === 'mine' ? 'To Snatch' : 'Mine'}.`} />}>
+              <button
+                onClick={() => onToggleTag(domain.id)}
+                className={actionButtonClass}
+                aria-label={`Switch tag for ${domain.domain_name}`}
+              >
+                <span className={`inline-flex rounded px-1 ${tagStyles[effectiveTag]}`}>
+                  <TagIconComponent className="w-4 h-4" />
+                </span>
+              </button>
+            </Tooltip>
+          )}
+          <Tooltip content={<PlainTooltipText title="Remove domain" body="Delete this domain from your tracking list." />}>
+            <button
+              onClick={() => onRemove(domain.id)}
+              className="p-1.5 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-md transition-colors"
+              aria-label={`Remove ${domain.domain_name} from tracking list`}
+            >
+              <TrashIcon className="w-5 h-5" />
+            </button>
+          </Tooltip>
         </div>
       </div>
 
       {isAvailableStatus && domain.tag === 'mine' && (
-        <div className="mt-2 border-t border-slate-200/80 pt-2 text-xs font-medium text-yellow-700 dark:border-slate-700/80 dark:text-yellow-300">
-          Provider says available, but this is tagged as yours. Treat as suspicious and re-check before acting.
-        </div>
-      )}
-      {isAvailableForPurchase && domain.tag === 'to-snatch' && (
-        <div className="mt-2 border-t border-slate-200/80 pt-2 text-xs text-slate-500 dark:border-slate-700/80 dark:text-slate-400">
-          Confirm availability at the registrar before buying. WHOIS providers can return stale or unsupported-TLD results.
+        <div className="sr-only">
+          Provider says available, but the saved tag is Mine. The row is shown as To Snatch until re-checked.
         </div>
       )}
     </div>

@@ -17,6 +17,7 @@ import StatusLog from './components/StatusLog';
 import DocsPage from './components/DocsPage';
 import BulkAddModal from './components/BulkAddModal';
 import WhoisProviderPanel from './components/WhoisProviderPanel';
+import Tooltip from './components/Tooltip';
 import { PlusIcon } from './components/icons';
 
 const formatDate = (date: Date) => date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -204,9 +205,15 @@ const App: React.FC = () => {
   };
 
   const handleBulkAdd = async (bulkDomains: BulkDomain[], defaultTag: DomainTag) => {
-    const domainsToAdd = bulkDomains.filter(item => 
-        !domains.some(d => d.domain_name.toLowerCase() === item.domainName.toLowerCase())
-    );
+    const seenDomains = new Set(domains.map(domain => domain.domain_name.toLowerCase()));
+    const domainsToAdd: BulkDomain[] = [];
+
+    for (const item of bulkDomains) {
+      const domainName = item.domainName.trim().toLowerCase();
+      if (!domainName || seenDomains.has(domainName)) continue;
+      seenDomains.add(domainName);
+      domainsToAdd.push({ domainName, tag: item.tag });
+    }
     
     if (domainsToAdd.length !== bulkDomains.length) {
         const skippedCount = bulkDomains.length - domainsToAdd.length;
@@ -221,28 +228,32 @@ const App: React.FC = () => {
     setIsBulkProcessing(true);
     addLog(`➡️ Starting bulk add of ${domainsToAdd.length} domains...`);
 
-    const BATCH_SIZE = 5;
-    const DELAY_BETWEEN_BATCHES = 2000; // 2 seconds
+    const BULK_CONCURRENCY = 6; // Also matches Cloudflare Workers/Pages simultaneous outgoing connection guidance for the future server-side port.
+    const workerCount = Math.min(BULK_CONCURRENCY, domainsToAdd.length);
+    let nextIndex = 0;
+    let completedCount = 0;
 
-    for (let i = 0; i < domainsToAdd.length; i += BATCH_SIZE) {
-        const batch = domainsToAdd.slice(i, i + BATCH_SIZE);
-        const batchNumber = i / BATCH_SIZE + 1;
-        const totalBatches = Math.ceil(domainsToAdd.length / BATCH_SIZE);
-        
-        addLog(`🔄 Processing batch ${batchNumber} of ${totalBatches} (${batch.length} domains)...`);
-
-        const promises = batch.map(item => addDomain(item.domainName, item.tag || defaultTag));
-        await Promise.allSettled(promises);
-        
-        if (i + BATCH_SIZE < domainsToAdd.length) {
-            addLog(`⌛ Waiting for ${DELAY_BETWEEN_BATCHES / 1000} seconds before next batch...`);
-            await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
+    const runWorker = async (workerIndex: number) => {
+      while (nextIndex < domainsToAdd.length) {
+        const currentIndex = nextIndex;
+        nextIndex += 1;
+        const item = domainsToAdd[currentIndex];
+        addLog(`🔄 Worker ${workerIndex + 1}: checking ${item.domainName} (${currentIndex + 1}/${domainsToAdd.length})...`);
+        await addDomain(item.domainName, item.tag || defaultTag);
+        completedCount += 1;
+        if (completedCount % BULK_CONCURRENCY === 0 || completedCount === domainsToAdd.length) {
+          addLog(`ℹ️ Bulk add progress: ${completedCount}/${domainsToAdd.length} processed.`);
         }
-    }
+      }
+    };
 
-    addLog('✅ Bulk add finished.');
-    setIsBulkProcessing(false);
-    setIsBulkAddModalOpen(false);
+    try {
+      await Promise.allSettled(Array.from({ length: workerCount }, (_, index) => runWorker(index)));
+      addLog('✅ Bulk add finished.');
+      setIsBulkAddModalOpen(false);
+    } finally {
+      setIsBulkProcessing(false);
+    }
   };
 
   const handleAddDomainFromModal = async (domainName: string, tag: DomainTag) => {
@@ -419,14 +430,15 @@ const App: React.FC = () => {
       </main>
 
       {!loading && session && (
-        <button
+        <Tooltip content="Add new domain (Ctrl+N)" className="fixed bottom-8 right-8 z-40" placement="top">
+          <button
             onClick={() => setIsAddDomainModalOpen(true)}
-            className="fixed bottom-8 right-8 bg-brand-blue hover:bg-blue-600 text-white rounded-full p-4 shadow-lg transition-transform hover:scale-110 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800"
+            className="bg-brand-blue hover:bg-blue-600 text-white rounded-full p-4 shadow-lg transition-transform hover:scale-110 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800"
             aria-label="Add new domain"
-            title="Add new domain (Ctrl+N)"
-        >
+          >
             <PlusIcon className="w-6 h-6" />
-        </button>
+          </button>
+        </Tooltip>
       )}
 
       {!loading && <StatusLog logs={logs} />}

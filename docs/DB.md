@@ -16,6 +16,28 @@ alter table public.domains
 
 These fields store provider-returned registry status values such as `autoRenewPeriod` and `clientTransferProhibited`, plus the latest name servers. The app displays them in the domain-row tooltip and refreshes them on add, manual re-check, and scheduled checks.
 
+Provider quota telemetry should also be persisted while Supabase remains active:
+
+```sql
+-- Full SQL is checked in at:
+-- supabase/migrations/20260603222500_add_whois_provider_telemetry.sql
+
+create table if not exists public.whois_provider_telemetry (
+  provider_id text primary key,
+  month_key text not null,
+  estimated_month_used integer not null default 0,
+  recent_starts timestamptz[] not null default '{}',
+  blocked_until timestamptz,
+  block_reason text,
+  quota jsonb,
+  last_used_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+```
+
+The migration also creates `claim_whois_provider_attempt(...)`, which atomically claims provider usage before an Edge Function makes an external WHOIS request. This is what lets multiple Edge Function instances coordinate per-minute and monthly provider limits.
+
 ## Direction
 
 Use Cloudflare Workers or Pages Functions as the backend, Cloudflare D1 as the relational database, Better Auth for authentication, and Workers Cron Triggers/Queues for scheduled WHOIS checks.

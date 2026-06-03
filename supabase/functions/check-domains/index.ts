@@ -77,10 +77,9 @@ serve(async (req) => {
     }
     console.log(`Found ${domains.length} domains to check.`);
 
-    // Process each domain
-    const updatePromises = domains.map(async (domain: Domain) => {
+    const checkDomain = async (domain: Domain): Promise<(DomainUpdate & { id: number }) | null> => {
       console.log(`➡️ Checking ${domain.domain_name}...`);
-      const whoisData = await getWhoisData(domain.domain_name);
+      const whoisData = await getWhoisData(domain.domain_name, { telemetryClient: supabaseAdmin });
 
       if (whoisData.status === 'unknown') {
         console.log(`⚠️ WHOIS check failed for ${domain.domain_name}. Skipping update.`);
@@ -108,10 +107,22 @@ serve(async (req) => {
       
       console.log(`✅ Update for ${domain.domain_name}: status -> ${newStatus}`);
       return payload;
+    };
+
+    const CHECK_CONCURRENCY = 6;
+    const updatesToApply: Array<DomainUpdate & { id: number }> = [];
+    let nextIndex = 0;
+
+    const workers = Array.from({ length: Math.min(CHECK_CONCURRENCY, domains.length) }, async () => {
+      while (nextIndex < domains.length) {
+        const domain = domains[nextIndex] as Domain;
+        nextIndex += 1;
+        const update = await checkDomain(domain);
+        if (update) updatesToApply.push(update);
+      }
     });
 
-    const results = await Promise.all(updatePromises);
-    const updatesToApply = results.filter((r): r is (DomainUpdate & { id: number; }) => r !== null);
+    await Promise.all(workers);
 
     // Batch update the domains in the database
     if (updatesToApply.length > 0) {

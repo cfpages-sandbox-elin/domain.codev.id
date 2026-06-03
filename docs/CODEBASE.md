@@ -1,6 +1,6 @@
 # Codebase Map
 
-Last audited: 2026-06-03 13:09 WIB.
+Last audited: 2026-06-03 22:25 WIB.
 
 ## Overview
 
@@ -12,8 +12,9 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 2. `src/App.tsx` initializes Supabase, reads the current auth session, subscribes to auth state, fetches domains after login, and renders either auth, dashboard, docs, loading, or config error views.
 3. User domain actions call `src/services/supabaseService.ts` for CRUD and `src/services/whoisService.ts` for WHOIS.
 4. `whoisService.ts` invokes Supabase Edge Function `get-whois`.
-5. `supabase/functions/get-whois/index.ts` authenticates the Supabase user and calls shared provider waterfall logic in `supabase/functions/_shared/whois-logic.ts`.
-6. `supabase/functions/check-domains/index.ts` is intended for scheduled checks. It uses a cron secret, service role key, and shared WHOIS logic to update expired or stale domains.
+5. `supabase/functions/get-whois/index.ts` authenticates the Supabase user, creates a service-role client for telemetry, and calls shared provider logic in `supabase/functions/_shared/whois-logic.ts`.
+6. `supabase/functions/_shared/whois-logic.ts` loads persistent provider telemetry when available, skips exhausted/rate-limited providers, balances in-flight provider use, and returns normalized WHOIS data.
+7. `supabase/functions/check-domains/index.ts` is intended for scheduled checks. It uses a cron secret, service role key, capped concurrency, shared WHOIS logic, and persisted provider telemetry to update expired or stale domains.
 
 ## Current Stack
 
@@ -22,9 +23,9 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | Frontend | Vite, React 18, TypeScript |
 | Styling | Tailwind CSS, class-based dark mode |
 | Auth | Supabase Auth with Google OAuth |
-| Database | Supabase Postgres table assumed as `domains` |
+| Database | Supabase Postgres tables assumed as `domains` and `whois_provider_telemetry` |
 | Backend/API | Supabase Edge Functions |
-| WHOIS providers | `who-dat`, WhoisXMLAPI, APILayer, WhoisFreaks, WhoAPI, RapidAPI waterfall |
+| WHOIS providers | `who-dat`, WhoisXMLAPI, APILayer, WhoisFreaks, WhoAPI, RapidAPI, WhoisJSON, IP2WHOIS with quota-aware fallback |
 | Docs rendering | Markdown content bundled into TypeScript and rendered with `marked` |
 
 ## Files
@@ -55,7 +56,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `src/index.css` | Tailwind base/components/utilities imports. |
 | `src/env.d.ts` | Types Vite env vars for Supabase URL/anon key and `import.meta.glob` for markdown docs. |
 | `src/types.ts` | Core domain, WHOIS result, quota, provider attempt, and provider status types. |
-| `src/App.tsx` | Main state machine. Handles session, domain list, notifications, logs, modals, bulk processing, filtering entry points, add/remove/toggle/recheck/export flows, background sync for `mine` domains, and estimated drop timeline modal. |
+| `src/App.tsx` | Main state machine. Handles session, domain list, transient WHOIS detail cache, provider dashboard state, notifications, logs, modals, 6-worker bulk processing, add/remove/toggle/recheck/export flows, and estimated drop timeline modal. |
 | `src/hooks/useDarkMode.ts` | Reads/stores theme in `localStorage`, applies/removes `dark` class on `<html>`, returns `[theme, toggleTheme]`. |
 | `src/contexts/CompactModeContext.tsx` | Provides compact mode state, persists it in `localStorage`, and toggles a `compact` class on `<html>`. |
 | `src/services/supabaseService.ts` | Creates Supabase client, exposes config error, wraps auth (`getSession`, Google sign-in, sign-out), and domain CRUD functions. Defines Supabase-ish database types manually. |
@@ -67,12 +68,12 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | --- | --- |
 | `src/components/Auth.tsx` | Login screen with Google sign-in button calling Supabase OAuth. |
 | `src/components/BulkAddModal.tsx` | Modal for pasted bulk domains and JSON/CSV import. Splits pasted input by whitespace/comma. Parses JSON arrays and CSV with `domain_name` plus optional `tag`. |
-| `src/components/CompactModeToggle.tsx` | Icon button toggling compact/standard view through context. |
+| `src/components/CompactModeToggle.tsx` | Icon button toggling compact/standard view through context, using shared tooltip behavior. |
 | `src/components/ConfigErrorScreen.tsx` | Displays missing/invalid Supabase config errors. |
 | `src/components/DocsPage.tsx` | Renders bundled docs using `marked` with a custom Tailwind HTML renderer and sidebar doc navigation. Uses `dangerouslySetInnerHTML`. |
 | `src/components/DomainForm.tsx` | Single-domain entry form. Validates a dot exists, adds as `mine` or `to-snatch`, supports Enter and Shift+Enter shortcuts. |
-| `src/components/DomainItem.tsx` | Domain row. Shows status/tag badges, urgency colors, expiry info, registrar purchase dropdown for available domains, recheck button for unknown status, tag switch, delete, and expired-domain info action. |
-| `src/components/DomainList.tsx` | List controls and rendering. Supports filters, sort dropdown, visible-list recheck, import/export menus, empty states, and maps domains to `DomainItem`. |
+| `src/components/DomainItem.tsx` | Domain row. Shows status-colored scan rows, clickable whois.com domain links, basic expiry/status info, persisted WHOIS details in tooltip, inline registrar select plus icon-only buy action, Mine/To Snatch icons, recheck/delete actions, and prevents available domains from being toggled to Mine in the UI. |
+| `src/components/DomainList.tsx` | List controls and rendering. Supports filters, sort dropdown, visible-list recheck, import/export menus, empty states, To Snatch filtering for available domains, and maps domains to `DomainItem`. |
 | `src/components/ErrorBoundary.tsx` | React class error boundary showing a recoverable error screen with refresh button. |
 | `src/components/Header.tsx` | Sticky header. Shows brand button, docs nav, user email, notifications dropdown, compact/dark toggles, and logout. |
 | `src/components/icons.tsx` | Inline SVG icon components used throughout the UI. |
@@ -80,16 +81,24 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `src/components/ModeToggle.tsx` | Dark/light toggle button using `useDarkMode`. |
 | `src/components/Spinner.tsx` | Tailwind spinner with size/color props. |
 | `src/components/StatusLog.tsx` | Floating collapsible status log. Infers icon/color from emoji markers in log strings. |
-| `src/components/WhoisProviderPanel.tsx` | Dashboard provider panel. Shows known providers, active/missing-key/not-implemented state, free-limit labels, quota from runtime checks, and notes/errors. |
+| `src/components/Tooltip.tsx` | Shared instant tooltip. Renders through `document.body` via portal with fixed positioning and a top-level z-index so parent containers do not clip it. |
+| `src/components/WhoisProviderPanel.tsx` | Default-collapsed dashboard provider accordion. Shows summary first, then known providers, active/missing-key/not-implemented state, free-limit labels, persisted/runtime quota, and notes/errors when expanded. |
 
 ## Supabase Functions
 
 | File | Purpose / logic |
 | --- | --- |
-| `supabase/functions/_shared/whois-logic.ts` | Shared server-side WHOIS provider waterfall. Reads provider keys from Deno env, checks providers in order, maps each provider response to `{ status, expirationDate, registeredDate, registrar }`, and returns `unknown` after all fail. |
-| `supabase/functions/get-whois/index.ts` | Authenticated edge function for real-time lookups. Handles CORS, validates Supabase user from Authorization header, validates `domainName`, calls shared WHOIS logic, and returns JSON. |
-| `supabase/functions/get-whois-providers/index.ts` | Authenticated edge function for WHOIS dashboard. Returns provider registry status without exposing secret values. |
-| `supabase/functions/check-domains/index.ts` | Cron edge function. Requires `Authorization: Bearer CRON_SECRET`, uses service role Supabase client, selects expired/expiry-past domains, checks WHOIS, marks dropped/available domains, and upserts updates. |
+| `supabase/functions/_shared/whois-logic.ts` | Shared server-side WHOIS provider selection. Reads provider keys from Deno env, supports legacy `VITE_` secret names, loads/persists provider telemetry, pre-skips exhausted providers, balances in-flight calls, maps provider responses to normalized WHOIS data plus registry statuses/name servers, and returns `unknown` after all fail. |
+| `supabase/functions/get-whois/index.ts` | Authenticated edge function for real-time lookups. Handles CORS, validates Supabase user from Authorization header, creates a service-role telemetry client, validates `domainName`, calls shared WHOIS logic, and returns JSON. |
+| `supabase/functions/get-whois-providers/index.ts` | Authenticated edge function for WHOIS dashboard. Uses service-role telemetry access and returns provider registry/runtime status without exposing secret values. |
+| `supabase/functions/check-domains/index.ts` | Cron edge function. Requires `Authorization: Bearer CRON_SECRET`, uses service role Supabase client, selects expired/expiry-past domains, processes checks with concurrency 6, writes persisted WHOIS detail fields, keeps user tags unchanged on suspicious available results, and upserts updates. |
+
+## Supabase Migrations
+
+| File | Purpose / logic |
+| --- | --- |
+| `supabase/migrations/20260603191500_add_whois_detail_columns.sql` | Adds `domain_statuses text[]` and `name_servers text[]` to `domains` for persisted tooltip details. |
+| `supabase/migrations/20260603222500_add_whois_provider_telemetry.sql` | Adds `whois_provider_telemetry` plus `claim_whois_provider_attempt(...)` for cross-instance provider quota/rate-limit coordination. |
 
 ## Documentation Files
 
@@ -117,8 +126,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | Area | Observation |
 | --- | --- |
 | Backend direction | Current code is deeply wired to Supabase. Migrating to Cloudflare D1 requires replacing auth, database service calls, edge functions, cron, and env names. |
-| Bulk import | Bulk add exists, but it calls per-domain add/check from the client in batches. Future D1/Workers version should submit a bulk job and process server-side. |
-| Sorting | `DomainList` has an `added-desc` comparator bug. |
-| Docs | In-app docs are static TypeScript strings; markdown files are not automatically loaded. |
+| Bulk import | Bulk add exists and uses a 6-worker client pool. Future D1/Workers version should submit a bulk job and process server-side with persistent job status. |
+| Provider telemetry | Supabase migration exists locally. Remote Supabase must have `whois_provider_telemetry` and `claim_whois_provider_attempt(...)` applied before persistent quota coordination is active. Runtime fallback still works without it. |
 | Security | `get-whois` CORS allows `*`; production should restrict origins. |
 | Duplicates/artifacts | Empty root scaffold files and import-map entries were removed. |
