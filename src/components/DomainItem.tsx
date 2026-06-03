@@ -16,7 +16,7 @@ interface DomainItemProps {
 
 const formatDate = (dateString: string | null) => {
   if (!dateString) return 'N/A';
-  return new Date(dateString).toLocaleDateString('en-US', {
+  return new Date(dateString).toLocaleDateString('en-GB', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -25,9 +25,9 @@ const formatDate = (dateString: string | null) => {
 
 const formatDateWithTime = (dateString: string | null) => {
     if (!dateString) return 'Never';
-    return new Date(dateString).toLocaleString('en-US', {
+    return new Date(dateString).toLocaleString('en-GB', {
       year: 'numeric',
-      month: 'short',
+      month: 'long',
       day: 'numeric',
       hour: 'numeric',
       minute: '2-digit'
