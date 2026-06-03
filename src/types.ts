@@ -62,3 +62,17 @@ export interface WhoisProviderStatus {
   lastResultAt?: string;
   lastErrorMessage?: string;
 }
+
+export type IntegrationScope = 'domains:read' | 'domains:write' | 'whois:check' | 'alerts:read' | 'webhooks:write';
+
+export interface IntegrationClient {
+  id: string;
+  user_id: string;
+  name: string;
+  token_hash: string;
+  scopes: IntegrationScope[];
+  last_used_at: string | null;
+  expires_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+}

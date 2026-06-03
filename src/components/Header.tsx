@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import ModeToggle from './ModeToggle';
 import CompactModeToggle from './CompactModeToggle';
-import { BellIcon, BookOpenIcon, DomainCodevIcon, LogOutIcon, UserCircleIcon } from './icons';
+import { BellIcon, BookOpenIcon, CommandLineIcon, DomainCodevIcon, LogOutIcon, UserCircleIcon } from './icons';
 import Tooltip from './Tooltip';
 import { Session } from '@supabase/supabase-js';
 import { signOut } from '../services/supabaseService';
@@ -11,9 +11,10 @@ interface HeaderProps {
     notifications: string[];
     clearNotifications: () => void;
     setView: (view: 'dashboard' | 'docs') => void;
+    onOpenIntegrations: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotifications, setView }) => {
+const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotifications, setView, onOpenIntegrations }) => {
   const [showNotifications, setShowNotifications] = useState(false);
 
   return (
@@ -48,6 +49,15 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
                     aria-label="Open documentation"
                   >
                     <BookOpenIcon className="h-6 w-6" />
+                  </button>
+                </Tooltip>
+                <Tooltip content="Integration API tokens">
+                  <button
+                    onClick={onOpenIntegrations}
+                    className="rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-200 hover:text-brand-blue dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white"
+                    aria-label="Open integration API tokens"
+                  >
+                    <CommandLineIcon className="h-6 w-6" />
                   </button>
                 </Tooltip>
                 <div className="relative">

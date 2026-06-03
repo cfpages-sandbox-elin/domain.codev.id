@@ -17,6 +17,7 @@ import DocsPage from './components/DocsPage';
 import BulkAddModal from './components/BulkAddModal';
 import WhoisProviderPanel from './components/WhoisProviderPanel';
 import Tooltip from './components/Tooltip';
+import IntegrationSettingsModal from './components/IntegrationSettingsModal';
 import { PlusIcon } from './components/icons';
 
 const formatDate = (date: Date) => date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -86,6 +87,7 @@ const App: React.FC = () => {
   const [notifications, setNotifications] = useState<string[]>([]);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [isDomainEntryModalOpen, setIsDomainEntryModalOpen] = useState(false);
+  const [isIntegrationSettingsOpen, setIsIntegrationSettingsOpen] = useState(false);
   const [domainEntryInitialTab, setDomainEntryInitialTab] = useState<DomainEntryTab>('single');
   const [modalContent, setModalContent] = useState({ title: '', body: '' });
   const [logs, setLogs] = useState<string[]>([]);
@@ -599,7 +601,13 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <Header session={session} notifications={notifications} clearNotifications={() => setNotifications([])} setView={setView} />
+      <Header
+        session={session}
+        notifications={notifications}
+        clearNotifications={() => setNotifications([])}
+        setView={setView}
+        onOpenIntegrations={() => setIsIntegrationSettingsOpen(true)}
+      />
       
       <main className="container mx-auto p-4 md:p-8">
         {loading ? (
@@ -644,6 +652,11 @@ const App: React.FC = () => {
                 onAddDomain={handleAddDomainFromModal}
                 onBulkAdd={handleBulkAdd}
                 isLoading={isBulkProcessing}
+                addLog={addLog}
+            />
+            <IntegrationSettingsModal
+                isOpen={isIntegrationSettingsOpen}
+                onClose={() => setIsIntegrationSettingsOpen(false)}
                 addLog={addLog}
             />
         </>

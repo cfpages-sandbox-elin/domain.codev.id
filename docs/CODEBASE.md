@@ -10,11 +10,12 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 
 1. `src/index.tsx` mounts React into `#root`, wraps the app with `ErrorBoundary` and `CompactModeProvider`, and imports Tailwind CSS.
 2. `src/App.tsx` initializes Supabase, reads the current auth session, subscribes to auth state, fetches domains after login, and renders either auth, dashboard, docs, loading, or config error views.
-3. User domain actions call `src/services/supabaseService.ts` for CRUD and `src/services/whoisService.ts` for WHOIS.
+3. User domain actions call `src/services/supabaseService.ts` for CRUD/integration-token management and `src/services/whoisService.ts` for WHOIS.
 4. `whoisService.ts` invokes Supabase Edge Function `get-whois`.
 5. `supabase/functions/get-whois/index.ts` authenticates the Supabase user, creates a service-role client for telemetry, and calls shared provider logic in `supabase/functions/_shared/whois-logic.ts`.
 6. `supabase/functions/_shared/whois-logic.ts` loads persistent provider telemetry when available, skips exhausted/rate-limited providers, balances in-flight provider use, and returns normalized WHOIS data.
 7. `supabase/functions/check-domains/index.ts` is intended for scheduled checks. It uses a cron secret, service role key, metadata-first targeted scheduling, capped concurrency, shared WHOIS logic, and persisted provider telemetry to update only domains that are due.
+8. External clients such as Hermes, n8n, scripts, or future apps call `supabase/functions/external-api/index.ts` with scoped bearer tokens stored as hashes in `integration_clients`.
 
 ## Current Stack
 
@@ -23,7 +24,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | Frontend | Vite, React 18, TypeScript |
 | Styling | Tailwind CSS, class-based dark mode |
 | Auth | Supabase Auth with Google OAuth |
-| Database | Supabase Postgres tables assumed as `domains` and `whois_provider_telemetry` |
+| Database | Supabase Postgres tables assumed as `domains`, `whois_provider_telemetry`, `integration_clients`, `integration_events`, `notification_channels`, and `notification_deliveries` |
 | Backend/API | Supabase Edge Functions |
 | WHOIS providers | `who-dat`, WhoisXMLAPI, APILayer, WhoisFreaks, WhoAPI, RapidAPI, WhoisJSON, IP2WHOIS with quota-aware fallback |
 | Docs rendering | Markdown content bundled into TypeScript and rendered with `marked` |
@@ -55,11 +56,11 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `src/index.tsx` | React startup. Handles missing root element and renders a styled fatal startup error if mounting fails. |
 | `src/index.css` | Tailwind base/components/utilities imports. |
 | `src/env.d.ts` | Types Vite env vars for Supabase URL/anon key and `import.meta.glob` for markdown docs. |
-| `src/types.ts` | Core domain, WHOIS result, quota, provider attempt, and provider status types. |
-| `src/App.tsx` | Main state machine. Handles session, domain list, transient WHOIS detail cache, provider dashboard state, notifications, logs, modals, unified Add Domains modal state with initial single/bulk tab selection, capture-phase Add Domains shortcuts (`Ctrl+N` plus `Alt+N` fallback), optimistic single-domain pending rows, 6-worker bulk processing, automatic dashboard repair for incomplete WHOIS rows with 3-worker concurrency, add/remove/toggle/recheck/export flows, and estimated drop timeline modal. Add-domain saves usable WHOIS results normally, stores failed/unusable WHOIS outcomes as `unknown` rows with retry advice instead of dropping the user-entered domain, and forces available/dropped results to `to-snatch`. Sets explicit light/dark app backgrounds and a darker dark-mode dashboard panel for stronger row contrast. |
+| `src/types.ts` | Core domain, WHOIS result, quota, provider attempt, provider status, and integration client/scope types. |
+| `src/App.tsx` | Main state machine. Handles session, domain list, transient WHOIS detail cache, provider dashboard state, notifications, logs, modals, integration settings modal state, unified Add Domains modal state with initial single/bulk tab selection, capture-phase Add Domains shortcuts (`Ctrl+N` plus `Alt+N` fallback), optimistic single-domain pending rows, 6-worker bulk processing, automatic dashboard repair for incomplete WHOIS rows with 3-worker concurrency, add/remove/toggle/recheck/export flows, and estimated drop timeline modal. Add-domain saves usable WHOIS results normally, stores failed/unusable WHOIS outcomes as `unknown` rows with retry advice instead of dropping the user-entered domain, and forces available/dropped results to `to-snatch`. Sets explicit light/dark app backgrounds and a darker dark-mode dashboard panel for stronger row contrast. |
 | `src/hooks/useDarkMode.ts` | Reads/stores theme in `localStorage`, applies/removes `dark` class on `<html>`, returns `[theme, toggleTheme]`. |
 | `src/contexts/CompactModeContext.tsx` | Provides compact mode state, persists it in `localStorage`, and toggles a `compact` class on `<html>`. |
-| `src/services/supabaseService.ts` | Creates Supabase client, exposes config error, wraps auth (`getSession`, Google sign-in, sign-out), and domain CRUD functions. Defines Supabase-ish database types manually. |
+| `src/services/supabaseService.ts` | Creates Supabase client, exposes config error, wraps auth (`getSession`, Google sign-in, sign-out), domain CRUD functions, and integration client token-list/create/revoke helpers. Defines Supabase-ish database types manually. |
 | `src/services/whoisService.ts` | Client-side WHOIS proxy wrapper. Calls `get-whois`, fetches `get-whois-providers`, normalizes failures to `unknown`, and logs provider usage. |
 
 ## Components
@@ -76,6 +77,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `src/components/ErrorBoundary.tsx` | React class error boundary showing a recoverable error screen with refresh button. |
 | `src/components/Header.tsx` | Sticky icon-first header. Shows app logo/title, docs icon, account icon with email tooltip, notifications dropdown, compact/dark toggles, and icon-only logout with tooltip. |
 | `src/components/icons.tsx` | Inline SVG icon components used throughout the UI, including app, docs, account, tag, filter, and action icons. |
+| `src/components/IntegrationSettingsModal.tsx` | Integration API token manager. Shows the external API base URL, generates `dcv_live_...` tokens in-browser, stores SHA-256 token hashes through `supabaseService`, lets users choose scopes, shows the raw token once, provides a copyable Hermes setup prompt containing the API URL/token, lists active/revoked clients, and revokes tokens. |
 | `src/components/Modal.tsx` | Portal modal with Escape/backdrop close, title, close button, and scrollable body. |
 | `src/components/ModeToggle.tsx` | Dark/light toggle button using `useDarkMode`. |
 | `src/components/Spinner.tsx` | Tailwind spinner with size/color props. |
@@ -91,6 +93,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `supabase/functions/get-whois/index.ts` | Authenticated edge function for real-time lookups. Handles CORS, validates Supabase user from Authorization header, creates a service-role telemetry client, validates `domainName`, calls shared WHOIS logic, and returns JSON. |
 | `supabase/functions/get-whois-providers/index.ts` | Authenticated edge function for WHOIS dashboard. Uses service-role telemetry access and returns provider registry/runtime status without exposing secret values. |
 | `supabase/functions/check-domains/index.ts` | Cron edge function. Requires `Authorization: Bearer CRON_SECRET`, uses service role Supabase client, scans domain metadata, skips domains far from expiry, applies different `mine` vs `to-snatch` schedules, caps checks with `WHOIS_CRON_MAX_CHECKS`, processes due checks with concurrency 6, writes persisted WHOIS detail fields, keeps user tags unchanged on suspicious available results, and upserts updates. |
+| `supabase/functions/external-api/index.ts` | Scoped external REST API for Hermes/n8n/scripts/future apps. Authenticates `integration_clients` bearer tokens by SHA-256 hash, enforces scopes, supports `GET/POST /api/v1/domains`, `POST /api/v1/domains/recheck`, `GET /api/v1/alerts/due`, records idempotency/audit events, reuses shared WHOIS logic, and never exposes Supabase service-role keys. |
 
 ## Supabase Migrations
 
@@ -98,6 +101,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | --- | --- |
 | `supabase/migrations/20260603191500_add_whois_detail_columns.sql` | Adds `domain_statuses text[]` and `name_servers text[]` to `domains` for persisted tooltip details. |
 | `supabase/migrations/20260603222500_add_whois_provider_telemetry.sql` | Adds `whois_provider_telemetry` plus `claim_whois_provider_attempt(...)` for cross-instance provider quota/rate-limit coordination. |
+| `supabase/migrations/20260604090000_add_external_integrations.sql` | Adds integration client token hashes, integration events, notification channels, notification deliveries, indexes, RLS, and comments for the external API/webhook plan. |
 
 ## Documentation Files
 
@@ -114,6 +118,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `docs/CODEBASE.md` | This codebase map. |
 | `docs/DB.md` | Proposed Cloudflare D1 database architecture. |
 | `docs/CLOUDFLARE_WHOIS_PROVIDER_PLAN.md` | Plan for a Cloudflare Workers/D1/R2/KV mini WHOIS/RDAP provider inspired by `who-dat`, including weaknesses to improve, API shape, caching, telemetry, and implementation phases. |
+| `docs/INTEGRATIONS.md` | Progress tracker and plan for a versioned external REST/webhook integration layer so Hermes Agent, WhatsApp, n8n, scripts, and future apps can add domains, trigger WHOIS checks, and receive expiry alerts securely. |
 | `docs/MIGRATION.md` | Supabase vs Better Auth + D1 decision guide and current auth-last migration recommendation. |
 | `docs/SUGGESTION.md` | Proactive suggestion log. |
 | `docs/UI.md` | UI/UX audit and improvement plan. |
@@ -126,6 +131,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | Area | Observation |
 | --- | --- |
 | Backend direction | Current code is deeply wired to Supabase. Migrating to Cloudflare D1 requires replacing auth, database service calls, edge functions, cron, and env names. |
+| External integrations | Core scoped-token `/api/v1` external API and token UI exist. Webhook registration, durable notification queue writes, and notification dispatcher are still pending. |
 | Bulk import | Bulk add exists and uses a 6-worker client pool. Future D1/Workers version should submit a bulk job and process server-side with persistent job status. |
 | Provider telemetry | Remote Supabase has `whois_provider_telemetry` and `claim_whois_provider_attempt(...)` applied. Persistent quota coordination is active, with runtime fallback still available if telemetry access fails. |
 | Security | `get-whois` CORS allows `*`; production should restrict origins. |

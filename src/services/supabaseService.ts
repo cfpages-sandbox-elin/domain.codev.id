@@ -1,6 +1,6 @@
 
 import { createClient, Session, SupabaseClient } from '@supabase/supabase-js';
-import { Domain, DomainTag, DomainStatus } from '../types';
+import { Domain, DomainTag, DomainStatus, IntegrationClient, IntegrationScope } from '../types';
 
 // The type for inserting a new row. DB handles id, user_id, and created_at.
 export type DomainInsert = Omit<Domain, 'id' | 'user_id' | 'created_at'>;
@@ -15,6 +15,17 @@ export interface Database {
         Row: Domain; // The type of a row from the database. (alias for our Domain type)
         Insert: DomainInsert;
         Update: DomainUpdate;
+        Relationships: [];
+      };
+      integration_clients: {
+        Row: IntegrationClient;
+        Insert: Omit<IntegrationClient, 'id' | 'created_at' | 'last_used_at' | 'revoked_at'> & {
+          id?: string;
+          created_at?: string;
+          last_used_at?: string | null;
+          revoked_at?: string | null;
+        };
+        Update: Partial<Omit<IntegrationClient, 'id' | 'user_id' | 'created_at' | 'token_hash'>>;
         Relationships: [];
       };
     };
@@ -164,4 +175,73 @@ export const removeDomain = async (id: number): Promise<boolean> => {
         return false;
     }
     return true;
+};
+
+// --- Integration Client Functions ---
+
+export interface CreateIntegrationClientInput {
+    name: string;
+    tokenHash: string;
+    scopes: IntegrationScope[];
+    expiresAt?: string | null;
+}
+
+export const getIntegrationClients = async (): Promise<IntegrationClient[] | null> => {
+    if (!supabase) return null;
+    const { data, error } = await supabase
+        .from('integration_clients')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error("Error fetching integration clients:", error);
+        alert('Could not fetch integration clients.');
+        return null;
+    }
+
+    return data as IntegrationClient[];
+};
+
+export const createIntegrationClient = async (input: CreateIntegrationClientInput): Promise<IntegrationClient | null> => {
+    if (!supabase) return null;
+    const session = await getSession();
+    if (!session) return null;
+
+    const { data, error } = await supabase
+        .from('integration_clients')
+        .insert([{
+            user_id: session.user.id,
+            name: input.name.trim(),
+            token_hash: input.tokenHash,
+            scopes: input.scopes,
+            expires_at: input.expiresAt || null,
+        }] as never)
+        .select()
+        .single();
+
+    if (error) {
+        console.error("Error creating integration client:", error);
+        alert('Could not create integration token.');
+        return null;
+    }
+
+    return data as IntegrationClient;
+};
+
+export const revokeIntegrationClient = async (id: string): Promise<IntegrationClient | null> => {
+    if (!supabase) return null;
+    const { data, error } = await supabase
+        .from('integration_clients')
+        .update({ revoked_at: new Date().toISOString() } as never)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error("Error revoking integration client:", error);
+        alert('Could not revoke integration token.');
+        return null;
+    }
+
+    return data as IntegrationClient;
 };
