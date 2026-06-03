@@ -47,7 +47,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
       case 'expiring':
         if (!domain.expiration_date) return false;
         const daysLeft = (new Date(domain.expiration_date).getTime() - Date.now()) / (1000 * 3600 * 24);
-        return daysLeft > 0 && daysLeft <= 7;
+        return daysLeft > 0 && daysLeft <= 90;
       case 'expired':
         return domain.status === 'expired';
       case 'all':
@@ -59,6 +59,12 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
   const sortedDomains = useMemo(() => {
     const sortable = [...filteredDomains];
     sortable.sort((a, b) => {
+        if (filter === 'expiring') {
+            if (!a.expiration_date) return 1;
+            if (!b.expiration_date) return -1;
+            return new Date(a.expiration_date).getTime() - new Date(b.expiration_date).getTime();
+        }
+
         switch (sortOption) {
             case 'name-asc':
                 return a.domain_name.localeCompare(b.domain_name);
