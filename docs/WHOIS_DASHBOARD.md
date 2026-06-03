@@ -45,8 +45,8 @@ Add a compact "WHOIS Providers" panel above or beside the domain list.
 | WhoisFreaks | Yes | `WHOISFREAKS_API_KEY` | Backup | Uses live WHOIS endpoint. |
 | WhoAPI | Yes | `WHOAPI_COM_API_KEY` | Backup | Implemented, but current free-tier status should be verified before relying on it. |
 | RapidAPI Domain WHOIS Lookup API | Yes | `RAPIDAPI_KEY` | Last fallback | Marketplace APIs vary by provider and plan. Treat as optional. |
-| WhoisJSON | No | Proposed `WHOISJSON_API_KEY` | Recommended new backup | 1,000 free monthly requests across endpoints. |
-| IP2WHOIS / IP2Location.io | No | Proposed `IP2WHOIS_API_KEY` | Recommended new backup | 500 domain WHOIS API queries/month on free tier per IP2Location.io pricing. |
+| WhoisJSON | Yes | `WHOISJSON_API_KEY` | New backup | 1,000 free monthly requests across endpoints. Adapter added, but response mapping needs live validation. |
+| IP2WHOIS / IP2Location.io | Yes | `IP2WHOIS_API_KEY` | New backup | 500 domain WHOIS API queries/month on free tier per IP2Location.io pricing. Adapter added, but response mapping needs live validation. |
 | JsonWhois.io | No | Proposed `JSONWHOIS_API_KEY` | Optional backup | Has availability and WHOIS endpoints; pricing model needs confirmation before implementation. |
 | RDAP direct lookup | No | None | Future no-key fallback | Useful for common TLDs but response formats vary by registry. |
 
@@ -267,8 +267,8 @@ type WhoisProviderDashboardState = {
 2. Capture provider attempts and errors.
 3. Capture quota headers for APILayer first because it explicitly exposes quota headers.
 4. Show provider registry/status on dashboard.
-5. Add WhoisJSON as the next backup provider.
-6. Add IP2WHOIS after WhoisJSON.
+5. Validate WhoisJSON response mapping with real API output.
+6. Validate IP2WHOIS response mapping with real API output.
 7. Add a "Test provider" action for one harmless domain such as `example.com`.
 8. Add bulk re-check quota estimate before running visible-list re-check.
 

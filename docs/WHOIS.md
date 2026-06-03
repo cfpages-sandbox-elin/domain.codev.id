@@ -53,8 +53,8 @@ Provider offers change, so verify before implementation. These were checked on 2
 | APILayer Whois API | 3,000 requests/month, free lifetime, no credit card listed | Strong hobby default if supported TLDs match your portfolio | Current code already supports APILayer. Verify endpoint path because docs show `whois/query` while current code uses `whois/check`. | https://apilayer.com/marketplace/whois-api |
 | WhoisXMLAPI WHOIS API | 500 free WHOIS queries | Reliable fallback for parsed WHOIS data | Current code already supports this. Separate Domain Availability API docs mention a smaller free subscription, so avoid mixing quotas. | https://whois.whoisxmlapi.com/pricing |
 | WhoisFreaks | 500 free API credits on signup | Useful fallback | Current code already supports live WHOIS. Credits may be one-time/lifetime rather than monthly. | https://whoisfreaks.com/pricing/api-plans |
-| WhoisJSON | 1,000 requests/month, no credit card | Good candidate to add | One key covers WHOIS, DNS, SSL, availability, subdomains, and monitoring. Not currently implemented. | https://whoisjson.com/free-domain-api |
-| IP2WHOIS | 500 WHOIS domain queries/month | Simple fallback candidate | Not currently implemented. Check response shape before adding. | https://www.ip2whois.com/developers-api |
+| WhoisJSON | 1,000 requests/month, no credit card | Added backup candidate | One key covers WHOIS, DNS, SSL, availability, subdomains, and monitoring. Adapter added; needs live response validation. | https://whoisjson.com/free-domain-api |
+| IP2WHOIS | 500 WHOIS domain queries/month | Added backup candidate | Adapter added; needs live response validation. | https://www.ip2whois.com/developers-api |
 | JsonWhois | 250 free domain WHOIS calls/month and 500 free availability calls/month listed | Useful if availability checks are more important than full WHOIS | Not currently implemented. | https://jsonwhois.io/ |
 | RapidAPI WHOIS APIs | Depends on individual marketplace API | Use only as backup | RapidAPI free tiers vary per provider and add marketplace dependency. Current code supports one RapidAPI host. | https://rapidapi.com/collection/whois-api |
 

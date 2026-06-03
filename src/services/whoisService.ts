@@ -1,4 +1,4 @@
-import { WhoisData } from '../types';
+import { WhoisData, WhoisProviderStatus } from '../types';
 import { supabase } from './supabaseService';
 
 export const getWhoisData = async (domainName: string, log?: (message: string) => void): Promise<WhoisData> => {
@@ -46,6 +46,9 @@ export const getWhoisData = async (domainName: string, log?: (message: string) =
         }
         
         log?.(`✅ Successfully received WHOIS data for ${domainName}.`);
+        if (data?.providerLabel) {
+            log?.(`ℹ️ WHOIS provider used: ${data.providerLabel}.`);
+        }
         return data as WhoisData;
 
     } catch (e) {
@@ -58,5 +61,23 @@ export const getWhoisData = async (domainName: string, log?: (message: string) =
             registeredDate: null,
             registrar: 'Error: Could not contact server.',
         };
+    }
+};
+
+export const getWhoisProviderStatuses = async (): Promise<WhoisProviderStatus[] | null> => {
+    if (!supabase) {
+        return null;
+    }
+
+    try {
+        const { data, error } = await supabase.functions.invoke('get-whois-providers');
+        if (error) {
+            console.error('Error fetching WHOIS provider statuses:', error);
+            return null;
+        }
+        return Array.isArray(data?.providers) ? data.providers as WhoisProviderStatus[] : null;
+    } catch (error) {
+        console.error('Critical error fetching WHOIS provider statuses:', error);
+        return null;
     }
 };

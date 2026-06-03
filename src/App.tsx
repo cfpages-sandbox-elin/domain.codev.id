@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Domain, DomainTag } from './types';
-import { getWhoisData } from './services/whoisService';
+import { Domain, DomainTag, WhoisData, WhoisProviderStatus } from './types';
+import { getWhoisData, getWhoisProviderStatuses } from './services/whoisService';
 import { supabase, supabaseConfigError } from './services/supabaseService';
 import { Session } from '@supabase/supabase-js';
 import * as SupabaseService from './services/supabaseService';
@@ -16,6 +16,7 @@ import ConfigErrorScreen from './components/ConfigErrorScreen';
 import StatusLog from './components/StatusLog';
 import DocsPage from './components/DocsPage';
 import BulkAddModal from './components/BulkAddModal';
+import WhoisProviderPanel from './components/WhoisProviderPanel';
 import { PlusIcon } from './components/icons';
 
 const formatDate = (date: Date) => date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -29,6 +30,8 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
   const [domains, setDomains] = useState<Domain[]>([]);
+  const [whoisProviders, setWhoisProviders] = useState<WhoisProviderStatus[]>([]);
+  const [isWhoisProviderLoading, setIsWhoisProviderLoading] = useState(false);
   const [notifications, setNotifications] = useState<string[]>([]);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [isAddDomainModalOpen, setIsAddDomainModalOpen] = useState(false);
@@ -40,6 +43,39 @@ const App: React.FC = () => {
   const addLog = useCallback((message: string) => {
     const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
     setLogs(prev => [`[${timestamp}] ${message}`, ...prev.slice(0, 99)]);
+  }, []);
+
+  const refreshWhoisProviders = useCallback(async () => {
+    setIsWhoisProviderLoading(true);
+    const statuses = await getWhoisProviderStatuses();
+    if (statuses) {
+      setWhoisProviders(current => statuses.map(status => {
+        const existing = current.find(provider => provider.id === status.id);
+        return existing ? { ...status, quota: existing.quota, lastResultAt: existing.lastResultAt, lastErrorMessage: existing.lastErrorMessage } : status;
+      }));
+      addLog(`✅ Loaded ${statuses.length} WHOIS provider statuses.`);
+    } else {
+      addLog('⚠️ WHOIS provider dashboard is unavailable. Deploy get-whois-providers if needed.');
+    }
+    setIsWhoisProviderLoading(false);
+  }, [addLog]);
+
+  const updateProviderFromWhoisData = useCallback((whoisData: WhoisData) => {
+    if (!whoisData.provider) return;
+
+    setWhoisProviders(current => current.map(provider => {
+      if (provider.id !== whoisData.provider) {
+        const failedAttempt = whoisData.providerAttempts?.find(attempt => attempt.provider === provider.id && attempt.status === 'failed');
+        return failedAttempt ? { ...provider, lastErrorMessage: failedAttempt.errorMessage } : provider;
+      }
+
+      return {
+        ...provider,
+        quota: whoisData.quota || provider.quota,
+        lastResultAt: new Date().toISOString(),
+        lastErrorMessage: undefined,
+      };
+    }));
   }, []);
 
   useEffect(() => {
@@ -121,8 +157,9 @@ const App: React.FC = () => {
         }
       };
       fetchAndSyncDomains();
+      refreshWhoisProviders();
     }
-  }, [session, addLog]);
+  }, [session, addLog, refreshWhoisProviders]);
 
   useEffect(() => {
     if (session && domains.length > 0) {
@@ -138,6 +175,7 @@ const App: React.FC = () => {
       return null;
     }
     const whoisData = await getWhoisData(domainName, addLog);
+    updateProviderFromWhoisData(whoisData);
     
     const newDomainData: DomainInsert = {
       domain_name: domainName,
@@ -237,6 +275,7 @@ const App: React.FC = () => {
 
     addLog(`🔄 Re-checking domain: ${domain.domain_name}`);
     const whoisData = await getWhoisData(domain.domain_name, addLog);
+    updateProviderFromWhoisData(whoisData);
     
     const updates: DomainUpdate = {
         status: whoisData.status,
@@ -328,6 +367,11 @@ const App: React.FC = () => {
             <p className="mt-1">Your tracked domains are checked for status changes once a day. This requires a one-time setup of the Supabase Edge Function.</p>
             <button onClick={() => setView('docs')} className="font-semibold hover:underline mt-2 inline-block">Learn how to set up daily checks &rarr;</button>
         </div>
+        <WhoisProviderPanel
+            providers={whoisProviders}
+            isLoading={isWhoisProviderLoading}
+            onRefresh={refreshWhoisProviders}
+        />
         <DomainList 
             domains={domains}
             onRemove={removeDomain}

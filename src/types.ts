@@ -21,4 +21,40 @@ export interface WhoisData {
   expirationDate: string | null;
   registeredDate: string | null;
   registrar: string | null;
+  provider?: string;
+  providerLabel?: string;
+  providerAttempts?: WhoisProviderAttempt[];
+  quota?: WhoisQuota;
+}
+
+export interface WhoisQuota {
+  limitMonth: number | null;
+  remainingMonth: number | null;
+  limitDay: number | null;
+  remainingDay: number | null;
+}
+
+export interface WhoisProviderAttempt {
+  provider: string;
+  providerLabel: string;
+  status: 'success' | 'failed' | 'skipped';
+  errorMessage?: string;
+  quota?: WhoisQuota;
+}
+
+export interface WhoisProviderStatus {
+  id: string;
+  label: string;
+  implemented: boolean;
+  configured: boolean;
+  enabled: boolean;
+  priority: number;
+  envKeys: string[];
+  freeTierLabel: string;
+  supportsQuotaHeaders: boolean;
+  status: 'active' | 'missing-key' | 'not-implemented' | 'disabled';
+  notes: string;
+  quota?: WhoisQuota;
+  lastResultAt?: string;
+  lastErrorMessage?: string;
 }

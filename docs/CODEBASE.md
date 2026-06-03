@@ -36,8 +36,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `.gitignore` | Ignore rules for dependencies, builds, and local artifacts. |
 | `AGENTS.md` | Agent guidance for future work in this repository. |
 | `deployment.md` | Cloudflare Pages deployment guide, but still centered on Supabase backend functions after frontend deployment. |
-| `index.html` | Vite HTML entry. Contains inline favicon, root div, `/src/index.tsx` script, an extra `/index.tsx` script, `/index.css` link, and CDN import map entries that do not match the npm/Vite dependency model. |
-| `index.tsx` | Empty root-level scaffold artifact. Not used by the real Vite app unless referenced by the extra script in `index.html`, which currently points at an empty file. |
+| `index.html` | Vite HTML entry. Contains inline favicon, root div, and `/src/index.tsx` script. |
 | `metadata.json` | App metadata: name, description, and requested frame permissions. |
 | `package.json` | Scripts and dependencies. Scripts: `dev`, `build`, `lint`, `preview`. Main dependencies: React, Supabase JS, marked. |
 | `postcss.config.js` | PostCSS config with Tailwind and Autoprefixer. |
@@ -46,9 +45,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `tailwind.config.js` | Tailwind content globs, class dark mode, brand colors, and a slow spin animation. |
 | `tsconfig.json` | Strict frontend TypeScript config; includes only `src`. |
 | `tsconfig.node.json` | TypeScript config for Vite/Tailwind/PostCSS config files. |
-| `types.ts` | Empty root-level scaffold artifact. |
 | `vite.config.ts` | Vite React plugin config with `base: '/'`. |
-| `public/favicon.svg` | Empty file. Not currently used because `index.html` uses a data URL favicon. |
 
 ## Frontend Source
 
@@ -56,13 +53,13 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | --- | --- |
 | `src/index.tsx` | React startup. Handles missing root element and renders a styled fatal startup error if mounting fails. |
 | `src/index.css` | Tailwind base/components/utilities imports. |
-| `src/env.d.ts` | Types Vite env vars for Supabase URL and anon key. |
-| `src/types.ts` | Core domain types: `DomainTag`, `DomainStatus`, `Domain`, `WhoisData`. |
+| `src/env.d.ts` | Types Vite env vars for Supabase URL/anon key and `import.meta.glob` for markdown docs. |
+| `src/types.ts` | Core domain, WHOIS result, quota, provider attempt, and provider status types. |
 | `src/App.tsx` | Main state machine. Handles session, domain list, notifications, logs, modals, bulk processing, filtering entry points, add/remove/toggle/recheck/export flows, background sync for `mine` domains, and estimated drop timeline modal. |
 | `src/hooks/useDarkMode.ts` | Reads/stores theme in `localStorage`, applies/removes `dark` class on `<html>`, returns `[theme, toggleTheme]`. |
 | `src/contexts/CompactModeContext.tsx` | Provides compact mode state, persists it in `localStorage`, and toggles a `compact` class on `<html>`. |
 | `src/services/supabaseService.ts` | Creates Supabase client, exposes config error, wraps auth (`getSession`, Google sign-in, sign-out), and domain CRUD functions. Defines Supabase-ish database types manually. |
-| `src/services/whoisService.ts` | Client-side WHOIS proxy wrapper. Calls `supabase.functions.invoke('get-whois')`, normalizes failures to `unknown`, and logs status messages. |
+| `src/services/whoisService.ts` | Client-side WHOIS proxy wrapper. Calls `get-whois`, fetches `get-whois-providers`, normalizes failures to `unknown`, and logs provider usage. |
 
 ## Components
 
@@ -75,7 +72,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `src/components/DocsPage.tsx` | Renders bundled docs using `marked` with a custom Tailwind HTML renderer and sidebar doc navigation. Uses `dangerouslySetInnerHTML`. |
 | `src/components/DomainForm.tsx` | Single-domain entry form. Validates a dot exists, adds as `mine` or `to-snatch`, supports Enter and Shift+Enter shortcuts. |
 | `src/components/DomainItem.tsx` | Domain row. Shows status/tag badges, urgency colors, expiry info, registrar purchase dropdown for available domains, recheck button for unknown status, tag switch, delete, and expired-domain info action. |
-| `src/components/DomainList.tsx` | List controls and rendering. Supports filters, sort dropdown, import/export menus, empty states, and maps domains to `DomainItem`. Bug: `added-desc` comparator returns `new Date(b.created_at) - new Date(b.created_at)`, so newest sort is ineffective. |
+| `src/components/DomainList.tsx` | List controls and rendering. Supports filters, sort dropdown, visible-list recheck, import/export menus, empty states, and maps domains to `DomainItem`. |
 | `src/components/ErrorBoundary.tsx` | React class error boundary showing a recoverable error screen with refresh button. |
 | `src/components/Header.tsx` | Sticky header. Shows brand button, docs nav, user email, notifications dropdown, compact/dark toggles, and logout. |
 | `src/components/icons.tsx` | Inline SVG icon components used throughout the UI. |
@@ -83,6 +80,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `src/components/ModeToggle.tsx` | Dark/light toggle button using `useDarkMode`. |
 | `src/components/Spinner.tsx` | Tailwind spinner with size/color props. |
 | `src/components/StatusLog.tsx` | Floating collapsible status log. Infers icon/color from emoji markers in log strings. |
+| `src/components/WhoisProviderPanel.tsx` | Dashboard provider panel. Shows known providers, active/missing-key/not-implemented state, free-limit labels, quota from runtime checks, and notes/errors. |
 
 ## Supabase Functions
 
@@ -90,14 +88,14 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | --- | --- |
 | `supabase/functions/_shared/whois-logic.ts` | Shared server-side WHOIS provider waterfall. Reads provider keys from Deno env, checks providers in order, maps each provider response to `{ status, expirationDate, registeredDate, registrar }`, and returns `unknown` after all fail. |
 | `supabase/functions/get-whois/index.ts` | Authenticated edge function for real-time lookups. Handles CORS, validates Supabase user from Authorization header, validates `domainName`, calls shared WHOIS logic, and returns JSON. |
+| `supabase/functions/get-whois-providers/index.ts` | Authenticated edge function for WHOIS dashboard. Returns provider registry status without exposing secret values. |
 | `supabase/functions/check-domains/index.ts` | Cron edge function. Requires `Authorization: Bearer CRON_SECRET`, uses service role Supabase client, selects expired/expiry-past domains, checks WHOIS, marks dropped/available domains, and upserts updates. |
 
 ## Documentation Files
 
 | File | Purpose / logic |
 | --- | --- |
-| `docs/all-docs.ts` | Generated/bundled documentation content for non-`src` docs. Duplicates the in-app docs bundling pattern. |
-| `src/docs/all-docs.ts` | In-app documentation bundle. Exports `docs` array consumed by `DocsPage`. |
+| `src/docs/all-docs.ts` | Build-time docs loader. Uses `import.meta.glob` to bundle markdown files from `/docs`. |
 | `docs/apilayer.md` | Local APILayer WHOIS API integration summary. |
 | `docs/rapidapi.md` | Local RapidAPI WHOIS API integration summary. |
 | `docs/troubleshoot.md` | Local troubleshooting guide, especially `marked` renderer typing and Supabase type issues. |
@@ -123,4 +121,4 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | Sorting | `DomainList` has an `added-desc` comparator bug. |
 | Docs | In-app docs are static TypeScript strings; markdown files are not automatically loaded. |
 | Security | `get-whois` CORS allows `*`; production should restrict origins. |
-| Duplicates/artifacts | Empty root `index.tsx`, root `types.ts`, root duplicate `hooks/useDarkMode.ts`, empty `public/favicon.svg`, and import-map entries in `index.html` should be cleaned up. |
+| Duplicates/artifacts | Empty root scaffold files and import-map entries were removed. |
