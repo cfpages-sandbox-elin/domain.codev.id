@@ -1,6 +1,6 @@
 # Codebase Map
 
-Last audited: 2026-06-03 23:03 WIB.
+Last audited: 2026-06-04 WIB.
 
 ## Overview
 
@@ -113,6 +113,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `docs/whoisxmlapi.md` | Local WhoisXMLAPI integration summary. |
 | `docs/CODEBASE.md` | This codebase map. |
 | `docs/DB.md` | Proposed Cloudflare D1 database architecture. |
+| `docs/CLOUDFLARE_WHOIS_PROVIDER_PLAN.md` | Plan for a Cloudflare Workers/D1/R2/KV mini WHOIS/RDAP provider inspired by `who-dat`, including weaknesses to improve, API shape, caching, telemetry, and implementation phases. |
 | `docs/MIGRATION.md` | Supabase vs Better Auth + D1 decision guide and current auth-last migration recommendation. |
 | `docs/SUGGESTION.md` | Proactive suggestion log. |
 | `docs/UI.md` | UI/UX audit and improvement plan. |
