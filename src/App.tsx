@@ -384,7 +384,7 @@ const App: React.FC = () => {
   
   const renderDashboard = () => (
     <div className="max-w-4xl mx-auto">
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg">
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-lg dark:shadow-black/40">
         <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-white">Tracked Domains</h2>
         <WhoisProviderPanel
             providers={whoisProviders}
@@ -407,7 +407,7 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen font-sans">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <Header session={session} notifications={notifications} clearNotifications={() => setNotifications([])} setView={setView} />
       
       <main className="container mx-auto p-4 md:p-8">

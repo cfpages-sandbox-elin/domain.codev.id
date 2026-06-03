@@ -54,14 +54,14 @@ const StatusBadge: React.FC<{ status: DomainStatus, isCompact: boolean }> = ({ s
 
 const getRowStyles = (status: DomainStatus, tag: 'mine' | 'to-snatch', daysUntilExpiry: number | null): string => {
     const tagStyles = tag === 'mine'
-      ? 'bg-indigo-50/90 border-indigo-200 dark:bg-indigo-950/30 dark:border-indigo-900/80'
-      : 'bg-teal-50/90 border-teal-200 dark:bg-teal-950/30 dark:border-teal-900/80';
+      ? 'bg-indigo-100 border-indigo-300 dark:bg-indigo-950/80 dark:border-indigo-700/90'
+      : 'bg-teal-100 border-teal-300 dark:bg-teal-950/80 dark:border-teal-700/90';
 
     const statusStyles: Partial<Record<DomainStatus, string>> = {
-        available: 'bg-green-50/90 border-green-200 dark:bg-green-950/30 dark:border-green-900/80',
-        dropped: 'bg-green-50/90 border-green-200 dark:bg-green-950/30 dark:border-green-900/80',
-        expired: 'bg-red-50/90 border-red-200 dark:bg-red-950/30 dark:border-red-900/80',
-        unknown: 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700',
+        available: 'bg-teal-100 border-teal-300 dark:bg-teal-950/80 dark:border-teal-700/90',
+        dropped: 'bg-teal-100 border-teal-300 dark:bg-teal-950/80 dark:border-teal-700/90',
+        expired: 'bg-red-100 border-red-300 dark:bg-red-950/80 dark:border-red-700/90',
+        unknown: 'bg-slate-100 dark:bg-slate-900/90 border-slate-300 dark:border-slate-600',
     };
 
     const urgency = getUrgencyStyles(status, daysUntilExpiry);
@@ -215,8 +215,11 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
   const TagIconComponent = effectiveTag === 'mine' ? HomeIcon : TargetIcon;
   const tagLabel = effectiveTag === 'mine' ? 'Mine' : 'To Snatch';
   const tagIconClass = effectiveTag === 'mine'
-    ? 'h-5 w-5 text-indigo-700 dark:text-indigo-300'
-    : 'h-5 w-5 text-teal-700 dark:text-teal-300';
+    ? 'h-5 w-5 text-indigo-700 dark:text-indigo-200'
+    : 'h-5 w-5 text-teal-700 dark:text-teal-200';
+  const leadingTagIconClass = effectiveTag === 'mine'
+    ? 'mt-0.5 h-4 w-4 flex-none text-indigo-700 dark:text-indigo-200'
+    : 'mt-0.5 h-4 w-4 flex-none text-teal-700 dark:text-teal-200';
   const selectedRegistrarName = registrars[selectedRegistrar] || selectedRegistrar;
   const buyTooltip = (
     <PlainTooltipText
@@ -272,14 +275,17 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
       <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(180px,1.5fr)_minmax(110px,0.7fr)_minmax(120px,0.8fr)_minmax(160px,0.9fr)_auto] md:items-center">
         <div className="min-w-0">
           <Tooltip content={tooltipContent}>
-            <a
-              href={whoisUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`font-semibold underline-offset-2 hover:underline break-all leading-snug ${getDomainTextStyles(domain.status)} ${isCompact ? 'text-sm' : 'text-base'}`}
-            >
-              {domain.domain_name}
-            </a>
+            <span className="flex min-w-0 items-start gap-2">
+              <TagIconComponent className={leadingTagIconClass} />
+              <a
+                href={whoisUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`min-w-0 font-semibold underline-offset-2 hover:underline break-all leading-snug ${getDomainTextStyles(domain.status)} ${isCompact ? 'text-sm' : 'text-base'}`}
+              >
+                {domain.domain_name}
+              </a>
+            </span>
           </Tooltip>
         </div>
 
