@@ -18,7 +18,7 @@ const formatDate = (dateString: string | null) => {
   if (!dateString) return 'N/A';
   return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
-    month: 'short',
+    month: 'long',
     day: 'numeric',
   });
 };
@@ -52,17 +52,20 @@ const StatusBadge: React.FC<{ status: DomainStatus, isCompact: boolean }> = ({ s
     );
 };
 
-const getRowStyles = (status: DomainStatus, daysUntilExpiry: number | null): string => {
-    const statusStyles: { [key in DomainStatus]: string } = {
+const getRowStyles = (status: DomainStatus, tag: 'mine' | 'to-snatch', daysUntilExpiry: number | null): string => {
+    const tagStyles = tag === 'mine'
+      ? 'bg-indigo-50/90 border-indigo-200 dark:bg-indigo-950/30 dark:border-indigo-900/80'
+      : 'bg-teal-50/90 border-teal-200 dark:bg-teal-950/30 dark:border-teal-900/80';
+
+    const statusStyles: Partial<Record<DomainStatus, string>> = {
         available: 'bg-green-50/90 border-green-200 dark:bg-green-950/30 dark:border-green-900/80',
         dropped: 'bg-green-50/90 border-green-200 dark:bg-green-950/30 dark:border-green-900/80',
-        registered: 'bg-blue-50/90 border-blue-200 dark:bg-blue-950/30 dark:border-blue-900/80',
         expired: 'bg-red-50/90 border-red-200 dark:bg-red-950/30 dark:border-red-900/80',
         unknown: 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700',
     };
 
     const urgency = getUrgencyStyles(status, daysUntilExpiry);
-    return `${statusStyles[status]} ${urgency}`;
+    return `${statusStyles[status] || tagStyles} ${urgency}`;
 };
 
 const getDomainTextStyles = (status: DomainStatus): string => {
@@ -199,15 +202,9 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
   };
 
   const daysUntilExpiry = getDaysUntilExpiry(domain.expiration_date);
-  const rowStyles = getRowStyles(domain.status, daysUntilExpiry);
-
-  const tagStyles = {
-    mine: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
-    'to-snatch': 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-300',
-  };
-  
   const isAvailableStatus = domain.status === 'available' || domain.status === 'dropped';
   const effectiveTag = isAvailableStatus ? 'to-snatch' : domain.tag;
+  const rowStyles = getRowStyles(domain.status, effectiveTag, daysUntilExpiry);
   const isAvailableForPurchase = isAvailableStatus;
   const canShowDropTimeline = domain.status === 'expired' && Boolean(domain.expiration_date);
   const actionButtonClass = 'p-1.5 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-wait';
@@ -216,6 +213,9 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
   const whoisUrl = `https://www.whois.com/whois/${encodeURIComponent(domain.domain_name)}`;
   const TagIconComponent = effectiveTag === 'mine' ? HomeIcon : TargetIcon;
   const tagLabel = effectiveTag === 'mine' ? 'Mine' : 'To Snatch';
+  const tagIconClass = effectiveTag === 'mine'
+    ? 'h-5 w-5 text-indigo-700 dark:text-indigo-300'
+    : 'h-5 w-5 text-teal-700 dark:text-teal-300';
   const selectedRegistrarName = registrars[selectedRegistrar] || selectedRegistrar;
   const buyTooltip = (
     <PlainTooltipText
@@ -349,24 +349,20 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
           {isAvailableStatus ? (
             <Tooltip content={<PlainTooltipText title="To Snatch" body="Available domains are treated as target domains. Re-check before buying." />}>
               <span
-                className={`${actionButtonClass} inline-flex cursor-default items-center`}
+                className="inline-flex h-8 w-8 cursor-default items-center justify-center"
                 aria-label={`${domain.domain_name} is marked To Snatch because it is available`}
               >
-                <span className={`inline-flex rounded px-1 ${tagStyles['to-snatch']}`}>
-                  <TargetIcon className="w-4 h-4" />
-                </span>
+                <TargetIcon className={tagIconClass} />
               </span>
             </Tooltip>
           ) : (
             <Tooltip content={<PlainTooltipText title={`Tag: ${tagLabel}`} body={`Click to switch to ${effectiveTag === 'mine' ? 'To Snatch' : 'Mine'}.`} />}>
               <button
                 onClick={() => onToggleTag(domain.id)}
-                className={actionButtonClass}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-slate-200 dark:hover:bg-slate-700"
                 aria-label={`Switch tag for ${domain.domain_name}`}
               >
-                <span className={`inline-flex rounded px-1 ${tagStyles[effectiveTag]}`}>
-                  <TagIconComponent className="w-4 h-4" />
-                </span>
+                <TagIconComponent className={tagIconClass} />
               </button>
             </Tooltip>
           )}
