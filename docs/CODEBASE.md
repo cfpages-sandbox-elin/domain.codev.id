@@ -81,7 +81,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `src/components/ModeToggle.tsx` | Dark/light toggle button using `useDarkMode`. |
 | `src/components/Spinner.tsx` | Tailwind spinner with size/color props. |
 | `src/components/StatusLog.tsx` | Floating collapsible status log. Infers icon/color from emoji markers in log strings. |
-| `src/components/Tooltip.tsx` | Shared instant tooltip. Renders through `document.body` via portal with fixed positioning and a top-level z-index so parent containers do not clip it. |
+| `src/components/Tooltip.tsx` | Shared instant tooltip. Renders through `document.body` via portal with fixed positioning, top-level z-index, viewport-aware horizontal/vertical clamping, and automatic top flip when bottom space is limited. |
 | `src/components/WhoisProviderPanel.tsx` | Default-collapsed dashboard provider accordion. Shows summary first, then known providers, active/missing-key/not-implemented state, free-limit labels, persisted/runtime quota, and notes/errors when expanded. |
 
 ## Supabase Functions
