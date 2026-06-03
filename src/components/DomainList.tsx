@@ -11,6 +11,7 @@ interface DomainListProps {
   onShowInfo: (domain: Domain) => void;
   onToggleTag: (id: number) => void;
   onRecheck: (id: number) => Promise<void>;
+  autoRepairingDomainIds?: Set<number>;
   onImportRequest: () => void;
   onExportRequest: (format: 'json' | 'csv') => void;
   isProcessing: boolean;
@@ -51,7 +52,7 @@ const hasMissingData = (domain: Domain) => {
     || domain.name_servers.length === 0;
 };
 
-const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId, onRemove, onShowInfo, onToggleTag, onRecheck, onImportRequest, onExportRequest, isProcessing }) => {
+const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId, onRemove, onShowInfo, onToggleTag, onRecheck, autoRepairingDomainIds, onImportRequest, onExportRequest, isProcessing }) => {
   const [filter, setFilter] = useState<FilterType>(readStoredFilter);
   const [sortOption, setSortOption] = useState<SortOption>(readStoredSort);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
@@ -324,6 +325,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
               onShowInfo={onShowInfo}
               onToggleTag={onToggleTag}
               onRecheck={onRecheck}
+              isAutoRefreshing={autoRepairingDomainIds?.has(domain.id)}
             />
           ))
         ) : (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Domain, DomainTag, WhoisData, WhoisProviderStatus } from './types';
 import { getWhoisData, getWhoisProviderStatuses } from './services/whoisService';
 import { supabase, supabaseConfigError } from './services/supabaseService';
@@ -25,6 +25,7 @@ type View = 'dashboard' | 'docs';
 
 type BulkDomain = { domainName: string; tag?: DomainTag };
 type DomainEntryTab = 'single' | 'bulk';
+const WHOIS_AUTO_REPAIR_CONCURRENCY = 3;
 
 const getWhoisSaveBlockReason = (whoisData: WhoisData): string | null => {
   if (whoisData.status === 'unknown') {
@@ -36,6 +37,20 @@ const getWhoisSaveBlockReason = (whoisData: WhoisData): string | null => {
   }
 
   return null;
+};
+
+const isDomainMissingWhoisData = (domain: Domain) => {
+  if (!domain.last_checked || domain.status === 'unknown') return true;
+  if (domain.status === 'available' || domain.status === 'dropped') return false;
+  if (domain.status === 'registered' || domain.status === 'expired' || domain.tag === 'mine') {
+    return !domain.expiration_date
+      || !domain.registrar
+      || !domain.domain_statuses
+      || domain.domain_statuses.length === 0
+      || !domain.name_servers
+      || domain.name_servers.length === 0;
+  }
+  return false;
 };
 
 const App: React.FC = () => {
@@ -53,6 +68,9 @@ const App: React.FC = () => {
   const [modalContent, setModalContent] = useState({ title: '', body: '' });
   const [logs, setLogs] = useState<string[]>([]);
   const [view, setView] = useState<View>('dashboard');
+  const [autoRepairingDomainIds, setAutoRepairingDomainIds] = useState<Set<number>>(() => new Set());
+  const autoRepairAttemptedIdsRef = useRef<Set<number>>(new Set());
+  const [isAutoRepairingWhois, setIsAutoRepairingWhois] = useState(false);
 
   const addLog = useCallback((message: string) => {
     const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
@@ -116,6 +134,8 @@ const App: React.FC = () => {
         if(!session) {
           setDomains([]);
           setWhoisDetailsByDomainId({});
+          setAutoRepairingDomainIds(new Set());
+          autoRepairAttemptedIdsRef.current.clear();
           addLog('ℹ️ User signed out.');
         } else {
           addLog('ℹ️ Auth state changed, user is signed in.');
@@ -314,16 +334,17 @@ const App: React.FC = () => {
     }
   };
 
-  const recheckDomain = async (id: number) => {
-    const domain = domains.find(d => d.id === id);
-    if (!domain) return;
-
-    addLog(`🔄 Re-checking domain: ${domain.domain_name}`);
+  const syncWhoisForDomain = useCallback(async (domain: Domain, mode: 'manual' | 'auto' = 'manual') => {
+    addLog(mode === 'manual'
+      ? `🔄 Re-checking domain: ${domain.domain_name}`
+      : `🔄 Auto-fixing missing WHOIS data: ${domain.domain_name}`);
     const whoisData = await getWhoisData(domain.domain_name, addLog);
     updateProviderFromWhoisData(whoisData);
+    const forcedTag = whoisData.status === 'available' || whoisData.status === 'dropped' ? 'to-snatch' : domain.tag;
     
     const updates: DomainUpdate = {
         status: whoisData.status,
+        tag: forcedTag,
         expiration_date: whoisData.expirationDate,
         registered_date: whoisData.registeredDate,
         registrar: whoisData.registrar,
@@ -332,19 +353,83 @@ const App: React.FC = () => {
         last_checked: new Date().toISOString(),
     };
 
-    const updatedDomain = await SupabaseService.updateDomain(id, updates);
+    const updatedDomain = await SupabaseService.updateDomain(domain.id, updates);
 
     if (updatedDomain) {
-        setDomains(prev => prev.map(d => d.id === id ? updatedDomain : d));
-        setWhoisDetailsByDomainId(prev => ({ ...prev, [id]: whoisData }));
+        setDomains(prev => prev.map(d => d.id === domain.id ? updatedDomain : d));
+        setWhoisDetailsByDomainId(prev => ({ ...prev, [domain.id]: whoisData }));
         if (updatedDomain.status !== 'unknown') {
             checkAndNotify(updatedDomain);
-            addLog(`✅ Re-check successful for ${domain.domain_name}. Status is now ${updatedDomain.status}.`);
+            addLog(`${mode === 'manual' ? '✅ Re-check' : '✅ Auto-fix'} successful for ${domain.domain_name}. Status is now ${updatedDomain.status}.`);
         } else {
-            addLog(`❌ Re-check failed for ${domain.domain_name}. Still unknown.`);
+            addLog(`${mode === 'manual' ? '❌ Re-check' : '❌ Auto-fix'} failed for ${domain.domain_name}. Still unknown.`);
         }
     }
+  }, [addLog, checkAndNotify, updateProviderFromWhoisData]);
+
+  const recheckDomain = async (id: number) => {
+    const domain = domains.find(d => d.id === id);
+    if (!domain) return;
+    await syncWhoisForDomain(domain, 'manual');
   };
+
+  useEffect(() => {
+    if (!session || view !== 'dashboard' || domains.length === 0 || isAutoRepairingWhois || isBulkProcessing) return;
+
+    const domainsToRepair = domains.filter(domain => {
+      if (!isDomainMissingWhoisData(domain)) return false;
+      return !autoRepairAttemptedIdsRef.current.has(domain.id);
+    });
+
+    if (domainsToRepair.length === 0) return;
+
+    domainsToRepair.forEach(domain => autoRepairAttemptedIdsRef.current.add(domain.id));
+
+    let cancelled = false;
+    let nextIndex = 0;
+    const workerCount = Math.min(WHOIS_AUTO_REPAIR_CONCURRENCY, domainsToRepair.length);
+
+    const runWorker = async () => {
+      while (!cancelled && nextIndex < domainsToRepair.length) {
+        const currentIndex = nextIndex;
+        nextIndex += 1;
+        const domain = domainsToRepair[currentIndex];
+        setAutoRepairingDomainIds(prev => {
+          const next = new Set(prev);
+          next.add(domain.id);
+          return next;
+        });
+        try {
+          await syncWhoisForDomain(domain, 'auto');
+        } finally {
+          setAutoRepairingDomainIds(prev => {
+            const next = new Set(prev);
+            next.delete(domain.id);
+            return next;
+          });
+        }
+      }
+    };
+
+    setIsAutoRepairingWhois(true);
+    addLog(`🔄 Auto-checking ${domainsToRepair.length} domain(s) with incomplete WHOIS data.`);
+
+    Promise.allSettled(Array.from({ length: workerCount }, runWorker))
+      .then(() => {
+        if (!cancelled) {
+          addLog('✅ Automatic incomplete WHOIS check finished.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsAutoRepairingWhois(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session, view, domains, isAutoRepairingWhois, isBulkProcessing, syncWhoisForDomain, addLog]);
 
   const handleShowInfo = (domain: Domain) => {
     if (!domain.expiration_date) return;
@@ -422,6 +507,7 @@ const App: React.FC = () => {
             onShowInfo={handleShowInfo}
             onToggleTag={toggleDomainTag}
             onRecheck={recheckDomain}
+            autoRepairingDomainIds={autoRepairingDomainIds}
             onExportRequest={handleExport}
             onImportRequest={() => {
               setDomainEntryInitialTab('bulk');

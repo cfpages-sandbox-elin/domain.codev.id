@@ -12,6 +12,7 @@ interface DomainItemProps {
   onShowInfo: (domain: Domain) => void;
   onToggleTag: (id: number) => void;
   onRecheck: (id: number) => Promise<void>;
+  isAutoRefreshing?: boolean;
 }
 
 const formatDate = (dateString: string | null) => {
@@ -164,7 +165,7 @@ const PlainTooltipText: React.FC<{ title: string; body?: string }> = ({ title, b
   </span>
 );
 
-const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove, onShowInfo, onToggleTag, onRecheck }) => {
+const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove, onShowInfo, onToggleTag, onRecheck, isAutoRefreshing = false }) => {
   const [selectedRegistrar, setSelectedRegistrar] = useState<string>('');
   const [isRechecking, setIsRechecking] = useState(false);
   const { isCompact } = useCompactMode();
@@ -221,6 +222,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
   const registryStatuses = domain.domain_statuses || whoisDetails?.domainStatuses || [];
   const nameServers = domain.name_servers || whoisDetails?.nameServers || [];
   const isWhoisIncomplete = hasIncompleteWhoisData(domain, registryStatuses, nameServers);
+  const isWhoisProcessing = isRechecking || isAutoRefreshing;
   const whoisUrl = `https://www.whois.com/whois/${encodeURIComponent(domain.domain_name)}`;
   const TagIconComponent = effectiveTag === 'mine' ? HomeIcon : TargetIcon;
   const tagLabel = effectiveTag === 'mine' ? 'Mine' : 'To Snatch';
@@ -282,14 +284,14 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
 
   return (
     <div className={`relative overflow-hidden rounded-md border transition-all ${rowStyles} ${isWhoisIncomplete ? 'grayscale opacity-75' : ''} ${isCompact ? 'px-3 py-2' : 'px-4 py-3'}`}>
-      {(isWhoisIncomplete || isRechecking) && (
+      {(isWhoisIncomplete || isWhoisProcessing) && (
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center">
           <span className="rounded-b-md bg-slate-800/90 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white dark:bg-slate-100/90 dark:text-slate-900">
-            {isRechecking ? 'WHOIS retrieval processing' : 'WHOIS data incomplete'}
+            {isWhoisProcessing ? 'WHOIS retrieval processing' : 'WHOIS data incomplete'}
           </span>
         </div>
       )}
-      <div className={`grid grid-cols-1 gap-3 md:grid-cols-[minmax(180px,1.5fr)_minmax(110px,0.7fr)_minmax(120px,0.8fr)_minmax(160px,0.9fr)_auto] md:items-center ${(isWhoisIncomplete || isRechecking) ? 'pt-4' : ''}`}>
+      <div className={`grid grid-cols-1 gap-3 md:grid-cols-[minmax(180px,1.5fr)_minmax(110px,0.7fr)_minmax(120px,0.8fr)_minmax(160px,0.9fr)_auto] md:items-center ${(isWhoisIncomplete || isWhoisProcessing) ? 'pt-4' : ''}`}>
         <div className="min-w-0">
           <Tooltip content={tooltipContent}>
             <span className="flex min-w-0 items-start gap-2">
