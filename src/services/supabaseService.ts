@@ -113,9 +113,11 @@ export const getDomains = async (): Promise<Domain[] | null> => {
 
 export const addDomain = async (domainData: DomainInsert): Promise<Domain | null> => {
     if (!supabase) return null;
+    // Supabase's generic payload inference can collapse to `never` with this hand-written schema.
+    // Keep the public service API typed and avoid leaking the client typing issue to callers.
     const { data, error } = await supabase
         .from('domains')
-        .insert([domainData])
+        .insert([domainData] as never)
         .select()
         .single();
     
@@ -128,14 +130,15 @@ export const addDomain = async (domainData: DomainInsert): Promise<Domain | null
         }
         return null;
     }
-    return data;
+    return data as Domain;
 };
 
 export const updateDomain = async (id: number, updates: DomainUpdate): Promise<Domain | null> => {
     if (!supabase) return null;
+    // See addDomain: this cast is scoped to the Supabase client boundary.
     const { data, error } = await supabase
         .from('domains')
-        .update(updates)
+        .update(updates as never)
         .eq('id', id)
         .select()
         .single();
@@ -145,7 +148,7 @@ export const updateDomain = async (id: number, updates: DomainUpdate): Promise<D
         alert('Could not update the domain. Please try again.');
         return null;
     }
-    return data;
+    return data as Domain;
 };
 
 export const removeDomain = async (id: number): Promise<boolean> => {
