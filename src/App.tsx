@@ -153,8 +153,6 @@ const App: React.FC = () => {
         if (userDomains) {
           setDomains(userDomains);
           addLog(`✅ Found ${userDomains.length} domains.`);
-
-          addLog('ℹ️ Automatic login sync is disabled to avoid overwriting domain status from unreliable WHOIS results. Use row re-check when needed.');
         } else {
            addLog(`❌ Failed to fetch domains.`);
         }
