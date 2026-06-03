@@ -115,42 +115,7 @@ const App: React.FC = () => {
           setDomains(userDomains);
           addLog(`✅ Found ${userDomains.length} domains.`);
 
-          const mineDomains = userDomains.filter(d => d.tag === 'mine');
-          if (mineDomains.length > 0) {
-              addLog(`🔄 Syncing ${mineDomains.length} "mine" domains in the background...`);
-              
-              const updatePromises = mineDomains.map(async (domain) => {
-                  const whoisData = await getWhoisData(domain.domain_name); 
-                  if (whoisData.status === 'available' || whoisData.status === 'dropped') {
-                      const updates: DomainUpdate = { 
-                          tag: 'to-snatch',
-                          status: whoisData.status,
-                          expiration_date: whoisData.expirationDate,
-                          registered_date: whoisData.registeredDate,
-                          registrar: whoisData.registrar,
-                          last_checked: new Date().toISOString()
-                      };
-                      const updatedDomain = await SupabaseService.updateDomain(domain.id, updates);
-                      if (updatedDomain) {
-                          addLog(`✅ Synced ${domain.domain_name}: is available, tag switched to 'to-snatch'.`);
-                      }
-                      return updatedDomain;
-                  }
-                  return null;
-              });
-
-              const results = await Promise.all(updatePromises);
-              const successfulUpdates = results.filter((d): d is Domain => d !== null);
-
-              if (successfulUpdates.length > 0) {
-                  setDomains(currentDomains => {
-                      const updatedMap = new Map(successfulUpdates.map(d => [d.id, d]));
-                      // Create a new array to ensure re-render
-                      return currentDomains.map(d => updatedMap.get(d.id) || d);
-                  });
-              }
-              addLog('✅ Background sync complete.');
-          }
+          addLog('ℹ️ Automatic login sync is disabled to avoid overwriting domain status from unreliable WHOIS results. Use row re-check when needed.');
         } else {
            addLog(`❌ Failed to fetch domains.`);
         }
@@ -174,17 +139,9 @@ const App: React.FC = () => {
     }
     const whoisData = await getWhoisData(domainName, addLog);
     
-    let finalTag = tag;
-    if (whoisData.status === 'available' || whoisData.status === 'dropped') {
-        finalTag = 'to-snatch';
-        if (tag === 'mine') {
-            addLog(`ℹ️ Domain ${domainName} is available. Overriding tag to 'to-snatch' for accuracy.`);
-        }
-    }
-
     const newDomainData: DomainInsert = {
       domain_name: domainName,
-      tag: finalTag,
+      tag,
       status: whoisData.status,
       expiration_date: whoisData.expirationDate,
       registered_date: whoisData.registeredDate,
@@ -265,12 +222,6 @@ const App: React.FC = () => {
   
     const newTag = domain.tag === 'mine' ? 'to-snatch' : 'mine';
   
-    if ((domain.status === 'available' || domain.status === 'dropped') && newTag === 'mine') {
-      addLog(`⚠️ Attempted to tag an available domain (${domain.domain_name}) as "mine".`);
-      alert('An available domain cannot be tagged as "Mine". Please register it first.');
-      return;
-    }
-  
     const updatedDomain = await SupabaseService.updateDomain(id, { tag: newTag });
     if (updatedDomain) {
       setDomains(prevDomains => prevDomains.map(d =>
@@ -294,11 +245,6 @@ const App: React.FC = () => {
         registrar: whoisData.registrar,
         last_checked: new Date().toISOString(),
     };
-
-    if ((whoisData.status === 'available' || whoisData.status === 'dropped') && domain.tag === 'mine') {
-        updates.tag = 'to-snatch';
-        addLog(`ℹ️ Domain ${domain.domain_name} is available. Switching tag to "to-snatch" for accuracy.`);
-    }
 
     const updatedDomain = await SupabaseService.updateDomain(id, updates);
 

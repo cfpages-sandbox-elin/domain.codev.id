@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Domain } from '../types';
 import DomainItem from './DomainItem';
-import { ChevronUpDownIcon, ArrowUpOnSquareIcon, ArrowDownOnSquareIcon } from './icons';
+import { ChevronUpDownIcon, ArrowUpOnSquareIcon, ArrowDownOnSquareIcon, RefreshIcon } from './icons';
 
 interface DomainListProps {
   domains: Domain[];
@@ -21,6 +21,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, onRemove, onShowInfo, 
   const [filter, setFilter] = useState<FilterType>('all');
   const [sortOption, setSortOption] = useState<SortOption>('added-desc');
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [isRecheckingVisible, setIsRecheckingVisible] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -81,7 +82,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, onRemove, onShowInfo, 
                 return new Date(b.last_checked).getTime() - new Date(a.last_checked).getTime();
             case 'added-desc':
             default:
-                return new Date(b.created_at).getTime() - new Date(b.created_at).getTime();
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         }
     });
     return sortable;
@@ -105,6 +106,21 @@ const DomainList: React.FC<DomainListProps> = ({ domains, onRemove, onShowInfo, 
     onExportRequest(format);
     setIsExportMenuOpen(false);
   }
+
+  const handleRecheckVisible = async () => {
+    if (isRecheckingVisible || sortedDomains.length === 0) return;
+    const confirmed = window.confirm(`Re-check ${sortedDomains.length} visible domain(s)? This may use WHOIS API quota.`);
+    if (!confirmed) return;
+
+    setIsRecheckingVisible(true);
+    try {
+      for (const domain of sortedDomains) {
+        await onRecheck(domain.id);
+      }
+    } finally {
+      setIsRecheckingVisible(false);
+    }
+  };
 
   if (domains.length === 0 && !isProcessing) {
     return (
@@ -137,6 +153,16 @@ const DomainList: React.FC<DomainListProps> = ({ domains, onRemove, onShowInfo, 
         <div className="flex-grow"></div>
 
         <div className="flex flex-wrap items-center gap-3">
+            <button
+                onClick={handleRecheckVisible}
+                disabled={isProcessing || isRecheckingVisible || sortedDomains.length === 0}
+                title="Re-check all domains in the current filter"
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-full transition-colors disabled:opacity-50"
+            >
+                <RefreshIcon className={`w-5 h-5 ${isRecheckingVisible ? 'animate-spin' : ''}`} />
+                <span>{isRecheckingVisible ? 'Re-checking...' : 'Re-check Visible'}</span>
+            </button>
+
             <button
                 onClick={onImportRequest}
                 disabled={isProcessing}
