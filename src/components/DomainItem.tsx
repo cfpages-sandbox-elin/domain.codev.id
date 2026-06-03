@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Domain, DomainStatus } from '../types';
+import { Domain, DomainStatus, WhoisData } from '../types';
 import { useCompactMode } from '../contexts/CompactModeContext';
-import { TrashIcon, InfoIcon, TagIcon, SwitchHorizontalIcon, ShoppingCartIcon, RefreshIcon } from './icons';
+import { TrashIcon, InfoIcon, TagIcon, ShoppingCartIcon, RefreshIcon } from './icons';
 import Spinner from './Spinner';
+import Tooltip from './Tooltip';
 
 interface DomainItemProps {
   domain: Domain;
+  whoisDetails?: WhoisData;
   onRemove: (id: number) => void;
   onShowInfo: (domain: Domain) => void;
   onToggleTag: (id: number) => void;
@@ -50,23 +52,47 @@ const StatusBadge: React.FC<{ status: DomainStatus, isCompact: boolean }> = ({ s
     );
 };
 
+const getRowStyles = (status: DomainStatus, daysUntilExpiry: number | null): string => {
+    const statusStyles: { [key in DomainStatus]: string } = {
+        available: 'bg-green-50/90 border-green-200 dark:bg-green-950/30 dark:border-green-900/80',
+        dropped: 'bg-green-50/90 border-green-200 dark:bg-green-950/30 dark:border-green-900/80',
+        registered: 'bg-blue-50/90 border-blue-200 dark:bg-blue-950/30 dark:border-blue-900/80',
+        expired: 'bg-red-50/90 border-red-200 dark:bg-red-950/30 dark:border-red-900/80',
+        unknown: 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700',
+    };
+
+    const urgency = getUrgencyStyles(status, daysUntilExpiry);
+    return `${statusStyles[status]} ${urgency}`;
+};
+
+const getDomainTextStyles = (status: DomainStatus): string => {
+    const statusStyles: { [key in DomainStatus]: string } = {
+        available: 'text-green-800 hover:text-green-700 dark:text-green-300 dark:hover:text-green-200',
+        dropped: 'text-green-800 hover:text-green-700 dark:text-green-300 dark:hover:text-green-200',
+        registered: 'text-blue-900 hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200',
+        expired: 'text-red-900 hover:text-red-700 dark:text-red-300 dark:hover:text-red-200',
+        unknown: 'text-slate-900 hover:text-slate-700 dark:text-white dark:hover:text-slate-200',
+    };
+    return statusStyles[status];
+};
+
 const getUrgencyStyles = (status: DomainStatus, daysUntilExpiry: number | null): string => {
     if (status === 'expired') {
-        return 'bg-red-100 dark:bg-red-900/40 ring-1 ring-red-500/80';
+        return 'ring-1 ring-red-500/80';
     }
     if (daysUntilExpiry === null) {
-        return 'bg-slate-50 dark:bg-slate-800/50';
+        return '';
     }
     if (daysUntilExpiry <= 7) {
-        return 'bg-red-50 dark:bg-red-900/30 ring-1 ring-red-500';
+        return 'ring-1 ring-red-500';
     }
     if (daysUntilExpiry <= 30) {
-        return 'bg-orange-50 dark:bg-orange-900/30 ring-1 ring-orange-500';
+        return 'ring-1 ring-orange-500';
     }
     if (daysUntilExpiry <= 90) {
-        return 'bg-yellow-50 dark:bg-yellow-900/20 ring-1 ring-yellow-400';
+        return 'ring-1 ring-yellow-400';
     }
-    return 'bg-slate-50 dark:bg-slate-800/50';
+    return '';
 };
 
 const getDaysUntilExpiry = (dateString: string | null): number | null => {
@@ -77,7 +103,49 @@ const getDaysUntilExpiry = (dateString: string | null): number | null => {
     return Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
 };
 
-const DomainItem: React.FC<DomainItemProps> = ({ domain, onRemove, onShowInfo, onToggleTag, onRecheck }) => {
+const humanizeRegistryStatus = (status: string) => {
+  const normalized = status.replace(/^https?:\/\/icann\.org\/epp#/i, '');
+  const labels: Record<string, string> = {
+    autoRenewPeriod: 'Automatic renewal period',
+    clientTransferProhibited: 'Transfer locked by registrar',
+    clientUpdateProhibited: 'Updates locked by registrar',
+    clientDeleteProhibited: 'Deletion locked by registrar',
+    serverTransferProhibited: 'Transfer blocked by registry',
+    pendingDelete: 'Pending deletion',
+    redemptionPeriod: 'Redemption period',
+    ok: 'No special restrictions',
+  };
+
+  return labels[normalized] || normalized
+    .replace(/^https?:\/\/icann\.org\/epp#/i, '')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, char => char.toUpperCase());
+};
+
+const explainRegistryStatus = (status: string) => {
+  const normalized = status.replace(/^https?:\/\/icann\.org\/epp#/i, '');
+  const explanations: Record<string, string> = {
+    autoRenewPeriod: 'The registry automatically renewed the domain after expiry. The owner can still renew it or let it lapse.',
+    clientTransferProhibited: 'Transfer is locked by the registrar. This usually protects the domain from unauthorized transfer.',
+    clientUpdateProhibited: 'Updates are locked by the registrar.',
+    clientDeleteProhibited: 'Deletion is locked by the registrar.',
+    serverTransferProhibited: 'Transfer is blocked at the registry level.',
+    pendingDelete: 'The domain is in the final deletion phase and may become available soon.',
+    redemptionPeriod: 'The domain expired and is in a recovery period for the current owner.',
+    ok: 'The domain has no special restrictions reported.',
+  };
+  return explanations[normalized] || 'Registry status reported by the WHOIS provider.';
+};
+
+const DetailRow: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
+  <div className="grid grid-cols-[92px_1fr] gap-2">
+    <span className="text-slate-400 dark:text-slate-500">{label}</span>
+    <span className="text-slate-700 dark:text-slate-200">{value}</span>
+  </div>
+);
+
+const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove, onShowInfo, onToggleTag, onRecheck }) => {
   const [selectedRegistrar, setSelectedRegistrar] = useState<string>('');
   const [isRechecking, setIsRechecking] = useState(false);
   const { isCompact } = useCompactMode();
@@ -124,7 +192,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, onRemove, onShowInfo, o
   };
 
   const daysUntilExpiry = getDaysUntilExpiry(domain.expiration_date);
-  const urgencyStyles = getUrgencyStyles(domain.status, daysUntilExpiry);
+  const rowStyles = getRowStyles(domain.status, daysUntilExpiry);
 
   const tagStyles = {
     mine: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
@@ -134,49 +202,82 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, onRemove, onShowInfo, o
   const isAvailableStatus = domain.status === 'available' || domain.status === 'dropped';
   const isAvailableForPurchase = isAvailableStatus && domain.tag === 'to-snatch';
   const canShowDropTimeline = domain.status === 'expired' && Boolean(domain.expiration_date);
-  const dateTextSize = isCompact ? 'text-[11px]' : 'text-xs';
   const actionButtonClass = 'p-1.5 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-wait';
+  const registryStatuses = domain.domain_statuses || whoisDetails?.domainStatuses || [];
+  const nameServers = domain.name_servers || whoisDetails?.nameServers || [];
+  const whoisUrl = `https://www.whois.com/whois/${encodeURIComponent(domain.domain_name)}`;
+
+  const tooltipContent = (
+    <div className="space-y-3">
+      <div className="space-y-1">
+        <DetailRow label="Domain" value={domain.domain_name} />
+        <DetailRow label="Status" value={domain.status === 'dropped' ? 'available' : domain.status} />
+        <DetailRow label="Tag" value={domain.tag === 'mine' ? 'Mine' : 'To Snatch'} />
+        <DetailRow label="Expires" value={formatDate(domain.expiration_date)} />
+        <DetailRow label="Registered" value={formatDate(domain.registered_date)} />
+        <DetailRow label="Registrar" value={domain.registrar || 'N/A'} />
+        <DetailRow label="Last check" value={formatDateWithTime(domain.last_checked)} />
+        {whoisDetails?.providerLabel && <DetailRow label="Provider" value={whoisDetails.providerLabel} />}
+      </div>
+
+      <div>
+        <p className="mb-1 font-semibold text-slate-700 dark:text-slate-200">Registry status</p>
+        {registryStatuses.length > 0 ? (
+          <ul className="space-y-1">
+            {registryStatuses.map(status => (
+              <li key={status}>
+                <span className="font-medium text-slate-800 dark:text-slate-100">{humanizeRegistryStatus(status)}</span>
+                <span className="block text-slate-500 dark:text-slate-400">{explainRegistryStatus(status)}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-slate-500 dark:text-slate-400">No registry status details stored yet. Re-check the domain to refresh provider details.</p>
+        )}
+      </div>
+
+      <div>
+        <p className="mb-1 font-semibold text-slate-700 dark:text-slate-200">Name servers</p>
+        {nameServers.length > 0 ? (
+          <ul className="space-y-0.5">
+            {nameServers.map(server => <li key={server} className="font-mono text-[11px]">{server}</li>)}
+          </ul>
+        ) : (
+          <p className="text-slate-500 dark:text-slate-400">No name server details stored yet.</p>
+        )}
+      </div>
+    </div>
+  );
 
   return (
-    <div className={`rounded-md border border-slate-200/80 dark:border-slate-700/80 transition-all ${urgencyStyles} ${isCompact ? 'px-3 py-2' : 'px-4 py-3'}`}>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(180px,1.4fr)_minmax(120px,0.8fr)_minmax(190px,1fr)_minmax(170px,1fr)_auto] md:items-center">
+    <div className={`rounded-md border transition-all ${rowStyles} ${isCompact ? 'px-3 py-2' : 'px-4 py-3'}`}>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(180px,1.5fr)_minmax(110px,0.7fr)_minmax(120px,0.8fr)_minmax(170px,1fr)_auto] md:items-center">
         <div className="min-w-0">
-          <h3 className={`font-semibold text-slate-900 dark:text-white break-all leading-snug ${isCompact ? 'text-sm' : 'text-base'}`}>
-            {domain.domain_name}
-          </h3>
-          <p className={`${dateTextSize} text-slate-500 dark:text-slate-400`}>
-            Registrar: <span className="font-medium text-slate-700 dark:text-slate-300">{domain.registrar || 'N/A'}</span>
-          </p>
+          <Tooltip content={tooltipContent}>
+            <a
+              href={whoisUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`font-semibold underline-offset-2 hover:underline break-all leading-snug ${getDomainTextStyles(domain.status)} ${isCompact ? 'text-sm' : 'text-base'}`}
+            >
+              {domain.domain_name}
+            </a>
+          </Tooltip>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2">
           <StatusBadge status={domain.status} isCompact={isCompact} />
-          <span className={`px-2 font-semibold rounded-full capitalize inline-flex items-center gap-1 ${tagStyles[domain.tag]} ${isCompact ? 'py-0 text-[9px]' : 'py-0.5 text-[10px]'}`}>
-            <TagIcon className="w-3 h-3" />
-            {domain.tag === 'mine' ? 'Mine' : 'To Snatch'}
-          </span>
         </div>
 
-        <div className={`grid grid-cols-2 gap-x-3 gap-y-1 ${dateTextSize} text-slate-500 dark:text-slate-400`}>
-          <span>
-            Registered
-            <span className="block font-medium text-slate-700 dark:text-slate-300">{formatDate(domain.registered_date)}</span>
-          </span>
-          <span>
-            Expires
-            <span className="block font-medium text-slate-700 dark:text-slate-300">{formatDate(domain.expiration_date)}</span>
-          </span>
-          <span className="col-span-2">
-            Last checked
-            <span className="block font-medium text-slate-700 dark:text-slate-300">{formatDateWithTime(domain.last_checked)}</span>
-          </span>
-          {domain.status === 'unknown' && (
-            <span className="col-span-2 font-semibold text-yellow-700 dark:text-yellow-300">WHOIS failed. Re-check when ready.</span>
-          )}
+        <div className="text-sm font-medium text-slate-700 dark:text-slate-200">
+          {formatDate(domain.expiration_date)}
           {daysUntilExpiry !== null && daysUntilExpiry <= 90 && domain.status !== 'unknown' && (
-            <span className="col-span-2 font-semibold text-slate-700 dark:text-slate-200">
-              {domain.status === 'expired' ? 'Expired.' : `Expires in ${daysUntilExpiry} days.`}
+            <span className="block text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {domain.status === 'expired' ? 'Expired' : `${daysUntilExpiry} days left`}
             </span>
+          )}
+          {domain.status === 'unknown' && (
+            <span className="block text-xs font-semibold text-yellow-700 dark:text-yellow-300">Re-check needed</span>
           )}
         </div>
 
@@ -228,10 +329,12 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, onRemove, onShowInfo, o
           <button
             onClick={() => onToggleTag(domain.id)}
             className={actionButtonClass}
-            title="Switch tag"
+            title={`Switch tag. Current: ${domain.tag === 'mine' ? 'Mine' : 'To Snatch'}`}
             aria-label={`Switch tag for ${domain.domain_name}`}
           >
-            <SwitchHorizontalIcon className="w-5 h-5" />
+            <span className={`inline-flex rounded px-1 ${tagStyles[domain.tag]}`}>
+              <TagIcon className="w-4 h-4" />
+            </span>
           </button>
           <button
             onClick={() => onRemove(domain.id)}

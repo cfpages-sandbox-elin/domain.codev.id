@@ -35,6 +35,8 @@ export interface WhoisData {
   expirationDate: string | null;
   registeredDate: string | null;
   registrar: string | null;
+  domainStatuses?: string[];
+  nameServers?: string[];
   provider?: WhoisProviderId;
   providerLabel?: string;
   providerAttempts?: WhoisProviderAttempt[];
@@ -246,6 +248,23 @@ const hasQuotaData = (quota?: WhoisQuota): quota is WhoisQuota => {
   return Object.values(quota).some(value => value !== null);
 };
 
+const compactStrings = (values: unknown[]): string[] => {
+  return Array.from(new Set(values
+    .flatMap(value => {
+      if (Array.isArray(value)) return value;
+      if (typeof value === 'string') return value.split(/[,;]/);
+      return [];
+    })
+    .map(value => String(value).trim())
+    .filter(Boolean)));
+};
+
+const readNameServers = (...values: unknown[]): string[] => compactStrings(values)
+  .map(value => value.replace(/\.$/, '').toLowerCase());
+
+const readDomainStatuses = (...values: unknown[]): string[] => compactStrings(values)
+  .map(value => value.replace(/^https?:\/\/icann\.org\/epp#/i, ''));
+
 const withProviderMetadata = (
   providerId: WhoisProviderId,
   data: WhoisData,
@@ -282,6 +301,8 @@ const getWhoisDataFromWhoDat = async (domainName: string): Promise<WhoisData> =>
     expirationDate: data.dates?.expiry || null,
     registeredDate: data.dates?.created || null,
     registrar: data.registrar?.name || null,
+    domainStatuses: readDomainStatuses(data.status, data.statuses),
+    nameServers: readNameServers(data.nameservers, data.nameServers),
   };
 };
 
@@ -304,6 +325,8 @@ const getWhoisDataFromWhoisXmlApi = async (domainName: string): Promise<WhoisDat
     expirationDate: expiryDateStr || null,
     registeredDate: record.registryData?.createdDate || record.createdDate || null,
     registrar: record.registrarName || null,
+    domainStatuses: readDomainStatuses(record.status, record.registryData?.status),
+    nameServers: readNameServers(record.nameServers?.hostNames, record.registryData?.nameServers?.hostNames),
   };
 };
 
@@ -330,6 +353,8 @@ const getWhoisDataFromApiLayer = async (domainName: string): Promise<WhoisData> 
     expirationDate: result.expiration_date || null,
     registeredDate: result.creation_date || null,
     registrar: result.registrar || null,
+    domainStatuses: readDomainStatuses(result.status, result.domain_status),
+    nameServers: readNameServers(result.name_servers, result.nameservers),
     quota,
   };
 };
@@ -350,6 +375,8 @@ const getWhoisDataFromWhoisFreaks = async (domainName: string): Promise<WhoisDat
     expirationDate: data.expiry_date || null,
     registeredDate: data.create_date || null,
     registrar: data.domain_registrar?.registrar_name || null,
+    domainStatuses: readDomainStatuses(data.domain_status, data.statuses),
+    nameServers: readNameServers(data.name_servers, data.nameservers),
   };
 };
 
@@ -372,6 +399,8 @@ const getWhoisDataFromWhoapi = async (domainName: string): Promise<WhoisData> =>
     expirationDate: expiryDateStr || null,
     registeredDate: data.date_created || null,
     registrar: registrarName,
+    domainStatuses: readDomainStatuses(data.statuses, data.domain_status),
+    nameServers: readNameServers(data.nameservers, data.name_servers),
   };
 };
 
@@ -411,6 +440,8 @@ const getWhoisDataFromRapidApi = async (domainName: string): Promise<WhoisData> 
     expirationDate: data.expiration_date || null,
     registeredDate: data.creation_date || null,
     registrar: data.registrar || null,
+    domainStatuses: readDomainStatuses(data.status, data.domain_status),
+    nameServers: readNameServers(data.name_servers, data.nameservers),
   };
 };
 
@@ -434,6 +465,8 @@ const getWhoisDataFromWhoisJson = async (domainName: string): Promise<WhoisData>
     expirationDate: expiryDateStr,
     registeredDate: registeredDateStr,
     registrar: data.registrar || data.registrar_name || data.registrarName || null,
+    domainStatuses: readDomainStatuses(data.status, data.domain_status, data.domainStatuses),
+    nameServers: readNameServers(data.name_servers, data.nameservers, data.nameServers),
   };
 };
 
@@ -455,6 +488,8 @@ const getWhoisDataFromIp2Whois = async (domainName: string): Promise<WhoisData> 
     expirationDate: expiryDateStr,
     registeredDate: registeredDateStr,
     registrar: data.registrar?.name || data.registrar || null,
+    domainStatuses: readDomainStatuses(data.status, data.domain_status),
+    nameServers: readNameServers(data.nameservers, data.name_servers),
   };
 };
 

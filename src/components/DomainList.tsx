@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Domain } from '../types';
+import { Domain, WhoisData } from '../types';
 import DomainItem from './DomainItem';
 import { ChevronUpDownIcon, ArrowUpOnSquareIcon, ArrowDownOnSquareIcon, RefreshIcon } from './icons';
 
 interface DomainListProps {
   domains: Domain[];
+  whoisDetailsByDomainId: Record<number, WhoisData>;
   onRemove: (id: number) => void;
   onShowInfo: (domain: Domain) => void;
   onToggleTag: (id: number) => void;
@@ -17,7 +18,7 @@ interface DomainListProps {
 type FilterType = 'all' | 'mine' | 'to-snatch' | 'expiring' | 'expired' | 'available';
 type SortOption = 'added-desc' | 'added-asc' | 'name-asc' | 'name-desc' | 'expiry-asc' | 'expiry-desc' | 'checked-desc' | 'checked-asc';
 
-const DomainList: React.FC<DomainListProps> = ({ domains, onRemove, onShowInfo, onToggleTag, onRecheck, onImportRequest, onExportRequest, isProcessing }) => {
+const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId, onRemove, onShowInfo, onToggleTag, onRecheck, onImportRequest, onExportRequest, isProcessing }) => {
   const [filter, setFilter] = useState<FilterType>('all');
   const [sortOption, setSortOption] = useState<SortOption>('added-desc');
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
@@ -223,7 +224,15 @@ const DomainList: React.FC<DomainListProps> = ({ domains, onRemove, onShowInfo, 
       <div className={`space-y-2 transition-opacity ${isProcessing ? 'opacity-50' : 'opacity-100'}`}>
         {sortedDomains.length > 0 ? (
           sortedDomains.map(domain => (
-            <DomainItem key={domain.id} domain={domain} onRemove={onRemove} onShowInfo={onShowInfo} onToggleTag={onToggleTag} onRecheck={onRecheck}/>
+            <DomainItem
+              key={domain.id}
+              domain={domain}
+              whoisDetails={whoisDetailsByDomainId[domain.id]}
+              onRemove={onRemove}
+              onShowInfo={onShowInfo}
+              onToggleTag={onToggleTag}
+              onRecheck={onRecheck}
+            />
           ))
         ) : (
             <div className="text-center py-12">

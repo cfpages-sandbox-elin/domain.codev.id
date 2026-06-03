@@ -30,6 +30,7 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
   const [domains, setDomains] = useState<Domain[]>([]);
+  const [whoisDetailsByDomainId, setWhoisDetailsByDomainId] = useState<Record<number, WhoisData>>({});
   const [whoisProviders, setWhoisProviders] = useState<WhoisProviderStatus[]>([]);
   const [isWhoisProviderLoading, setIsWhoisProviderLoading] = useState(false);
   const [notifications, setNotifications] = useState<string[]>([]);
@@ -101,6 +102,7 @@ const App: React.FC = () => {
         setSession(session);
         if(!session) {
           setDomains([]);
+          setWhoisDetailsByDomainId({});
           addLog('ℹ️ User signed out.');
         } else {
           addLog('ℹ️ Auth state changed, user is signed in.');
@@ -184,11 +186,14 @@ const App: React.FC = () => {
       expiration_date: whoisData.expirationDate,
       registered_date: whoisData.registeredDate,
       registrar: whoisData.registrar,
+      domain_statuses: whoisData.domainStatuses || null,
+      name_servers: whoisData.nameServers || null,
       last_checked: new Date().toISOString(),
     };
     const newDomain = await SupabaseService.addDomain(newDomainData);
     if(newDomain){
         setDomains(prevDomains => [...prevDomains, newDomain]);
+        setWhoisDetailsByDomainId(prev => ({ ...prev, [newDomain.id]: whoisData }));
         checkAndNotify(newDomain);
         addLog(`✅ Successfully added ${domainName}.`);
         return newDomain;
@@ -250,6 +255,11 @@ const App: React.FC = () => {
     const success = await SupabaseService.removeDomain(id);
     if(success){
         setDomains(prevDomains => prevDomains.filter(d => d.id !== id));
+        setWhoisDetailsByDomainId(prev => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
         if(domainToRemove) addLog(`✅ Successfully removed ${domainToRemove.domain_name}.`);
     }
   };
@@ -282,6 +292,8 @@ const App: React.FC = () => {
         expiration_date: whoisData.expirationDate,
         registered_date: whoisData.registeredDate,
         registrar: whoisData.registrar,
+        domain_statuses: whoisData.domainStatuses || null,
+        name_servers: whoisData.nameServers || null,
         last_checked: new Date().toISOString(),
     };
 
@@ -289,6 +301,7 @@ const App: React.FC = () => {
 
     if (updatedDomain) {
         setDomains(prev => prev.map(d => d.id === id ? updatedDomain : d));
+        setWhoisDetailsByDomainId(prev => ({ ...prev, [id]: whoisData }));
         if (updatedDomain.status !== 'unknown') {
             checkAndNotify(updatedDomain);
             addLog(`✅ Re-check successful for ${domain.domain_name}. Status is now ${updatedDomain.status}.`);
@@ -374,6 +387,7 @@ const App: React.FC = () => {
         />
         <DomainList 
             domains={domains}
+            whoisDetailsByDomainId={whoisDetailsByDomainId}
             onRemove={removeDomain}
             onShowInfo={handleShowInfo}
             onToggleTag={toggleDomainTag}

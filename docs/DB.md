@@ -2,6 +2,20 @@
 
 Last researched: 2026-06-03.
 
+## Current Supabase Persistence Patch
+
+While migration to D1 is delayed, the current Supabase `domains` table should persist the latest detailed WHOIS values:
+
+```sql
+alter table public.domains
+  add column if not exists domain_statuses text[];
+
+alter table public.domains
+  add column if not exists name_servers text[];
+```
+
+These fields store provider-returned registry status values such as `autoRenewPeriod` and `clientTransferProhibited`, plus the latest name servers. The app displays them in the domain-row tooltip and refreshes them on add, manual re-check, and scheduled checks.
+
 ## Direction
 
 Use Cloudflare Workers or Pages Functions as the backend, Cloudflare D1 as the relational database, Better Auth for authentication, and Workers Cron Triggers/Queues for scheduled WHOIS checks.

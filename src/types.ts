@@ -12,6 +12,8 @@ export interface Domain {
   expiration_date: string | null;
   registered_date: string | null;
   registrar: string | null;
+  domain_statuses: string[] | null;
+  name_servers: string[] | null;
   created_at: string;
   last_checked: string | null;
 }
@@ -21,6 +23,8 @@ export interface WhoisData {
   expirationDate: string | null;
   registeredDate: string | null;
   registrar: string | null;
+  domainStatuses?: string[];
+  nameServers?: string[];
   provider?: string;
   providerLabel?: string;
   providerAttempts?: WhoisProviderAttempt[];

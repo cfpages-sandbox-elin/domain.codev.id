@@ -25,6 +25,8 @@ interface DomainUpdate {
   expiration_date?: string | null;
   registered_date?: string | null;
   registrar?: string | null;
+  domain_statuses?: string[] | null;
+  name_servers?: string[] | null;
   last_checked?: string | null;
 }
 
@@ -95,12 +97,13 @@ serve(async (req) => {
         expiration_date: whoisData.expirationDate,
         registered_date: whoisData.registeredDate,
         registrar: whoisData.registrar,
+        domain_statuses: whoisData.domainStatuses || null,
+        name_servers: whoisData.nameServers || null,
         last_checked: new Date().toISOString(),
       };
 
       if ((newStatus === 'available' || newStatus === 'dropped') && domain.tag === 'mine') {
-        payload.tag = 'to-snatch';
-        console.log(`✅ Switching tag for ${domain.domain_name} to "to-snatch" as it is now available.`);
+        console.log(`⚠️ Provider says ${domain.domain_name} is available, but it is tagged as "mine". Keeping the tag unchanged.`);
       }
       
       console.log(`✅ Update for ${domain.domain_name}: status -> ${newStatus}`);
