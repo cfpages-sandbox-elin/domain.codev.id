@@ -148,16 +148,20 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-        if ((event.ctrlKey || event.metaKey) && event.key === 'n') {
+        const key = event.key.toLowerCase();
+        const shouldOpenDomainEntry = ((event.ctrlKey || event.metaKey) && key === 'n') || (event.altKey && key === 'n');
+        if (shouldOpenDomainEntry) {
             event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
             if(session) {
                 setDomainEntryInitialTab('single');
                 setIsDomainEntryModalOpen(true);
             }
         }
     };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
   }, [session]);
 
   const addNotification = useCallback((message: string) => {
@@ -538,7 +542,7 @@ const App: React.FC = () => {
       </main>
 
       {!loading && session && (
-        <Tooltip content="Add new domain (Ctrl+N)" className="fixed bottom-8 right-8 z-40" placement="top">
+        <Tooltip content="Add new domain. Shortcut: Ctrl + N; fallback: Alt + N if the browser captures Ctrl + N." className="fixed bottom-8 right-8 z-40" placement="top">
           <button
             onClick={() => {
               setDomainEntryInitialTab('single');
