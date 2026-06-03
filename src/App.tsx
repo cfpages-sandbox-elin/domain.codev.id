@@ -7,7 +7,6 @@ import * as SupabaseService from './services/supabaseService';
 import type { DomainInsert, DomainUpdate } from './services/supabaseService';
 
 import Header from './components/Header';
-import DomainForm from './components/DomainForm';
 import DomainList from './components/DomainList';
 import Modal from './components/Modal';
 import Auth from './components/Auth';
@@ -25,6 +24,19 @@ const formatDate = (date: Date) => date.toLocaleDateString('en-US', { year: 'num
 type View = 'dashboard' | 'docs';
 
 type BulkDomain = { domainName: string; tag?: DomainTag };
+type DomainEntryTab = 'single' | 'bulk';
+
+const getWhoisSaveBlockReason = (whoisData: WhoisData): string | null => {
+  if (whoisData.status === 'unknown') {
+    return 'WHOIS check failed or no provider could confirm the domain status.';
+  }
+
+  if ((whoisData.status === 'registered' || whoisData.status === 'expired') && !whoisData.expirationDate) {
+    return 'WHOIS provider confirmed the domain is registered, but did not return an expiry date.';
+  }
+
+  return null;
+};
 
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -36,8 +48,8 @@ const App: React.FC = () => {
   const [isWhoisProviderLoading, setIsWhoisProviderLoading] = useState(false);
   const [notifications, setNotifications] = useState<string[]>([]);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
-  const [isAddDomainModalOpen, setIsAddDomainModalOpen] = useState(false);
-  const [isBulkAddModalOpen, setIsBulkAddModalOpen] = useState(false);
+  const [isDomainEntryModalOpen, setIsDomainEntryModalOpen] = useState(false);
+  const [domainEntryInitialTab, setDomainEntryInitialTab] = useState<DomainEntryTab>('single');
   const [modalContent, setModalContent] = useState({ title: '', body: '' });
   const [logs, setLogs] = useState<string[]>([]);
   const [view, setView] = useState<View>('dashboard');
@@ -119,7 +131,8 @@ const App: React.FC = () => {
         if ((event.ctrlKey || event.metaKey) && event.key === 'n') {
             event.preventDefault();
             if(session) {
-                setIsAddDomainModalOpen(true);
+                setDomainEntryInitialTab('single');
+                setIsDomainEntryModalOpen(true);
             }
         }
     };
@@ -171,16 +184,26 @@ const App: React.FC = () => {
 
 
   const addDomain = async (domainName: string, tag: DomainTag): Promise<Domain | null> => {
-    if (domains.some(d => d.domain_name.toLowerCase() === domainName.toLowerCase())) {
-      addLog(`⚠️ Attempted to add duplicate domain: ${domainName}`);
+    const normalizedDomainName = domainName.trim().toLowerCase();
+    if (domains.some(d => d.domain_name.toLowerCase() === normalizedDomainName)) {
+      addLog(`⚠️ Attempted to add duplicate domain: ${normalizedDomainName}`);
       return null;
     }
-    const whoisData = await getWhoisData(domainName, addLog);
+    const whoisData = await getWhoisData(normalizedDomainName, addLog);
     updateProviderFromWhoisData(whoisData);
+
+    const saveBlockReason = getWhoisSaveBlockReason(whoisData);
+    if (saveBlockReason) {
+      addLog(`⚠️ ${normalizedDomainName} was not saved. ${saveBlockReason}`);
+      alert(`${normalizedDomainName} was not saved.\n\n${saveBlockReason}\n\nTry re-adding it later or check the WHOIS provider dashboard.`);
+      return null;
+    }
+
+    const savedTag = whoisData.status === 'available' || whoisData.status === 'dropped' ? 'to-snatch' : tag;
     
     const newDomainData: DomainInsert = {
-      domain_name: domainName,
-      tag,
+      domain_name: normalizedDomainName,
+      tag: savedTag,
       status: whoisData.status,
       expiration_date: whoisData.expirationDate,
       registered_date: whoisData.registeredDate,
@@ -194,10 +217,10 @@ const App: React.FC = () => {
         setDomains(prevDomains => [...prevDomains, newDomain]);
         setWhoisDetailsByDomainId(prev => ({ ...prev, [newDomain.id]: whoisData }));
         checkAndNotify(newDomain);
-        addLog(`✅ Successfully added ${domainName}.`);
+        addLog(`✅ Successfully added ${normalizedDomainName}.`);
         return newDomain;
     } else {
-        addLog(`❌ Failed to add ${domainName}.`);
+        addLog(`❌ Failed to add ${normalizedDomainName}.`);
         return null;
     }
   };
@@ -248,15 +271,18 @@ const App: React.FC = () => {
     try {
       await Promise.allSettled(Array.from({ length: workerCount }, (_, index) => runWorker(index)));
       addLog('✅ Bulk add finished.');
-      setIsBulkAddModalOpen(false);
+      setIsDomainEntryModalOpen(false);
     } finally {
       setIsBulkProcessing(false);
     }
   };
 
   const handleAddDomainFromModal = async (domainName: string, tag: DomainTag) => {
-    await addDomain(domainName, tag);
-    setIsAddDomainModalOpen(false);
+    const newDomain = await addDomain(domainName, tag);
+    if (newDomain) {
+      setIsDomainEntryModalOpen(false);
+    }
+    return newDomain;
   };
 
   const removeDomain = async (id: number) => {
@@ -397,7 +423,10 @@ const App: React.FC = () => {
             onToggleTag={toggleDomainTag}
             onRecheck={recheckDomain}
             onExportRequest={handleExport}
-            onImportRequest={() => setIsBulkAddModalOpen(true)}
+            onImportRequest={() => {
+              setDomainEntryInitialTab('bulk');
+              setIsDomainEntryModalOpen(true);
+            }}
             isProcessing={isBulkProcessing}
         />
       </div>
@@ -425,7 +454,10 @@ const App: React.FC = () => {
       {!loading && session && (
         <Tooltip content="Add new domain (Ctrl+N)" className="fixed bottom-8 right-8 z-40" placement="top">
           <button
-            onClick={() => setIsAddDomainModalOpen(true)}
+            onClick={() => {
+              setDomainEntryInitialTab('single');
+              setIsDomainEntryModalOpen(true);
+            }}
             className="bg-brand-blue hover:bg-blue-600 text-white rounded-full p-4 shadow-lg transition-transform hover:scale-110 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800"
             aria-label="Add new domain"
           >
@@ -441,17 +473,11 @@ const App: React.FC = () => {
             <Modal isOpen={isInfoModalOpen} onClose={() => setIsInfoModalOpen(false)} title={modalContent.title}>
                 <div className="prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: modalContent.body }}></div>
             </Modal>
-            <Modal isOpen={isAddDomainModalOpen} onClose={() => setIsAddDomainModalOpen(false)} title="Check and Track a New Domain">
-                <div className="flex flex-col gap-4">
-                    <p className="text-slate-600 dark:text-slate-400">
-                        Enter a domain to check its availability. Your list is private, secure, and synced to your account.
-                    </p>
-                    <DomainForm onAddDomain={handleAddDomainFromModal} />
-                </div>
-            </Modal>
             <BulkAddModal
-                isOpen={isBulkAddModalOpen}
-                onClose={() => setIsBulkAddModalOpen(false)}
+                isOpen={isDomainEntryModalOpen}
+                onClose={() => setIsDomainEntryModalOpen(false)}
+                initialTab={domainEntryInitialTab}
+                onAddDomain={handleAddDomainFromModal}
                 onBulkAdd={handleBulkAdd}
                 isLoading={isBulkProcessing}
                 addLog={addLog}

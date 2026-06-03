@@ -68,6 +68,15 @@ const getRowStyles = (status: DomainStatus, tag: 'mine' | 'to-snatch', daysUntil
     return `${statusStyles[status] || tagStyles} ${urgency}`;
 };
 
+const hasIncompleteWhoisData = (domain: Domain, registryStatuses: string[], nameServers: string[]) => {
+  if (!domain.last_checked || domain.status === 'unknown') return true;
+  if (domain.status === 'available' || domain.status === 'dropped') return false;
+  if (domain.status === 'registered' || domain.status === 'expired' || domain.tag === 'mine') {
+    return !domain.expiration_date || !domain.registrar || registryStatuses.length === 0 || nameServers.length === 0;
+  }
+  return false;
+};
+
 const getDomainTextStyles = (status: DomainStatus): string => {
     const statusStyles: { [key in DomainStatus]: string } = {
         available: 'text-green-800 hover:text-green-700 dark:text-green-300 dark:hover:text-green-200',
@@ -211,6 +220,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
   const actionButtonClass = 'p-1.5 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-wait';
   const registryStatuses = domain.domain_statuses || whoisDetails?.domainStatuses || [];
   const nameServers = domain.name_servers || whoisDetails?.nameServers || [];
+  const isWhoisIncomplete = hasIncompleteWhoisData(domain, registryStatuses, nameServers);
   const whoisUrl = `https://www.whois.com/whois/${encodeURIComponent(domain.domain_name)}`;
   const TagIconComponent = effectiveTag === 'mine' ? HomeIcon : TargetIcon;
   const tagLabel = effectiveTag === 'mine' ? 'Mine' : 'To Snatch';
@@ -271,8 +281,15 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
   );
 
   return (
-    <div className={`rounded-md border transition-all ${rowStyles} ${isCompact ? 'px-3 py-2' : 'px-4 py-3'}`}>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(180px,1.5fr)_minmax(110px,0.7fr)_minmax(120px,0.8fr)_minmax(160px,0.9fr)_auto] md:items-center">
+    <div className={`relative overflow-hidden rounded-md border transition-all ${rowStyles} ${isWhoisIncomplete ? 'grayscale opacity-75' : ''} ${isCompact ? 'px-3 py-2' : 'px-4 py-3'}`}>
+      {(isWhoisIncomplete || isRechecking) && (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center">
+          <span className="rounded-b-md bg-slate-800/90 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white dark:bg-slate-100/90 dark:text-slate-900">
+            {isRechecking ? 'WHOIS retrieval processing' : 'WHOIS data incomplete'}
+          </span>
+        </div>
+      )}
+      <div className={`grid grid-cols-1 gap-3 md:grid-cols-[minmax(180px,1.5fr)_minmax(110px,0.7fr)_minmax(120px,0.8fr)_minmax(160px,0.9fr)_auto] md:items-center ${(isWhoisIncomplete || isRechecking) ? 'pt-4' : ''}`}>
         <div className="min-w-0">
           <Tooltip content={tooltipContent}>
             <span className="flex min-w-0 items-start gap-2">

@@ -254,7 +254,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
                 )}
             </div>
 
-            <Tooltip content="Import or add a list of domains.">
+            <Tooltip content="Open Add Domains. Ctrl + N opens the same window; use the tabs for single or bulk entry.">
                 <button
                     onClick={onImportRequest}
                     disabled={isProcessing}
