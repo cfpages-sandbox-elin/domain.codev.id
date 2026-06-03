@@ -40,7 +40,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `deployment.md` | Cloudflare Pages deployment guide, but still centered on Supabase backend functions after frontend deployment. |
 | `index.html` | Vite HTML entry. Contains inline favicon, root div, and `/src/index.tsx` script. |
 | `metadata.json` | App metadata: name, description, and requested frame permissions. |
-| `package.json` | Scripts and dependencies. Scripts: `dev`, `build`, `lint`, `preview`. Main dependencies: React, Supabase JS, marked. |
+| `package.json` | Scripts and dependencies. Scripts: `dev`, `build`, `lint`, `preview`. Main dependencies: React, Supabase JS, marked, and lucide-react. |
 | `postcss.config.js` | PostCSS config with Tailwind and Autoprefixer. |
 | `prd.md` | Product requirements and implementation status for the domain tracker. Still names Supabase as the backend. |
 | `README.md` | Setup, feature, database, Supabase Edge Function, provider, and deployment instructions. |
@@ -76,7 +76,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `src/components/DomainList.tsx` | List controls and rendering. Supports localStorage-persisted icon-labeled filters and sort choice, Expiring Soon as the next 90 days sorted by nearest expiry, sort dropdown, re-check menu for all visible or missing-data domains, automatic/pending WHOIS row-state forwarding, unified Add Domains entry point, export menus, empty states, To Snatch filtering for available domains, and maps domains to `DomainItem`. |
 | `src/components/ErrorBoundary.tsx` | React class error boundary showing a recoverable error screen with refresh button. |
 | `src/components/Header.tsx` | Sticky icon-first header. Shows app logo/title, docs icon, account icon with email tooltip, notifications dropdown, compact/dark toggles, and icon-only logout with tooltip. |
-| `src/components/icons.tsx` | Inline SVG icon components used throughout the UI, including app, docs, account, tag, filter, and action icons. |
+| `src/components/icons.tsx` | Lucide React icon wrapper. Re-exports quality-assured Lucide icons under the app's existing icon component names so component imports stay stable. |
 | `src/components/IntegrationSettingsModal.tsx` | Integration API token manager. Shows the external API base URL, generates `dcv_live_...` tokens in-browser, stores SHA-256 token hashes through `supabaseService`, lets users choose scopes, shows the raw token once, provides icon-only copy buttons that switch from copy icon to check icon after success, provides a copyable Hermes setup prompt containing the API URL/token, lists active/revoked clients, and revokes tokens. |
 | `src/components/Modal.tsx` | Portal modal with Escape/backdrop close, title, close button, and scrollable body. |
 | `src/components/ModeToggle.tsx` | Dark/light toggle button using `useDarkMode`. |
