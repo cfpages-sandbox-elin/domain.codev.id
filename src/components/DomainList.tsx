@@ -19,17 +19,37 @@ interface DomainListProps {
 type FilterType = 'all' | 'mine' | 'to-snatch' | 'expiring' | 'expired' | 'available';
 type SortOption = 'added-desc' | 'added-asc' | 'name-asc' | 'name-desc' | 'expiry-asc' | 'expiry-desc' | 'checked-desc' | 'checked-asc';
 
+const hasMissingData = (domain: Domain) => {
+  if (!domain.last_checked || domain.status === 'unknown') return true;
+  if (domain.status === 'available' || domain.status === 'dropped') return false;
+
+  const shouldHaveFullWhoisData = domain.status === 'registered' || domain.status === 'expired' || domain.tag === 'mine';
+  if (!shouldHaveFullWhoisData) return false;
+
+  return !domain.expiration_date
+    || !domain.registrar
+    || !domain.domain_statuses
+    || domain.domain_statuses.length === 0
+    || !domain.name_servers
+    || domain.name_servers.length === 0;
+};
+
 const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId, onRemove, onShowInfo, onToggleTag, onRecheck, onImportRequest, onExportRequest, isProcessing }) => {
   const [filter, setFilter] = useState<FilterType>('all');
   const [sortOption, setSortOption] = useState<SortOption>('added-desc');
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [isRecheckMenuOpen, setIsRecheckMenuOpen] = useState(false);
   const [isRecheckingVisible, setIsRecheckingVisible] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
+  const recheckMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
         setIsExportMenuOpen(false);
+      }
+      if (recheckMenuRef.current && !recheckMenuRef.current.contains(event.target as Node)) {
+        setIsRecheckMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -125,14 +145,20 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
     setIsExportMenuOpen(false);
   }
 
-  const handleRecheckVisible = async () => {
-    if (isRecheckingVisible || sortedDomains.length === 0) return;
-    const confirmed = window.confirm(`Re-check ${sortedDomains.length} visible domain(s)? This may use WHOIS API quota.`);
+  const missingDataDomains = useMemo(
+    () => sortedDomains.filter(hasMissingData),
+    [sortedDomains],
+  );
+
+  const runRecheck = async (targetDomains: Domain[], label: string) => {
+    if (isRecheckingVisible || targetDomains.length === 0) return;
+    const confirmed = window.confirm(`Re-check ${targetDomains.length} ${label}? This may use WHOIS API quota.`);
     if (!confirmed) return;
 
+    setIsRecheckMenuOpen(false);
     setIsRecheckingVisible(true);
     try {
-      for (const domain of sortedDomains) {
+      for (const domain of targetDomains) {
         await onRecheck(domain.id);
       }
     } finally {
@@ -171,16 +197,37 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
         <div className="flex-grow"></div>
 
         <div className="flex flex-wrap items-center gap-3">
-            <Tooltip content="Re-check all domains in the current filter. This may use WHOIS API quota.">
-                <button
-                    onClick={handleRecheckVisible}
-                    disabled={isProcessing || isRecheckingVisible || sortedDomains.length === 0}
-                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-full transition-colors disabled:opacity-50"
-                >
-                    <RefreshIcon className={`w-5 h-5 ${isRecheckingVisible ? 'animate-spin' : ''}`} />
-                    <span>{isRecheckingVisible ? 'Re-checking...' : 'Re-check Visible'}</span>
-                </button>
-            </Tooltip>
+            <div className="relative" ref={recheckMenuRef}>
+                <Tooltip content="Choose what to re-check. This may use WHOIS API quota.">
+                    <button
+                        onClick={() => setIsRecheckMenuOpen(prev => !prev)}
+                        disabled={isProcessing || isRecheckingVisible || sortedDomains.length === 0}
+                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-full transition-colors disabled:opacity-50"
+                    >
+                        <RefreshIcon className={`w-5 h-5 ${isRecheckingVisible ? 'animate-spin' : ''}`} />
+                        <span>{isRecheckingVisible ? 'Re-checking...' : 'Re-check'}</span>
+                    </button>
+                </Tooltip>
+                {isRecheckMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-700 rounded-md shadow-lg overflow-hidden z-10 ring-1 ring-black ring-opacity-5">
+                        <button
+                            onClick={() => runRecheck(sortedDomains, 'visible domain(s)')}
+                            className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600"
+                        >
+                            Re-check all visible
+                            <span className="block text-xs text-slate-500 dark:text-slate-400">{sortedDomains.length} domain(s)</span>
+                        </button>
+                        <button
+                            onClick={() => runRecheck(missingDataDomains, 'domain(s) with missing data')}
+                            disabled={missingDataDomains.length === 0}
+                            className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-slate-600"
+                        >
+                            Re-check missing data
+                            <span className="block text-xs text-slate-500 dark:text-slate-400">{missingDataDomains.length} domain(s)</span>
+                        </button>
+                    </div>
+                )}
+            </div>
 
             <Tooltip content="Import or add a list of domains.">
                 <button

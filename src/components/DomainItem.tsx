@@ -205,6 +205,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
   const isAvailableStatus = domain.status === 'available' || domain.status === 'dropped';
   const effectiveTag = isAvailableStatus ? 'to-snatch' : domain.tag;
   const rowStyles = getRowStyles(domain.status, effectiveTag, daysUntilExpiry);
+  const needsExpiryDate = (domain.status === 'registered' || domain.status === 'expired' || effectiveTag === 'mine') && !domain.expiration_date;
   const isAvailableForPurchase = isAvailableStatus;
   const canShowDropTimeline = domain.status === 'expired' && Boolean(domain.expiration_date);
   const actionButtonClass = 'p-1.5 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-wait';
@@ -295,6 +296,9 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
           )}
           {domain.status === 'unknown' && (
             <span className="block text-xs font-semibold text-yellow-700 dark:text-yellow-300">Re-check needed</span>
+          )}
+          {needsExpiryDate && domain.status !== 'unknown' && (
+            <span className="block text-xs font-semibold text-yellow-700 dark:text-yellow-300">Missing expiry</span>
           )}
         </div>
 
