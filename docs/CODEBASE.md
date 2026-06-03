@@ -77,7 +77,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `src/components/ErrorBoundary.tsx` | React class error boundary showing a recoverable error screen with refresh button. |
 | `src/components/Header.tsx` | Sticky icon-first header. Shows app logo/title, docs icon, account icon with email tooltip, notifications dropdown, compact/dark toggles, and icon-only logout with tooltip. |
 | `src/components/icons.tsx` | Inline SVG icon components used throughout the UI, including app, docs, account, tag, filter, and action icons. |
-| `src/components/IntegrationSettingsModal.tsx` | Integration API token manager. Shows the external API base URL, generates `dcv_live_...` tokens in-browser, stores SHA-256 token hashes through `supabaseService`, lets users choose scopes, shows the raw token once, provides a copyable Hermes setup prompt containing the API URL/token, lists active/revoked clients, and revokes tokens. |
+| `src/components/IntegrationSettingsModal.tsx` | Integration API token manager. Shows the external API base URL, generates `dcv_live_...` tokens in-browser, stores SHA-256 token hashes through `supabaseService`, lets users choose scopes, shows the raw token once, provides icon-only copy buttons that switch from copy icon to check icon after success, provides a copyable Hermes setup prompt containing the API URL/token, lists active/revoked clients, and revokes tokens. |
 | `src/components/Modal.tsx` | Portal modal with Escape/backdrop close, title, close button, and scrollable body. |
 | `src/components/ModeToggle.tsx` | Dark/light toggle button using `useDarkMode`. |
 | `src/components/Spinner.tsx` | Tailwind spinner with size/color props. |

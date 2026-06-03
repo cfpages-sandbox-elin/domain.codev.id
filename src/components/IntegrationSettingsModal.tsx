@@ -4,7 +4,7 @@ import * as SupabaseService from '../services/supabaseService';
 import Modal from './Modal';
 import Spinner from './Spinner';
 import Tooltip from './Tooltip';
-import { CheckCircleIcon, CommandLineIcon, TrashIcon } from './icons';
+import { CheckCircleIcon, CommandLineIcon, CopyIcon, TrashIcon } from './icons';
 
 interface IntegrationSettingsModalProps {
   isOpen: boolean;
@@ -62,6 +62,7 @@ const IntegrationSettingsModal: React.FC<IntegrationSettingsModalProps> = ({ isO
   const [selectedScopes, setSelectedScopes] = useState<IntegrationScope[]>(DEFAULT_SCOPES);
   const [newToken, setNewToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const apiBaseUrl = useMemo(getApiBaseUrl, []);
 
@@ -130,9 +131,17 @@ const IntegrationSettingsModal: React.FC<IntegrationSettingsModalProps> = ({ isO
     setIsLoading(false);
   };
 
-  const copy = async (value: string, label: string) => {
-    await navigator.clipboard.writeText(value);
-    addLog(`✅ Copied ${label}.`);
+  const copy = async (value: string, label: string, key: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedKey(key);
+      window.setTimeout(() => setCopiedKey(current => current === key ? null : current), 1800);
+      addLog(`✅ Copied ${label}.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      addLog(`❌ Failed to copy ${label}: ${message}`);
+      alert(`Could not copy ${label}. Please copy it manually.`);
+    }
   };
 
   const curlExample = `curl -X POST "${apiBaseUrl}/domains" \\
@@ -209,10 +218,11 @@ Behavior rules:
             <Tooltip content="Copy API base URL">
               <button
                 type="button"
-                onClick={() => copy(apiBaseUrl, 'API base URL')}
-                className="rounded-md bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                onClick={() => copy(apiBaseUrl, 'API base URL', 'api-base-url')}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                aria-label={copiedKey === 'api-base-url' ? 'Copied API base URL' : 'Copy API base URL'}
               >
-                Copy
+                {copiedKey === 'api-base-url' ? <CheckCircleIcon className="h-4 w-4" /> : <CopyIcon className="h-4 w-4" />}
               </button>
             </Tooltip>
           </div>
@@ -229,10 +239,11 @@ Behavior rules:
               <Tooltip content="Copy new token">
                 <button
                   type="button"
-                  onClick={() => copy(newToken, 'new integration token')}
-                  className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+                  onClick={() => copy(newToken, 'new integration token', 'new-token')}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-emerald-600 text-white hover:bg-emerald-700"
+                  aria-label={copiedKey === 'new-token' ? 'Copied new integration token' : 'Copy new integration token'}
                 >
-                  Copy
+                  {copiedKey === 'new-token' ? <CheckCircleIcon className="h-4 w-4" /> : <CopyIcon className="h-4 w-4" />}
                 </button>
               </Tooltip>
             </div>
@@ -246,10 +257,11 @@ Behavior rules:
               <Tooltip content="Copy Hermes setup prompt with API token">
                 <button
                   type="button"
-                  onClick={() => copy(hermesPrompt, 'Hermes setup prompt')}
-                  className="rounded-md bg-brand-blue px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-600"
+                  onClick={() => copy(hermesPrompt, 'Hermes setup prompt', 'hermes-prompt')}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-brand-blue text-white hover:bg-blue-600"
+                  aria-label={copiedKey === 'hermes-prompt' ? 'Copied Hermes setup prompt' : 'Copy Hermes setup prompt'}
                 >
-                  Copy
+                  {copiedKey === 'hermes-prompt' ? <CheckCircleIcon className="h-4 w-4" /> : <CopyIcon className="h-4 w-4" />}
                 </button>
               </Tooltip>
             </div>
