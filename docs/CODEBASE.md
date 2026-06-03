@@ -127,6 +127,6 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | --- | --- |
 | Backend direction | Current code is deeply wired to Supabase. Migrating to Cloudflare D1 requires replacing auth, database service calls, edge functions, cron, and env names. |
 | Bulk import | Bulk add exists and uses a 6-worker client pool. Future D1/Workers version should submit a bulk job and process server-side with persistent job status. |
-| Provider telemetry | Supabase migration exists locally. Remote Supabase must have `whois_provider_telemetry` and `claim_whois_provider_attempt(...)` applied before persistent quota coordination is active. Runtime fallback still works without it. |
+| Provider telemetry | Remote Supabase has `whois_provider_telemetry` and `claim_whois_provider_attempt(...)` applied. Persistent quota coordination is active, with runtime fallback still available if telemetry access fails. |
 | Security | `get-whois` CORS allows `*`; production should restrict origins. |
 | Duplicates/artifacts | Empty root scaffold files and import-map entries were removed. |
