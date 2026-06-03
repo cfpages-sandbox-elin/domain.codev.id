@@ -60,6 +60,84 @@ export const BellIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
+export const BookOpenIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M2 4.5A2.5 2.5 0 0 1 4.5 2H11v18H4.5A2.5 2.5 0 0 0 2 22V4.5z"></path>
+    <path d="M22 4.5A2.5 2.5 0 0 0 19.5 2H13v18h6.5A2.5 2.5 0 0 1 22 22V4.5z"></path>
+  </svg>
+);
+
+export const UserCircleIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <circle cx="12" cy="12" r="10"></circle>
+    <circle cx="12" cy="10" r="3"></circle>
+    <path d="M6.5 18a6.5 6.5 0 0 1 11 0"></path>
+  </svg>
+);
+
+export const LogOutIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M10 17l5-5-5-5"></path>
+    <path d="M15 12H3"></path>
+    <path d="M21 3v18"></path>
+  </svg>
+);
+
+export const DomainCodevIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <circle cx="12" cy="12" r="9"></circle>
+    <path d="M3.6 9h16.8"></path>
+    <path d="M3.6 15h16.8"></path>
+    <path d="M12 3a14 14 0 0 1 0 18"></path>
+    <path d="M12 3a14 14 0 0 0 0 18"></path>
+    <path d="M8.2 12l2 2 5-5"></path>
+  </svg>
+);
+
 export const TrashIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"

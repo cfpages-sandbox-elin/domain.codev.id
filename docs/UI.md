@@ -63,7 +63,6 @@ The final product goal should make bulk input first-class:
 | `Snatch this Domain` | `Track as Target` |
 | `To Snatch` | `Target` or keep `To Snatch` if you prefer the domain-investing language |
 | `Import / Add Bulk` | `Bulk Add` |
-| `Automated Daily Checks` setup box | Move to settings until automation is not configured |
 | `Could not retrieve WHOIS data` | Add provider/error reason when available |
 
 ## Implementation Order

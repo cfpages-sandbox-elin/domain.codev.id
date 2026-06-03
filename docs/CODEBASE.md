@@ -1,6 +1,6 @@
 # Codebase Map
 
-Last audited: 2026-06-03 22:25 WIB.
+Last audited: 2026-06-03 23:03 WIB.
 
 ## Overview
 
@@ -14,7 +14,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 4. `whoisService.ts` invokes Supabase Edge Function `get-whois`.
 5. `supabase/functions/get-whois/index.ts` authenticates the Supabase user, creates a service-role client for telemetry, and calls shared provider logic in `supabase/functions/_shared/whois-logic.ts`.
 6. `supabase/functions/_shared/whois-logic.ts` loads persistent provider telemetry when available, skips exhausted/rate-limited providers, balances in-flight provider use, and returns normalized WHOIS data.
-7. `supabase/functions/check-domains/index.ts` is intended for scheduled checks. It uses a cron secret, service role key, capped concurrency, shared WHOIS logic, and persisted provider telemetry to update expired or stale domains.
+7. `supabase/functions/check-domains/index.ts` is intended for scheduled checks. It uses a cron secret, service role key, metadata-first targeted scheduling, capped concurrency, shared WHOIS logic, and persisted provider telemetry to update only domains that are due.
 
 ## Current Stack
 
@@ -73,10 +73,10 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `src/components/DocsPage.tsx` | Renders bundled docs using `marked` with a custom Tailwind HTML renderer and sidebar doc navigation. Uses `dangerouslySetInnerHTML`. |
 | `src/components/DomainForm.tsx` | Single-domain entry form. Validates a dot exists, adds as `mine` or `to-snatch`, supports Enter and Shift+Enter shortcuts. |
 | `src/components/DomainItem.tsx` | Domain row. Shows status-colored scan rows, clickable whois.com domain links, basic expiry/status info, persisted WHOIS details in tooltip, inline registrar select plus icon-only buy action, Mine/To Snatch icons, recheck/delete actions, and prevents available domains from being toggled to Mine in the UI. |
-| `src/components/DomainList.tsx` | List controls and rendering. Supports filters, sort dropdown, visible-list recheck, import/export menus, empty states, To Snatch filtering for available domains, and maps domains to `DomainItem`. |
+| `src/components/DomainList.tsx` | List controls and rendering. Supports icon-labeled filters, sort dropdown, visible-list recheck, import/export menus, empty states, To Snatch filtering for available domains, and maps domains to `DomainItem`. |
 | `src/components/ErrorBoundary.tsx` | React class error boundary showing a recoverable error screen with refresh button. |
-| `src/components/Header.tsx` | Sticky header. Shows brand button, docs nav, user email, notifications dropdown, compact/dark toggles, and logout. |
-| `src/components/icons.tsx` | Inline SVG icon components used throughout the UI. |
+| `src/components/Header.tsx` | Sticky icon-first header. Shows app logo/title, docs icon, account icon with email tooltip, notifications dropdown, compact/dark toggles, and icon-only logout with tooltip. |
+| `src/components/icons.tsx` | Inline SVG icon components used throughout the UI, including app, docs, account, tag, filter, and action icons. |
 | `src/components/Modal.tsx` | Portal modal with Escape/backdrop close, title, close button, and scrollable body. |
 | `src/components/ModeToggle.tsx` | Dark/light toggle button using `useDarkMode`. |
 | `src/components/Spinner.tsx` | Tailwind spinner with size/color props. |
@@ -91,7 +91,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `supabase/functions/_shared/whois-logic.ts` | Shared server-side WHOIS provider selection. Reads provider keys from Deno env, supports legacy `VITE_` secret names, loads/persists provider telemetry, pre-skips exhausted providers, balances in-flight calls, maps provider responses to normalized WHOIS data plus registry statuses/name servers, and returns `unknown` after all fail. |
 | `supabase/functions/get-whois/index.ts` | Authenticated edge function for real-time lookups. Handles CORS, validates Supabase user from Authorization header, creates a service-role telemetry client, validates `domainName`, calls shared WHOIS logic, and returns JSON. |
 | `supabase/functions/get-whois-providers/index.ts` | Authenticated edge function for WHOIS dashboard. Uses service-role telemetry access and returns provider registry/runtime status without exposing secret values. |
-| `supabase/functions/check-domains/index.ts` | Cron edge function. Requires `Authorization: Bearer CRON_SECRET`, uses service role Supabase client, selects expired/expiry-past domains, processes checks with concurrency 6, writes persisted WHOIS detail fields, keeps user tags unchanged on suspicious available results, and upserts updates. |
+| `supabase/functions/check-domains/index.ts` | Cron edge function. Requires `Authorization: Bearer CRON_SECRET`, uses service role Supabase client, scans domain metadata, skips domains far from expiry, applies different `mine` vs `to-snatch` schedules, caps checks with `WHOIS_CRON_MAX_CHECKS`, processes due checks with concurrency 6, writes persisted WHOIS detail fields, keeps user tags unchanged on suspicious available results, and upserts updates. |
 
 ## Supabase Migrations
 

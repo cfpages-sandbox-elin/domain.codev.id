@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import ModeToggle from './ModeToggle';
 import CompactModeToggle from './CompactModeToggle';
-import { BellIcon } from './icons';
+import { BellIcon, BookOpenIcon, DomainCodevIcon, LogOutIcon, UserCircleIcon } from './icons';
+import Tooltip from './Tooltip';
 import { Session } from '@supabase/supabase-js';
 import { signOut } from '../services/supabaseService';
 
@@ -19,34 +20,54 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
     <header className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg sticky top-0 z-40 shadow-sm dark:shadow-slate-700/[.7]">
       <div className="container mx-auto px-4 md:px-8">
         <div className="flex items-center justify-between h-16">
-          <button onClick={() => setView('dashboard')} className="text-2xl font-bold text-brand-blue">
-            Domain Codev
-          </button>
+          <Tooltip content="Domain Codev dashboard">
+            <button
+              onClick={() => setView('dashboard')}
+              className="inline-flex items-center gap-2 rounded-lg p-2 text-brand-blue hover:bg-blue-50 dark:hover:bg-slate-700"
+              aria-label="Open Domain Codev dashboard"
+            >
+              <DomainCodevIcon className="h-7 w-7" />
+              <span className="hidden text-xl font-bold sm:inline">Domain Codev</span>
+            </button>
+          </Tooltip>
           <div className="flex items-center space-x-2 sm:space-x-4">
             {session && (
               <>
-                <div className="hidden md:block text-sm text-slate-600 dark:text-slate-400">
-                  {session.user.email}
-                </div>
-                <button onClick={() => setView('docs')} className="hidden sm:inline-block px-3 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors">
-                    Documentation
-                </button>
-                <div className="relative">
-                  <button
-                    onClick={() => setShowNotifications(!showNotifications)}
-                    className="relative text-slate-600 dark:text-slate-400 hover:text-brand-blue dark:hover:text-white transition-colors p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"
-                    aria-label="Toggle notifications"
+                <Tooltip content={session.user.email || 'Signed in account'}>
+                  <span
+                    className="hidden rounded-full p-2 text-slate-600 dark:text-slate-400 md:inline-flex"
+                    aria-label={session.user.email || 'Signed in account'}
                   >
-                    <BellIcon className="w-6 h-6" />
-                    {notifications.length > 0 && (
-                      <span className="absolute -top-1 -right-1 flex h-4 w-4">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-4 w-4 bg-brand-red text-white text-xs items-center justify-center">
-                          {notifications.length}
-                        </span>
-                      </span>
-                    )}
+                    <UserCircleIcon className="h-6 w-6" />
+                  </span>
+                </Tooltip>
+                <Tooltip content="Documentation">
+                  <button
+                    onClick={() => setView('docs')}
+                    className="rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-200 hover:text-brand-blue dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white"
+                    aria-label="Open documentation"
+                  >
+                    <BookOpenIcon className="h-6 w-6" />
                   </button>
+                </Tooltip>
+                <div className="relative">
+                  <Tooltip content="Notifications">
+                    <button
+                      onClick={() => setShowNotifications(!showNotifications)}
+                      className="relative text-slate-600 dark:text-slate-400 hover:text-brand-blue dark:hover:text-white transition-colors p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"
+                      aria-label="Toggle notifications"
+                    >
+                      <BellIcon className="w-6 h-6" />
+                      {notifications.length > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-4 w-4 bg-brand-red text-white text-xs items-center justify-center">
+                            {notifications.length}
+                          </span>
+                        </span>
+                      )}
+                    </button>
+                  </Tooltip>
                   {showNotifications && (
                     <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-700 rounded-lg shadow-xl overflow-hidden z-50">
                         <div className="p-3 font-semibold text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-600">Notifications</div>
@@ -74,12 +95,15 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
             <CompactModeToggle />
             <ModeToggle />
             {session && (
-              <button
-                onClick={signOut}
-                className="px-3 py-2 text-sm font-semibold text-white bg-brand-red hover:bg-red-600 rounded-lg transition-colors"
-              >
-                Logout
-              </button>
+              <Tooltip content="Log out">
+                <button
+                  onClick={signOut}
+                  className="rounded-full p-2 text-brand-red transition-colors hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-900/50"
+                  aria-label="Log out"
+                >
+                  <LogOutIcon className="h-6 w-6" />
+                </button>
+              </Tooltip>
             )}
           </div>
         </div>

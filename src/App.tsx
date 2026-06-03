@@ -386,11 +386,6 @@ const App: React.FC = () => {
     <div className="max-w-4xl mx-auto">
       <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg">
         <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-white">Tracked Domains</h2>
-        <div className="bg-blue-50 dark:bg-blue-900/30 border-l-4 border-brand-blue p-4 rounded-r-lg mb-6 text-sm text-blue-800 dark:text-blue-300">
-            <p className="font-semibold">Automated Daily Checks</p>
-            <p className="mt-1">Your tracked domains are checked for status changes once a day. This requires a one-time setup of the Supabase Edge Function.</p>
-            <button onClick={() => setView('docs')} className="font-semibold hover:underline mt-2 inline-block">Learn how to set up daily checks &rarr;</button>
-        </div>
         <WhoisProviderPanel
             providers={whoisProviders}
             isLoading={isWhoisProviderLoading}

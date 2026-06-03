@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Domain, WhoisData } from '../types';
 import DomainItem from './DomainItem';
-import { ChevronUpDownIcon, ArrowUpOnSquareIcon, ArrowDownOnSquareIcon, RefreshIcon } from './icons';
+import { ChevronUpDownIcon, ArrowUpOnSquareIcon, ArrowDownOnSquareIcon, RefreshIcon, HomeIcon, TargetIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, DomainCodevIcon } from './icons';
 import Tooltip from './Tooltip';
 
 interface DomainListProps {
@@ -90,16 +90,26 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
     return sortable;
   }, [filteredDomains, sortOption]);
 
+  const filterIcons: Record<FilterType, React.ReactNode> = {
+    all: <DomainCodevIcon className="h-4 w-4" />,
+    mine: <HomeIcon className="h-4 w-4" />,
+    'to-snatch': <TargetIcon className="h-4 w-4" />,
+    available: <CheckCircleIcon className="h-4 w-4" />,
+    expiring: <ExclamationTriangleIcon className="h-4 w-4" />,
+    expired: <XCircleIcon className="h-4 w-4" />,
+  };
+
   const FilterButton: React.FC<{ filterType: FilterType, children: React.ReactNode }> = ({ filterType, children }) => (
      <button
         onClick={() => setFilter(filterType)}
         disabled={isProcessing}
-        className={`px-4 py-2 text-sm font-medium rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+        className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
           filter === filterType 
             ? 'bg-brand-blue text-white' 
             : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
         }`}
       >
+        {filterIcons[filterType]}
         {children}
       </button>
   );

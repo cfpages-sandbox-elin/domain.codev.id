@@ -4,7 +4,8 @@ Guidance for AI coding agents working in this repository.
 
 ## Operating Style
 
-- Be proactive: when you notice a bug, missing test, fragile implementation, security risk, UX issue, or simpler architecture, record it in `docs/SUGGESTION.md`.
+- Be proactive: when you notice a bug, missing test, fragile implementation, security risk, UX issue, or simpler architecture, record your own recommendation in `docs/SUGGESTION.md`.
+- `docs/SUGGESTION.md` is for agent-originated suggestions based on codebase analysis. Do not use it as a changelog for user-requested changes or as a place to restate the user's own product suggestions.
 - Keep `docs/CODEBASE.md` current when changing file responsibilities, runtime flow, database schema, Edge Function behavior, or major UI/data logic. Treat it as the quick project map for future context.
 - Keep user-facing progress reports short. Prefer finishing the task, verifying it, then reporting the result.
 - Save tokens where practical: read targeted files, summarize long docs instead of pasting them, use `rg` for search, and avoid repeating unchanged context.
@@ -16,6 +17,8 @@ Guidance for AI coding agents working in this repository.
 ## Suggestions Log
 
 When adding a suggestion, insert it at the top of the table in `docs/SUGGESTION.md`.
+
+Only add entries for recommendations that come from the agent noticing something useful while reading or changing the code. If the user directly asks for a change and you implement it, do not add that as a suggestion unless the implementation reveals a separate follow-up improvement the user did not already ask for.
 
 Required columns:
 

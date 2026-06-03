@@ -10,7 +10,7 @@ Current WHOIS checks are server-side through Supabase Edge Functions.
 | --- | --- | --- |
 | Client call | `src/services/whoisService.ts` | Calls `supabase.functions.invoke('get-whois', { body: { domainName } })`, logs progress, and returns `unknown` on failure. |
 | Authenticated lookup function | `supabase/functions/get-whois/index.ts` | Handles CORS, verifies the Supabase user from the Authorization header, validates `domainName`, calls shared logic, and returns normalized JSON. |
-| Scheduled lookup function | `supabase/functions/check-domains/index.ts` | Requires `CRON_SECRET`, uses Supabase service role, selects expired/past-expiry domains, checks WHOIS, and updates status. |
+| Scheduled lookup function | `supabase/functions/check-domains/index.ts` | Requires `CRON_SECRET`, uses Supabase service role, scans domain metadata, checks only domains due under the targeted expiry/drop schedule, and updates status. |
 | Provider selection | `supabase/functions/_shared/whois-logic.ts` | Tries configured providers with runtime quota pre-skipping and in-flight balancing across `who-dat`, WhoisXMLAPI, APILayer, WhoisFreaks, WhoAPI, RapidAPI, WhoisJSON, and IP2WHOIS. |
 
 Normalized return shape:
@@ -54,6 +54,29 @@ The current implementation uses `whois_provider_telemetry` when the Supabase mig
 | Bulk add concurrency | Browser bulk add now uses a 6-worker pool instead of 5-domain batches with a fixed 2-second delay. Six is chosen to stay compatible with Cloudflare Workers/Pages' documented simultaneous outgoing connection limit when this flow later moves server-side. |
 
 The current Supabase schema for provider telemetry is in `supabase/migrations/20260603222500_add_whois_provider_telemetry.sql`. The future D1 migration should port the same concept to D1 or a Durable Object if strict global coordination becomes necessary.
+
+## Targeted Scheduled Check Policy
+
+The cron function may run often, but it does not spend WHOIS quota on every domain. It first reads domain metadata and only calls WHOIS for rows that are due.
+
+| Domain condition | Automatic WHOIS behavior |
+| --- | --- |
+| Any domain with a known expiry more than 30 days away | Skip. The date is already known, so checking is wasteful. |
+| `mine`, 30-15 days before expiry | Check only if it has been at least 14 days since the last check. |
+| `mine`, 14-8 days before expiry | Check only if it has been at least 7 days since the last check. |
+| `mine`, 7-4 days before expiry | Check only if it has been at least 3 days since the last check. |
+| `mine`, final 3 days or expired | Check at most daily. The app should emphasize renewal, not drop chasing. |
+| `to-snatch`, 30-15 days before expiry | Check only if it has been at least 14 days since the last check. |
+| `to-snatch`, 14-8 days before expiry | Check only if it has been at least 7 days since the last check. |
+| `to-snatch`, final 7 days before expiry | Check at most daily. |
+| `to-snatch`, 0-44 days after expiry | Check at most daily; likely grace/redemption period. |
+| `to-snatch`, 45-57 days after expiry | Check at most twice daily; approaching drop window. |
+| `to-snatch`, 58-75 days after expiry | Check at most every 3 hours; likely drop window. |
+| `to-snatch`, past 75 days after expiry but still not available | Check at most daily. |
+| Already `available` or `dropped` | Skip automatic checks. User can buy or manually re-check. |
+| Missing expiry | Retry weekly if `unknown`, otherwise monthly. |
+
+The cron run is capped by `WHOIS_CRON_MAX_CHECKS`, default `50`, and processes due domains with concurrency `6`.
 
 ## Current Implementation Risks
 
