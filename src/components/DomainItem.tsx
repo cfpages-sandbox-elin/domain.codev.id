@@ -241,6 +241,29 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
       body="Confirm availability at the registrar before buying. WHOIS providers can return stale or unsupported-TLD results."
     />
   );
+  const purchaseControls = (
+    <div className="flex items-center gap-1.5">
+      <select
+        value={selectedRegistrar}
+        onChange={(e) => setSelectedRegistrar(e.target.value)}
+        className="min-w-0 w-full max-w-[132px] px-2 py-1.5 text-xs bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-brand-blue focus:border-brand-blue"
+        aria-label={`Select registrar for ${domain.domain_name}`}
+      >
+        {Object.entries(registrars).map(([value, name]) => (
+          <option key={value} value={value}>{name}</option>
+        ))}
+      </select>
+      <Tooltip content={buyTooltip}>
+        <button
+          onClick={handleBuyClick}
+          className="inline-flex h-8 w-8 flex-none items-center justify-center text-white bg-brand-green hover:bg-green-600 rounded-md transition-colors"
+          aria-label={`Open registrar page for ${domain.domain_name} on ${selectedRegistrarName}`}
+        >
+          <ShoppingCartIcon className="w-4 h-4" />
+        </button>
+      </Tooltip>
+    </div>
+  );
 
   const tooltipContent = (
     <div className="space-y-3">
@@ -315,46 +338,29 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
         </div>
 
         <div className="text-sm font-medium text-slate-700 dark:text-slate-200">
-          {formatDate(domain.expiration_date)}
-          {daysUntilExpiry !== null && daysUntilExpiry <= 90 && domain.status !== 'unknown' && (
-            <span className="block text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {domain.status === 'expired' ? 'Expired' : `${daysUntilExpiry} days left`}
-            </span>
-          )}
-          {domain.status === 'unknown' && (
-            <span className="block text-xs font-semibold text-yellow-700 dark:text-yellow-300">
-              {isWhoisFailed ? 'WHOIS failed' : 'Re-check needed'}
-            </span>
-          )}
-          {needsExpiryDate && domain.status !== 'unknown' && (
-            <span className="block text-xs font-semibold text-yellow-700 dark:text-yellow-300">Missing expiry</span>
+          {isAvailableForPurchase ? (
+            purchaseControls
+          ) : (
+            <>
+              {formatDate(domain.expiration_date)}
+              {daysUntilExpiry !== null && daysUntilExpiry <= 90 && domain.status !== 'unknown' && (
+                <span className="block text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  {domain.status === 'expired' ? 'Expired' : `${daysUntilExpiry} days left`}
+                </span>
+              )}
+              {domain.status === 'unknown' && (
+                <span className="block text-xs font-semibold text-yellow-700 dark:text-yellow-300">
+                  {isWhoisFailed ? 'WHOIS failed' : 'Re-check needed'}
+                </span>
+              )}
+              {needsExpiryDate && domain.status !== 'unknown' && (
+                <span className="block text-xs font-semibold text-yellow-700 dark:text-yellow-300">Missing expiry</span>
+              )}
+            </>
           )}
         </div>
 
         <div className="min-h-[32px]">
-          {isAvailableForPurchase ? (
-            <div className="flex items-center gap-1.5 md:justify-end">
-              <select
-                value={selectedRegistrar}
-                onChange={(e) => setSelectedRegistrar(e.target.value)}
-                className="min-w-0 w-full max-w-[132px] px-2 py-1.5 text-xs bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-brand-blue focus:border-brand-blue"
-                aria-label={`Select registrar for ${domain.domain_name}`}
-              >
-                {Object.entries(registrars).map(([value, name]) => (
-                  <option key={value} value={value}>{name}</option>
-                ))}
-              </select>
-              <Tooltip content={buyTooltip}>
-                <button
-                  onClick={handleBuyClick}
-                  className="inline-flex h-8 w-8 items-center justify-center text-white bg-brand-green hover:bg-green-600 rounded-md transition-colors"
-                  aria-label={`Open registrar page for ${domain.domain_name} on ${selectedRegistrarName}`}
-                >
-                  <ShoppingCartIcon className="w-4 h-4" />
-                </button>
-              </Tooltip>
-            </div>
-          ) : null}
         </div>
 
         <div className="flex items-center justify-start gap-1 md:justify-end">
