@@ -19,6 +19,7 @@ This tracker exists because the dashboard now has around 675 domains and is star
 
 | Date/Time (WIB) | Status | Change | Notes |
 | --- | --- | --- | --- |
+| 2026-06-05 06:27 WIB | Done | Split route-only views and heavy modals into lazy chunks. | `DocsPage`, `CategoriesPage`, settings panels, Add Domains, and Integration API now load on demand. `pnpm run build` no longer emits the 500 kB Vite chunk warning; largest JS chunks are 239.44 kB and 219.79 kB. |
 | 2026-06-04 22:48 WIB | Done | Moved secondary panels out of the dashboard. | Categories now live in their own navbar view; WHOIS Providers and Auto Mine live in Settings tabs, reducing dashboard first-render and visual clutter. |
 | 2026-06-04 22:31 WIB | Done | Implemented remaining no-dependency optimization plan. | Memoized rows, stabilized row callbacks, and added incremental rendering/windowing for large domain lists. |
 | 2026-06-04 22:17 WIB | Done | First performance/UI pass implemented. | Cached categorization scoring, counted filters in one pass, centered filter chips, grouped overlapping categories together, and added direct tag target switching. |

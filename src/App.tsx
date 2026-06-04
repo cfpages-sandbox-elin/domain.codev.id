@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import { AutoMineRule, CategoryManualOverrides, CategoryWordGroup, Domain, DomainTag, WhoisData, WhoisProviderStatus } from './types';
 import { getWhoisData, getWhoisProviderStatuses } from './services/whoisService';
 import { saveWhoisProviderCredential, removeWhoisProviderCredential, supabase, supabaseConfigError } from './services/supabaseService';
@@ -13,13 +13,7 @@ import Auth from './components/Auth';
 import Spinner from './components/Spinner';
 import ConfigErrorScreen from './components/ConfigErrorScreen';
 import StatusLog from './components/StatusLog';
-import DocsPage from './components/DocsPage';
-import BulkAddModal from './components/BulkAddModal';
-import WhoisProviderPanel from './components/WhoisProviderPanel';
 import Tooltip from './components/Tooltip';
-import IntegrationSettingsModal from './components/IntegrationSettingsModal';
-import AutoMinePanel from './components/AutoMinePanel';
-import CategoriesPage from './components/CategoriesPage';
 import { PlusIcon } from './components/icons';
 import {
   readStoredAutoMineRules,
@@ -32,6 +26,13 @@ import {
   writeStoredCategoryWordGroups,
 } from './utils/userSettingsStorage';
 
+const DocsPage = React.lazy(() => import('./components/DocsPage'));
+const BulkAddModal = React.lazy(() => import('./components/BulkAddModal'));
+const WhoisProviderPanel = React.lazy(() => import('./components/WhoisProviderPanel'));
+const IntegrationSettingsModal = React.lazy(() => import('./components/IntegrationSettingsModal'));
+const AutoMinePanel = React.lazy(() => import('./components/AutoMinePanel'));
+const CategoriesPage = React.lazy(() => import('./components/CategoriesPage'));
+
 const formatDate = (date: Date) => date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
 type View = 'dashboard' | 'docs' | 'categories' | 'settings';
@@ -41,6 +42,12 @@ type BulkDomain = { domainName: string; tag?: DomainTag };
 type DomainEntryTab = 'single' | 'bulk';
 type AddDomainOptions = { optimistic?: boolean };
 const WHOIS_AUTO_REPAIR_CONCURRENCY = 6;
+
+const LazyChunkFallback = () => (
+  <div className="flex min-h-[16rem] items-center justify-center">
+    <Spinner size="lg" color="border-brand-blue" />
+  </div>
+);
 
 const getWhoisFailureReason = (whoisData: WhoisData): string | null => {
   if ((whoisData.status === 'registered' || whoisData.status === 'expired') && !whoisData.expirationDate) {
@@ -841,7 +848,9 @@ const App: React.FC = () => {
         ) : !session ? (
           <Auth />
         ) : (
-          renderCurrentView()
+          <Suspense fallback={<LazyChunkFallback />}>
+            {renderCurrentView()}
+          </Suspense>
         )}
       </main>
 
@@ -867,21 +876,27 @@ const App: React.FC = () => {
             <Modal isOpen={isInfoModalOpen} onClose={() => setIsInfoModalOpen(false)} title={modalContent.title}>
                 <div className="prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: modalContent.body }}></div>
             </Modal>
-            <BulkAddModal
-                isOpen={isDomainEntryModalOpen}
-                onClose={() => setIsDomainEntryModalOpen(false)}
-                initialTab={domainEntryInitialTab}
-                existingDomains={domains}
-                onAddDomain={handleAddDomainFromModal}
-                onBulkAdd={handleBulkAdd}
-                isLoading={isBulkProcessing}
-                addLog={addLog}
-            />
-            <IntegrationSettingsModal
-                isOpen={isIntegrationSettingsOpen}
-                onClose={() => setIsIntegrationSettingsOpen(false)}
-                addLog={addLog}
-            />
+            <Suspense fallback={null}>
+              {isDomainEntryModalOpen && (
+                <BulkAddModal
+                    isOpen
+                    onClose={() => setIsDomainEntryModalOpen(false)}
+                    initialTab={domainEntryInitialTab}
+                    existingDomains={domains}
+                    onAddDomain={handleAddDomainFromModal}
+                    onBulkAdd={handleBulkAdd}
+                    isLoading={isBulkProcessing}
+                    addLog={addLog}
+                />
+              )}
+              {isIntegrationSettingsOpen && (
+                <IntegrationSettingsModal
+                    isOpen
+                    onClose={() => setIsIntegrationSettingsOpen(false)}
+                    addLog={addLog}
+                />
+              )}
+            </Suspense>
         </>
       )}
     </div>
