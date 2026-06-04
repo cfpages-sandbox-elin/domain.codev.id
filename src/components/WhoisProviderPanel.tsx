@@ -23,16 +23,18 @@ const statusLabels: Record<WhoisProviderStatus['status'], string> = {
   disabled: 'Disabled',
 };
 
-const formatRemaining = (provider: WhoisProviderStatus) => {
-  if (!provider.quota) return 'Unknown';
-  const { remainingDay, limitDay, remainingMonth, limitMonth } = provider.quota;
-  if (remainingDay !== null || limitDay !== null) {
-    return `${remainingDay ?? '?'} / ${limitDay ?? '?'} today`;
-  }
-  if (remainingMonth !== null || limitMonth !== null) {
-    return `${remainingMonth ?? '?'} / ${limitMonth ?? '?'} this month`;
-  }
-  return 'Unknown';
+const formatQuotaPair = (remaining: number | null | undefined, limit: number | null | undefined, label: string) => {
+  if (remaining === null && limit === null) return 'Unknown';
+  if (remaining === undefined && limit === undefined) return 'Unknown';
+  return `${remaining ?? '?'} / ${limit ?? '?'} ${label}`;
+};
+
+const formatDailyQuota = (provider: WhoisProviderStatus) => {
+  return formatQuotaPair(provider.quota?.remainingDay, provider.quota?.limitDay, 'today');
+};
+
+const formatMonthlyQuota = (provider: WhoisProviderStatus) => {
+  return formatQuotaPair(provider.quota?.remainingMonth, provider.quota?.limitMonth, 'month');
 };
 
 const WhoisProviderPanel: React.FC<WhoisProviderPanelProps> = ({ providers, isLoading, onRefresh }) => {
@@ -79,7 +81,7 @@ const WhoisProviderPanel: React.FC<WhoisProviderPanelProps> = ({ providers, isLo
       {isExpanded && (
         <div id="whois-provider-details" className="mt-3">
           <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">
-            Providers are tried in priority order. Missing keys are skipped, and failed requests fall through to the next configured provider.
+            Providers are tried in priority order. Missing keys, exhausted quotas, and temporary rate limits are skipped server-side before the app spends another request.
           </p>
 
           {providers.length === 0 && isLoading ? (
@@ -97,7 +99,9 @@ const WhoisProviderPanel: React.FC<WhoisProviderPanelProps> = ({ providers, isLo
                     <th className="whitespace-nowrap py-2 pr-4 font-semibold">State</th>
                     <th className="whitespace-nowrap py-2 pr-4 font-semibold">Priority</th>
                     <th className="whitespace-nowrap py-2 pr-4 font-semibold">Free limit</th>
-                    <th className="whitespace-nowrap py-2 pr-4 font-semibold">Remaining</th>
+                    <th className="whitespace-nowrap py-2 pr-4 font-semibold">Daily quota</th>
+                    <th className="whitespace-nowrap py-2 pr-4 font-semibold">Monthly quota</th>
+                    <th className="whitespace-nowrap py-2 pr-4 font-semibold">Live quota</th>
                     <th className="whitespace-nowrap py-2 pr-4 font-semibold">Keys</th>
                     <th className="whitespace-nowrap py-2 font-semibold">Last issue</th>
                   </tr>
@@ -117,7 +121,11 @@ const WhoisProviderPanel: React.FC<WhoisProviderPanelProps> = ({ providers, isLo
                         </td>
                         <td className="whitespace-nowrap py-2 pr-4">{provider.priority}</td>
                         <td className="whitespace-nowrap py-2 pr-4">{provider.freeTierLabel}</td>
-                        <td className="whitespace-nowrap py-2 pr-4">{formatRemaining(provider)}</td>
+                        <td className="whitespace-nowrap py-2 pr-4">{formatDailyQuota(provider)}</td>
+                        <td className="whitespace-nowrap py-2 pr-4">{formatMonthlyQuota(provider)}</td>
+                        <td className="whitespace-nowrap py-2 pr-4">
+                          {provider.supportsQuotaHeaders ? 'Provider headers' : provider.quota ? 'Telemetry only' : 'Not exposed'}
+                        </td>
                         <td className="whitespace-nowrap py-2 pr-4">
                           {provider.envKeys.length > 0 ? provider.envKeys.join(', ') : 'None'}
                         </td>

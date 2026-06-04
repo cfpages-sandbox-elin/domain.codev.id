@@ -27,7 +27,7 @@ type View = 'dashboard' | 'docs';
 type BulkDomain = { domainName: string; tag?: DomainTag };
 type DomainEntryTab = 'single' | 'bulk';
 type AddDomainOptions = { optimistic?: boolean };
-const WHOIS_AUTO_REPAIR_CONCURRENCY = 3;
+const WHOIS_AUTO_REPAIR_CONCURRENCY = 6;
 
 const getWhoisFailureReason = (whoisData: WhoisData): string | null => {
   if ((whoisData.status === 'registered' || whoisData.status === 'expired') && !whoisData.expirationDate) {
@@ -109,7 +109,12 @@ const App: React.FC = () => {
     if (statuses) {
       setWhoisProviders(current => statuses.map(status => {
         const existing = current.find(provider => provider.id === status.id);
-        return existing ? { ...status, quota: existing.quota, lastResultAt: existing.lastResultAt, lastErrorMessage: existing.lastErrorMessage } : status;
+        return existing ? {
+          ...status,
+          quota: status.quota || existing.quota,
+          lastResultAt: status.lastResultAt || existing.lastResultAt,
+          lastErrorMessage: status.lastErrorMessage || existing.lastErrorMessage,
+        } : status;
       }));
       addLog(`✅ Loaded ${statuses.length} WHOIS provider statuses.`);
     } else {
@@ -312,7 +317,6 @@ const App: React.FC = () => {
           autoRepairAttemptedIdsRef.current.add(newDomain.id);
           const advice = getWhoisFailureAdvice(whoisData);
           addLog(`⚠️ Added ${normalizedDomainName} as WHOIS failed. ${failureReason} ${advice}`);
-          alert(`${normalizedDomainName} was saved as WHOIS failed.\n\n${failureReason}\n\n${advice}`);
         } else {
           checkAndNotify(newDomain);
           addLog(`✅ Successfully added ${normalizedDomainName}.`);
@@ -491,7 +495,7 @@ const App: React.FC = () => {
     };
 
     setIsAutoRepairingWhois(true);
-    addLog(`🔄 Auto-checking ${domainsToRepair.length} domain(s) with incomplete WHOIS data.`);
+    addLog(`🔄 Auto-checking ${domainsToRepair.length} domain(s) with incomplete WHOIS data using ${workerCount} worker(s). Rate-limited providers are skipped server-side.`);
 
     Promise.allSettled(Array.from({ length: workerCount }, runWorker))
       .then(() => {
