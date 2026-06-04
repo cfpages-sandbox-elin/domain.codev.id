@@ -97,6 +97,7 @@ const isDomainMissingWhoisData = (domain: Domain) => {
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isDomainListLoading, setIsDomainListLoading] = useState(true);
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
   const [domains, setDomains] = useState<Domain[]>([]);
   const [whoisDetailsByDomainId, setWhoisDetailsByDomainId] = useState<Record<number, WhoisData>>({});
@@ -209,6 +210,7 @@ const App: React.FC = () => {
         setSession(session);
         if(!session) {
           setDomains([]);
+          setIsDomainListLoading(false);
           setWhoisDetailsByDomainId({});
           setAutoRepairingDomainIds(new Set());
           setPendingDomainIds(new Set());
@@ -220,6 +222,7 @@ const App: React.FC = () => {
           autoRepairAttemptedIdsRef.current.clear();
           addLog('ℹ️ User signed out.');
         } else {
+          setIsDomainListLoading(true);
           addLog('ℹ️ Auth state changed, user is signed in.');
         }
       }
@@ -295,13 +298,18 @@ const App: React.FC = () => {
         setUserSettingsLoaded(true);
       };
       const fetchAndSyncDomains = async () => {
+        setIsDomainListLoading(true);
         addLog('➡️ Fetching user domains...');
-        const userDomains = await SupabaseService.getDomains();
-        if (userDomains) {
-          setDomains(userDomains);
-          addLog(`✅ Found ${userDomains.length} domains.`);
-        } else {
-           addLog(`❌ Failed to fetch domains.`);
+        try {
+          const userDomains = await SupabaseService.getDomains();
+          if (userDomains) {
+            setDomains(userDomains);
+            addLog(`✅ Found ${userDomains.length} domains.`);
+          } else {
+             addLog(`❌ Failed to fetch domains.`);
+          }
+        } finally {
+          setIsDomainListLoading(false);
         }
       };
       fetchUserSettings();
@@ -727,6 +735,7 @@ const App: React.FC = () => {
         <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-white">Tracked Domains</h2>
         <DomainList 
             domains={domains}
+            isLoadingDomains={isDomainListLoading}
             categoryNameOverrides={categoryNameOverrides}
             categoryManualOverrides={categoryManualOverrides}
             categoryWordGroups={categoryWordGroups}

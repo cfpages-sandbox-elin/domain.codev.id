@@ -1,12 +1,14 @@
 import React, { useCallback, useState, useMemo, useRef, useEffect } from 'react';
 import { CategoryManualOverrides, CategoryWordGroup, Domain, WhoisData } from '../types';
 import DomainItem from './DomainItem';
+import Spinner from './Spinner';
 import { ChevronUpDownIcon, ArrowUpOnSquareIcon, ArrowDownOnSquareIcon, RefreshIcon, HomeIcon, TargetIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, DomainCodevIcon, UsersIcon } from './icons';
 import Tooltip from './Tooltip';
 import { applyCategoryManualOverrides, applyCategoryWordGroups, categorizeDomains } from '../utils/domainCategorization';
 
 interface DomainListProps {
   domains: Domain[];
+  isLoadingDomains?: boolean;
   categoryNameOverrides: Record<string, string>;
   categoryManualOverrides: CategoryManualOverrides;
   categoryWordGroups: CategoryWordGroup[];
@@ -87,7 +89,7 @@ const CATEGORY_GROUP_STYLES = [
   'border-violet-300 bg-violet-50/70 dark:border-violet-700 dark:bg-violet-950/30',
 ];
 
-const DomainList: React.FC<DomainListProps> = ({ domains, categoryNameOverrides, categoryManualOverrides, categoryWordGroups, whoisDetailsByDomainId, onRemove, onShowInfo, onToggleTag, onSetTag, onRecheck, autoRepairingDomainIds, pendingDomainIds, onImportRequest, onExportRequest, isProcessing }) => {
+const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = false, categoryNameOverrides, categoryManualOverrides, categoryWordGroups, whoisDetailsByDomainId, onRemove, onShowInfo, onToggleTag, onSetTag, onRecheck, autoRepairingDomainIds, pendingDomainIds, onImportRequest, onExportRequest, isProcessing }) => {
   const [filter, setFilter] = useState<FilterType>(readStoredFilter);
   const [sortOption, setSortOption] = useState<SortOption>(readStoredSort);
   const [categoryFilter, setCategoryFilter] = useState(readStoredString(CATEGORY_FILTER_STORAGE_KEY));
@@ -574,6 +576,16 @@ const DomainList: React.FC<DomainListProps> = ({ domains, categoryNameOverrides,
   const recheckProgressPercent = recheckProgress
     ? Math.round((recheckProgress.completed / Math.max(recheckProgress.total, 1)) * 100)
     : 0;
+
+  if (isLoadingDomains && domains.length === 0) {
+    return (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Spinner size="md" color="border-brand-blue" />
+            <h3 className="mt-4 text-xl font-semibold text-slate-700 dark:text-slate-300">Your domains are loading</h3>
+            <p className="mt-2 text-slate-500 dark:text-slate-400">Fetching your saved domain list from Supabase.</p>
+        </div>
+    );
+  }
 
   if (domains.length === 0 && !isProcessing) {
     return (
