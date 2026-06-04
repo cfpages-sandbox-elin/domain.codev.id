@@ -448,8 +448,8 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
               </span>
             </Tooltip>
           ) : (
-            <div className="group/tag inline-flex h-8 w-[104px] items-center justify-end gap-1 rounded-md focus-within:bg-slate-200 hover:bg-slate-200 dark:focus-within:bg-slate-700 dark:hover:bg-slate-700">
-              <span className="hidden items-center gap-1 pl-1 group-hover/tag:inline-flex group-focus-within/tag:inline-flex">
+            <div className="group/tag relative inline-flex h-8 w-8 items-center justify-center rounded-md focus-within:bg-slate-200 hover:bg-slate-200 dark:focus-within:bg-slate-700 dark:hover:bg-slate-700">
+              <span className="pointer-events-none absolute right-8 top-0 z-20 inline-flex h-8 items-center gap-1 rounded-md bg-white/95 px-1 opacity-0 shadow-sm ring-1 ring-slate-200 transition-opacity group-hover/tag:pointer-events-auto group-hover/tag:opacity-100 group-focus-within/tag:pointer-events-auto group-focus-within/tag:opacity-100 dark:bg-slate-900/95 dark:ring-slate-700">
                 {(['mine', 'to-snatch', 'others'] as DomainTag[])
                   .filter(tag => tag !== effectiveTag)
                   .map(tag => {
@@ -468,7 +468,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
                       </Tooltip>
                     );
                   })}
-              </span>
+                  </span>
               <Tooltip content={<PlainTooltipText title={`Current tag: ${tagLabel}`} body="Hover to choose Mine, To Snatch, or Others directly." />}>
                 <button
                   onClick={() => onToggleTag(domain.id)}
