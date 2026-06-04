@@ -210,7 +210,9 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
         const skippedLog = formatSkippedImportLog('Bulk input', parsedPaste);
         if (skippedLog) addLog(skippedLog);
 
-        onBulkAdd(parsedPaste.domains, tagOverride || defaultTag);
+        const domainsToAdd = parsedPaste.domains;
+        setTextValue('');
+        onBulkAdd(domainsToAdd, tagOverride || defaultTag);
     };
 
     const handleBulkPasteKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
