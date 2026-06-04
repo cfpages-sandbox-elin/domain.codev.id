@@ -3,7 +3,7 @@ import { Domain, DomainTag } from '../types';
 import Modal from './Modal';
 import Spinner from './Spinner';
 import Tooltip from './Tooltip';
-import { ArrowUpOnSquareIcon, HomeIcon, TargetIcon } from './icons';
+import { ArrowUpOnSquareIcon, ExclamationTriangleIcon, HomeIcon, TargetIcon } from './icons';
 
 type BulkDomain = { domainName: string; tag?: DomainTag };
 type ActiveTab = 'single' | 'bulk';
@@ -12,6 +12,7 @@ interface BulkAddModalProps {
     isOpen: boolean;
     onClose: () => void;
     initialTab?: ActiveTab;
+    existingDomains: Domain[];
     onAddDomain: (domainName: string, tag: DomainTag) => unknown;
     onBulkAdd: (domains: BulkDomain[], defaultTag: DomainTag) => Promise<void>;
     isLoading: boolean;
@@ -46,11 +47,12 @@ const isValidDomainName = (value: string) => {
     ));
 };
 
-const parseBulkDomains = (values: string[]) => {
+const parseBulkDomains = (values: string[], existingDomainNames: Set<string> = new Set()) => {
     const seen = new Set<string>();
     const domains: BulkDomain[] = [];
     const invalid: string[] = [];
     const duplicates: string[] = [];
+    const existing: string[] = [];
 
     for (const rawValue of values) {
         const domainName = normalizeDomainInput(rawValue);
@@ -64,11 +66,27 @@ const parseBulkDomains = (values: string[]) => {
             continue;
         }
 
+        if (existingDomainNames.has(domainName)) {
+            existing.push(domainName);
+            continue;
+        }
+
         seen.add(domainName);
         domains.push({ domainName });
     }
 
-    return { domains, invalid, duplicates };
+    return { domains, invalid, duplicates, existing };
+};
+
+type ParsedBulkDomains = ReturnType<typeof parseBulkDomains>;
+
+const formatSkippedImportLog = (source: string, parsed: ParsedBulkDomains) => {
+    const parts: string[] = [];
+    if (parsed.invalid.length > 0) parts.push(`${parsed.invalid.length} invalid`);
+    if (parsed.duplicates.length > 0) parts.push(`${parsed.duplicates.length} duplicate`);
+    if (parsed.existing.length > 0) parts.push(`${parsed.existing.length} already tracked`);
+    if (parts.length === 0) return null;
+    return `⚠️ ${source} skipped ${parts.join(', ')} entr${parts.length === 1 && (parsed.invalid.length + parsed.duplicates.length + parsed.existing.length) === 1 ? 'y' : 'ies'}.`;
 };
 
 const TagChoice: React.FC<{
@@ -99,7 +117,7 @@ const TagChoice: React.FC<{
     );
 };
 
-const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab = 'single', onAddDomain, onBulkAdd, isLoading, addLog }) => {
+const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab = 'single', existingDomains, onAddDomain, onBulkAdd, isLoading, addLog }) => {
     const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
     const [singleDomain, setSingleDomain] = useState('');
     const [singleTag, setSingleTag] = useState<DomainTag>('mine');
@@ -109,6 +127,20 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
     const singleInputRef = useRef<HTMLInputElement>(null);
     const bulkInputRef = useRef<HTMLTextAreaElement>(null);
     const isBusy = isLoading;
+    const existingDomainNames = useMemo(
+        () => new Set(existingDomains.map(domain => domain.domain_name.toLowerCase())),
+        [existingDomains]
+    );
+    const normalizedSingleDomain = useMemo(() => normalizeDomainInput(singleDomain), [singleDomain]);
+    const exactExistingDomain = normalizedSingleDomain
+        ? existingDomains.find(domain => domain.domain_name.toLowerCase() === normalizedSingleDomain)
+        : undefined;
+    const existingDomainMatches = useMemo(() => {
+        if (!normalizedSingleDomain || normalizedSingleDomain.length < 2) return [];
+        return existingDomains
+            .filter(domain => domain.domain_name.toLowerCase().includes(normalizedSingleDomain))
+            .slice(0, 5);
+    }, [existingDomains, normalizedSingleDomain]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -127,7 +159,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
         return () => window.clearTimeout(timer);
     }, [isOpen, activeTab]);
 
-    const parsedPaste = useMemo(() => parseBulkDomains(splitBulkInput(textValue)), [textValue]);
+    const parsedPaste = useMemo(() => parseBulkDomains(splitBulkInput(textValue), existingDomainNames), [existingDomainNames, textValue]);
 
     const switchTab = (nextTab?: ActiveTab) => {
         setActiveTab(current => nextTab || (current === 'single' ? 'bulk' : 'single'));
@@ -143,6 +175,10 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
         const normalizedDomain = normalizeDomainInput(singleDomain);
         if (!normalizedDomain || !isValidDomainName(normalizedDomain)) {
             alert('Please enter one valid domain name, for example example.com.');
+            return;
+        }
+        if (existingDomainNames.has(normalizedDomain)) {
+            addLog(`⚠️ ${normalizedDomain} is already tracked, so it was not added again.`);
             return;
         }
 
@@ -166,9 +202,8 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
             return;
         }
 
-        if (parsedPaste.invalid.length > 0 || parsedPaste.duplicates.length > 0) {
-            addLog(`⚠️ Bulk input skipped ${parsedPaste.invalid.length} invalid and ${parsedPaste.duplicates.length} duplicate entr${parsedPaste.duplicates.length === 1 ? 'y' : 'ies'}.`);
-        }
+        const skippedLog = formatSkippedImportLog('Bulk input', parsedPaste);
+        if (skippedLog) addLog(skippedLog);
 
         onBulkAdd(parsedPaste.domains, defaultTag);
     };
@@ -188,16 +223,15 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                     const data: Partial<Domain>[] = JSON.parse(content);
                     if (!Array.isArray(data)) throw new Error('JSON is not an array.');
                     
-                    const parsed = parseBulkDomains(data.map(item => item.domain_name || ''));
+                    const parsed = parseBulkDomains(data.map(item => item.domain_name || ''), existingDomainNames);
                     bulkDomains = parsed.domains.map(item => {
                         const source = data.find(row => normalizeDomainInput(row.domain_name || '') === item.domainName);
                         if (!source) return item;
                         const tag = (source.tag === 'mine' || source.tag === 'to-snatch') ? source.tag : undefined;
                         return { ...item, tag };
                     });
-                    if (parsed.invalid.length > 0 || parsed.duplicates.length > 0) {
-                        addLog(`⚠️ JSON import skipped ${parsed.invalid.length} invalid and ${parsed.duplicates.length} duplicate entr${parsed.duplicates.length === 1 ? 'y' : 'ies'}.`);
-                    }
+                    const skippedLog = formatSkippedImportLog('JSON import', parsed);
+                    if (skippedLog) addLog(skippedLog);
                     addLog(`✅ Parsed ${bulkDomains.length} domains from JSON.`);
 
                 } else if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
@@ -224,11 +258,10 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                             if (normalized && tag) tagByDomain.set(normalized, tag);
                         }
                     }
-                    const parsed = parseBulkDomains(rawDomains);
+                    const parsed = parseBulkDomains(rawDomains, existingDomainNames);
                     bulkDomains = parsed.domains.map(item => ({ ...item, tag: tagByDomain.get(item.domainName) }));
-                    if (parsed.invalid.length > 0 || parsed.duplicates.length > 0) {
-                        addLog(`⚠️ CSV import skipped ${parsed.invalid.length} invalid and ${parsed.duplicates.length} duplicate entr${parsed.duplicates.length === 1 ? 'y' : 'ies'}.`);
-                    }
+                    const skippedLog = formatSkippedImportLog('CSV import', parsed);
+                    if (skippedLog) addLog(skippedLog);
                     addLog(`✅ Parsed ${bulkDomains.length} domains from CSV.`);
 
                 } else {
@@ -297,6 +330,33 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                             className="w-full rounded-lg border-2 border-transparent bg-slate-100 px-4 py-3 transition focus:border-brand-blue focus:ring-0 dark:bg-slate-700"
                             disabled={isBusy}
                         />
+                        {exactExistingDomain && (
+                            <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-100">
+                                <ExclamationTriangleIcon className="mt-0.5 h-4 w-4 flex-none" />
+                                <p>
+                                    <span className="font-semibold">{exactExistingDomain.domain_name}</span> is already tracked as {exactExistingDomain.tag === 'mine' ? 'Mine' : 'To Snatch'}.
+                                </p>
+                            </div>
+                        )}
+                        {!exactExistingDomain && existingDomainMatches.length > 0 && (
+                            <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Existing matches</p>
+                                <ul className="space-y-1">
+                                    {existingDomainMatches.map(domain => {
+                                        const Icon = domain.tag === 'mine' ? HomeIcon : TargetIcon;
+                                        return (
+                                            <li key={domain.id} className="flex items-center justify-between gap-3 text-sm">
+                                                <span className="inline-flex min-w-0 items-center gap-2">
+                                                    <Icon className={`h-4 w-4 flex-none ${domain.tag === 'mine' ? 'text-indigo-500' : 'text-teal-500'}`} />
+                                                    <span className="truncate font-medium text-slate-800 dark:text-slate-100">{domain.domain_name}</span>
+                                                </span>
+                                                <span className="flex-none text-xs capitalize text-slate-500 dark:text-slate-400">{domain.status}</span>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            </div>
+                        )}
 
                         <fieldset className="grid gap-2 sm:grid-cols-2">
                             <legend className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">Save as</legend>
@@ -309,7 +369,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                                 <button
                                     type="button"
                                     onClick={() => handleSingleSubmit(singleTag)}
-                                    disabled={isBusy || !singleDomain.trim()}
+                                    disabled={isBusy || !singleDomain.trim() || Boolean(exactExistingDomain)}
                                     className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-blue px-6 py-3 font-semibold text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-blue-300 dark:disabled:bg-blue-800"
                                 >
                                     Check and Save
@@ -331,7 +391,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                     />
                     {textValue.trim() && (
                         <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                            {parsedPaste.domains.length} valid, {parsedPaste.invalid.length} invalid, {parsedPaste.duplicates.length} duplicate.
+                            {parsedPaste.domains.length} new valid, {parsedPaste.invalid.length} invalid, {parsedPaste.duplicates.length} duplicate, {parsedPaste.existing.length} already tracked.
                         </p>
                     )}
                 </div>
@@ -366,10 +426,10 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                 </div>
 
                 <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-600">
-                    <Tooltip content="Each valid domain runs WHOIS before saving. Invalid lines and duplicates are skipped.">
+                    <Tooltip content="Each new valid domain runs WHOIS before saving. Invalid, repeated, and already tracked domains are skipped.">
                     <button
                         onClick={handlePasteSubmit}
-                        disabled={isBusy || !textValue.trim()}
+                        disabled={isBusy || !textValue.trim() || parsedPaste.domains.length === 0}
                         className="px-6 py-3 font-semibold text-white bg-brand-blue hover:bg-blue-600 rounded-lg transition-colors flex items-center justify-center disabled:bg-blue-300 dark:disabled:bg-blue-800 disabled:cursor-not-allowed"
                     >
                         {isLoading ? <><Spinner /> Processing...</> : 'Check and Add Valid Domains'}

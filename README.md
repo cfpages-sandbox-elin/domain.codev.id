@@ -43,10 +43,10 @@ cd <repository-directory>
 
 ### Step 2: Install Dependencies
 
-You need to have [Node.js](https://nodejs.org/) (version 18 or newer) installed.
+You need to have [Node.js](https://nodejs.org/) (version 18 or newer) and [pnpm](https://pnpm.io/) installed.
 
 ```bash
-npm install
+pnpm install
 ```
 
 ### Step 3: Configure Environment Variables
@@ -133,7 +133,7 @@ USING (auth.uid() = user_id);
 ### Step 5: Run the Development Server
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 ---
@@ -193,11 +193,11 @@ This method is faster if you are familiar with the command line.
 
 ```bash
 # Install the CLI
-npm install supabase --save-dev
+pnpm add -D supabase
 
 # Log in and link your project
-npx supabase login
-npx supabase link --project-ref <your-project-ref>
+pnpm exec supabase login
+pnpm exec supabase link --project-ref <your-project-ref>
 ```
 
 #### 2. Set Secrets for the Edge Functions
@@ -206,18 +206,18 @@ Run these commands in your terminal, replacing the placeholders with your actual
 
 ```bash
 # Required: Secret to authorize the cron job
-npx supabase secrets set CRON_SECRET=YOUR_SUPER_SECRET_STRING_HERE
+pnpm exec supabase secrets set CRON_SECRET=YOUR_SUPER_SECRET_STRING_HERE
 
 # Required: WHOIS API Keys (add at least one)
-npx supabase secrets set WHOIS_API_KEY=YOUR_WHOISXMLAPI_KEY
-npx supabase secrets set APILAYER_API_KEY=YOUR_APILAYER_KEY
-npx supabase secrets set WHOISFREAKS_API_KEY=YOUR_WHOISFREAKS_KEY
-npx supabase secrets set WHOAPI_COM_API_KEY=YOUR_WHOAPI_COM_KEY
-npx supabase secrets set RAPIDAPI_KEY=YOUR_RAPIDAPI_KEY
+pnpm exec supabase secrets set WHOIS_API_KEY=YOUR_WHOISXMLAPI_KEY
+pnpm exec supabase secrets set APILAYER_API_KEY=YOUR_APILAYER_KEY
+pnpm exec supabase secrets set WHOISFREAKS_API_KEY=YOUR_WHOISFREAKS_KEY
+pnpm exec supabase secrets set WHOAPI_COM_API_KEY=YOUR_WHOAPI_COM_KEY
+pnpm exec supabase secrets set RAPIDAPI_KEY=YOUR_RAPIDAPI_KEY
 
 # Optional: Set these if you are using a self-hosted who-dat instance
-# npx supabase secrets set WHO_DAT_URL=https://your-who-dat-instance.vercel.app
-# npx supabase secrets set WHO_DAT_AUTH_KEY=YOUR_WHO_DAT_SECRET_KEY
+# pnpm exec supabase secrets set WHO_DAT_URL=https://your-who-dat-instance.vercel.app
+# pnpm exec supabase secrets set WHO_DAT_AUTH_KEY=YOUR_WHO_DAT_SECRET_KEY
 ```
 
 #### 3. Deploy the Edge Functions
@@ -225,8 +225,8 @@ npx supabase secrets set RAPIDAPI_KEY=YOUR_RAPIDAPI_KEY
 Deploy both the `get-whois` and `check-domains` functions.
 
 ```bash
-npx supabase functions deploy get-whois
-npx supabase functions deploy check-domains
+pnpm exec supabase functions deploy get-whois
+pnpm exec supabase functions deploy check-domains
 ```
 
 After deploying, enable the Cron extension and schedule the job for `check-domains` using the Supabase Dashboard as described in **Steps 4 and 5** of Method 1.

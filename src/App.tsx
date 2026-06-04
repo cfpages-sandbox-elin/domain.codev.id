@@ -649,6 +649,7 @@ const App: React.FC = () => {
                 isOpen={isDomainEntryModalOpen}
                 onClose={() => setIsDomainEntryModalOpen(false)}
                 initialTab={domainEntryInitialTab}
+                existingDomains={domains}
                 onAddDomain={handleAddDomainFromModal}
                 onBulkAdd={handleBulkAdd}
                 isLoading={isBulkProcessing}
