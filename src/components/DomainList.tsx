@@ -3,7 +3,7 @@ import { Domain, WhoisData } from '../types';
 import DomainItem from './DomainItem';
 import { ChevronUpDownIcon, ArrowUpOnSquareIcon, ArrowDownOnSquareIcon, RefreshIcon, HomeIcon, TargetIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, DomainCodevIcon, UsersIcon } from './icons';
 import Tooltip from './Tooltip';
-import { categorizeDomains, DomainCategory } from '../utils/domainCategorization';
+import { categorizeDomains } from '../utils/domainCategorization';
 
 interface DomainListProps {
   domains: Domain[];
@@ -92,91 +92,13 @@ const CATEGORY_GROUP_STYLES = [
   'border-violet-300 bg-violet-50/70 dark:border-violet-700 dark:bg-violet-950/30',
 ];
 
-const CategoryControls: React.FC<{
-  categories: DomainCategory[];
-  categoryNames: Record<string, string>;
-  selectedCategoryId: string;
-  onSelectCategory: (categoryId: string) => void;
-  onRenameCategory: (categoryId: string, name: string) => void;
-}> = ({ categories, categoryNames, selectedCategoryId, onSelectCategory, onRenameCategory }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  if (categories.length === 0) return null;
-
-  return (
-    <div className="mb-5 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950/60">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Categories</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Rows are grouped by primary base-name category. Domains can still carry overlap chips when they match more than one category.</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setIsExpanded(current => !current)}
-          className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-        >
-          {isExpanded ? 'Collapse' : `Show ${categories.length} categories`}
-        </button>
-      </div>
-
-      {selectedCategoryId !== 'all' && (
-        <div className="mb-3 flex justify-center">
-          <button
-            type="button"
-            onClick={() => onSelectCategory('all')}
-            className="rounded-full bg-brand-blue px-3 py-1.5 text-xs font-semibold text-white"
-          >
-            Clear category filter
-          </button>
-        </div>
-      )}
-
-      {isExpanded && (
-        <div className="flex flex-wrap justify-center gap-2">
-          <button
-            type="button"
-            onClick={() => onSelectCategory('all')}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${selectedCategoryId === 'all' ? 'bg-brand-blue text-white' : 'bg-white text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'}`}
-          >
-            All
-          </button>
-          {categories.map((category, index) => {
-            const label = categoryNames[category.id] || category.suggestedName;
-            const isSelected = selectedCategoryId === category.id;
-            return (
-              <div
-                key={category.id}
-                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 ${CATEGORY_GROUP_STYLES[index % CATEGORY_GROUP_STYLES.length]} ${isSelected ? 'ring-2 ring-brand-blue ring-offset-2 dark:ring-offset-slate-950' : ''}`}
-              >
-                <button
-                  type="button"
-                  onClick={() => onSelectCategory(category.id)}
-                  className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-slate-600 hover:bg-white dark:bg-slate-900/60 dark:text-slate-300 dark:hover:bg-slate-900"
-                >
-                  {category.members.length}
-                </button>
-                <input
-                  value={label}
-                  onChange={(event) => onRenameCategory(category.id, event.target.value)}
-                  onFocus={() => onSelectCategory(category.id)}
-                  className="w-28 rounded bg-white/70 px-1.5 py-0.5 text-center text-xs font-bold text-slate-700 outline-none focus:ring-1 focus:ring-brand-blue dark:bg-black/20 dark:text-slate-100"
-                  aria-label={`Rename category ${category.suggestedName}`}
-                />
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-};
-
 const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId, onRemove, onShowInfo, onToggleTag, onSetTag, onRecheck, autoRepairingDomainIds, pendingDomainIds, onImportRequest, onExportRequest, isProcessing }) => {
   const [filter, setFilter] = useState<FilterType>(readStoredFilter);
   const [sortOption, setSortOption] = useState<SortOption>(readStoredSort);
   const [categoryFilter, setCategoryFilter] = useState(readStoredString(CATEGORY_FILTER_STORAGE_KEY));
   const [tldFilter, setTldFilter] = useState(readStoredString(TLD_FILTER_STORAGE_KEY));
   const [hideRegisteredTargets, setHideRegisteredTargets] = useState(() => readStoredBoolean(HIDE_REGISTERED_TARGETS_STORAGE_KEY));
-  const [categoryNameOverrides, setCategoryNameOverrides] = useState<Record<string, string>>(readStoredCategoryNames);
+  const [categoryNameOverrides] = useState<Record<string, string>>(readStoredCategoryNames);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isRecheckMenuOpen, setIsRecheckMenuOpen] = useState(false);
   const [isRecheckingVisible, setIsRecheckingVisible] = useState(false);
@@ -219,10 +141,6 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
   }, [hideRegisteredTargets]);
 
   useEffect(() => {
-    window.localStorage.setItem(CATEGORY_NAMES_STORAGE_KEY, JSON.stringify(categoryNameOverrides));
-  }, [categoryNameOverrides]);
-
-  useEffect(() => {
     setVisibleDomainLimit(INITIAL_RENDERED_DOMAINS);
   }, [categoryFilter, filter, hideRegisteredTargets, sortOption, tldFilter]);
 
@@ -261,10 +179,6 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
       setTldFilter('all');
     }
   }, [tldFilter, tldOptions]);
-
-  const handleRenameCategory = (categoryId: string, name: string) => {
-    setCategoryNameOverrides(current => ({ ...current, [categoryId]: name }));
-  };
 
   const contextFilteredDomains = useMemo(() => domains.filter(domain => {
     const meta = categorizedDomainById.get(domain.id);
@@ -732,14 +646,6 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
             </div>
         </div>
       </div>
-
-      <CategoryControls
-        categories={categorization.categories}
-        categoryNames={categoryNames}
-        selectedCategoryId={categoryFilter}
-        onSelectCategory={setCategoryFilter}
-        onRenameCategory={handleRenameCategory}
-      />
 
       <div className="mb-4 flex flex-wrap items-center justify-center gap-3">
         <Tooltip content="Registered target domains are mostly useful for their expiry date. Hide them when you want to focus on owned, client, available, expired, or failed rows.">

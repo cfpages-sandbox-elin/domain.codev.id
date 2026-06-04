@@ -9,6 +9,7 @@ interface WhoisProviderPanelProps {
   onRefresh: () => void;
   onSaveCredential: (providerId: string, apiKey: string) => Promise<boolean>;
   onRemoveCredential: (providerId: string) => Promise<boolean>;
+  defaultExpanded?: boolean;
 }
 
 const statusStyles: Record<WhoisProviderStatus['status'], string> = {
@@ -41,8 +42,8 @@ const formatMonthlyQuota = (provider: WhoisProviderStatus) => {
 
 const CREDENTIAL_PROVIDER_IDS = new Set(['oti-labs', 'domainduck', 'rdap-api']);
 
-const WhoisProviderPanel: React.FC<WhoisProviderPanelProps> = ({ providers, isLoading, onRefresh, onSaveCredential, onRemoveCredential }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+const WhoisProviderPanel: React.FC<WhoisProviderPanelProps> = ({ providers, isLoading, onRefresh, onSaveCredential, onRemoveCredential, defaultExpanded = false }) => {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [apiKeysByProviderId, setApiKeysByProviderId] = useState<Record<string, string>>({});
   const [savingProviderId, setSavingProviderId] = useState<string | null>(null);
   const activeCount = providers.filter(provider => provider.status === 'active').length;

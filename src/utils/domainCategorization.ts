@@ -185,9 +185,11 @@ const hasKnownRemainder = (shorter: string, longer: string, knownBases: Set<stri
 };
 
 const hasStrongContainment = (anchor: string, base: string, knownBases: Set<string>) => {
-  const shorter = anchor.length <= base.length ? anchor : base;
-  const longer = anchor.length <= base.length ? base : anchor;
-  if (shorter.length < 4 || !longer.includes(shorter)) return false;
+  if (anchor.length >= base.length || !base.includes(anchor)) return false;
+
+  const shorter = anchor;
+  const longer = base;
+  if (shorter.length < 4) return false;
 
   const startsOrEnds = longer.startsWith(shorter) || longer.endsWith(shorter);
   const coverage = shorter.length / longer.length;
@@ -228,6 +230,7 @@ const hasStrongSimilarityEvidence = (left: string, right: string) => {
 const getMembership = (anchor: string, base: string, knownBases: Set<string>): DomainCategoryMember['reason'] | null => {
   if (anchor === base) return 'exact';
   if (hasStrongContainment(anchor, base, knownBases)) return 'contains';
+  if (anchor.includes(base) || base.includes(anchor)) return null;
 
   const score = scoreBaseSimilarity(anchor, base);
   return score >= 0.74 && hasStrongSimilarityEvidence(anchor, base) ? 'similar' : null;

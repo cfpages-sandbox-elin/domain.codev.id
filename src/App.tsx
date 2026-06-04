@@ -19,11 +19,13 @@ import WhoisProviderPanel from './components/WhoisProviderPanel';
 import Tooltip from './components/Tooltip';
 import IntegrationSettingsModal from './components/IntegrationSettingsModal';
 import AutoMinePanel from './components/AutoMinePanel';
+import CategoriesPage from './components/CategoriesPage';
 import { PlusIcon } from './components/icons';
 
 const formatDate = (date: Date) => date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-type View = 'dashboard' | 'docs';
+type View = 'dashboard' | 'docs' | 'categories' | 'settings';
+type SettingsTab = 'whois' | 'auto-mine';
 
 type BulkDomain = { domainName: string; tag?: DomainTag };
 type DomainEntryTab = 'single' | 'bulk';
@@ -93,6 +95,7 @@ const App: React.FC = () => {
   const [modalContent, setModalContent] = useState({ title: '', body: '' });
   const [logs, setLogs] = useState<string[]>([]);
   const [view, setView] = useState<View>('dashboard');
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>('whois');
   const [autoRepairingDomainIds, setAutoRepairingDomainIds] = useState<Set<number>>(() => new Set());
   const [pendingDomainIds, setPendingDomainIds] = useState<Set<number>>(() => new Set());
   const autoRepairAttemptedIdsRef = useRef<Set<number>>(new Set());
@@ -652,18 +655,6 @@ const App: React.FC = () => {
     <div className="max-w-4xl mx-auto">
       <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-lg dark:shadow-black/40">
         <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-white">Tracked Domains</h2>
-        <WhoisProviderPanel
-            providers={whoisProviders}
-            isLoading={isWhoisProviderLoading}
-            onRefresh={refreshWhoisProviders}
-            onSaveCredential={handleSaveWhoisProviderCredential}
-            onRemoveCredential={handleRemoveWhoisProviderCredential}
-        />
-        <AutoMinePanel
-            domains={domains}
-            onApplyMatches={markDomainsAsMine}
-            addLog={addLog}
-        />
         <DomainList 
             domains={domains}
             whoisDetailsByDomainId={whoisDetailsByDomainId}
@@ -685,6 +676,73 @@ const App: React.FC = () => {
     </div>
   );
 
+  const renderSettings = () => (
+    <div className="mx-auto max-w-5xl">
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Settings</h2>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Manage provider fallback behavior and ownership automation.</p>
+      </div>
+
+      <div className="mb-5 flex flex-wrap justify-center gap-2">
+        <button
+          type="button"
+          onClick={() => setSettingsTab('whois')}
+          className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+            settingsTab === 'whois'
+              ? 'bg-brand-blue text-white'
+              : 'bg-slate-200 text-slate-600 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+          }`}
+        >
+          WHOIS Providers
+        </button>
+        <button
+          type="button"
+          onClick={() => setSettingsTab('auto-mine')}
+          className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+            settingsTab === 'auto-mine'
+              ? 'bg-brand-blue text-white'
+              : 'bg-slate-200 text-slate-600 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+          }`}
+        >
+          Auto Mine
+        </button>
+      </div>
+
+      <div className="rounded-2xl bg-white p-6 shadow-lg dark:bg-slate-900 dark:shadow-black/40">
+        {settingsTab === 'whois' ? (
+          <WhoisProviderPanel
+            providers={whoisProviders}
+            isLoading={isWhoisProviderLoading}
+            onRefresh={refreshWhoisProviders}
+            onSaveCredential={handleSaveWhoisProviderCredential}
+            onRemoveCredential={handleRemoveWhoisProviderCredential}
+            defaultExpanded
+          />
+        ) : (
+          <AutoMinePanel
+            domains={domains}
+            onApplyMatches={markDomainsAsMine}
+            addLog={addLog}
+          />
+        )}
+      </div>
+    </div>
+  );
+
+  const renderCurrentView = () => {
+    switch (view) {
+      case 'docs':
+        return <DocsPage />;
+      case 'categories':
+        return <CategoriesPage domains={domains} />;
+      case 'settings':
+        return renderSettings();
+      case 'dashboard':
+      default:
+        return renderDashboard();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <Header
@@ -705,7 +763,7 @@ const App: React.FC = () => {
         ) : !session ? (
           <Auth />
         ) : (
-          view === 'dashboard' ? renderDashboard() : <DocsPage />
+          renderCurrentView()
         )}
       </main>
 

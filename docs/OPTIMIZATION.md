@@ -1,6 +1,6 @@
 # UI Performance Optimization
 
-Last updated: 2026-06-04 22:31 WIB.
+Last updated: 2026-06-04 22:48 WIB.
 
 This tracker exists because the dashboard now has around 675 domains and is starting to feel sluggish.
 
@@ -19,6 +19,7 @@ This tracker exists because the dashboard now has around 675 domains and is star
 
 | Date/Time (WIB) | Status | Change | Notes |
 | --- | --- | --- | --- |
+| 2026-06-04 22:48 WIB | Done | Moved secondary panels out of the dashboard. | Categories now live in their own navbar view; WHOIS Providers and Auto Mine live in Settings tabs, reducing dashboard first-render and visual clutter. |
 | 2026-06-04 22:31 WIB | Done | Implemented remaining no-dependency optimization plan. | Memoized rows, stabilized row callbacks, and added incremental rendering/windowing for large domain lists. |
 | 2026-06-04 22:17 WIB | Done | First performance/UI pass implemented. | Cached categorization scoring, counted filters in one pass, centered filter chips, grouped overlapping categories together, and added direct tag target switching. |
 | 2026-06-04 22:05 WIB | In progress | Created optimization tracker and audited first bottlenecks. | First implementation pass will avoid new dependencies. |
