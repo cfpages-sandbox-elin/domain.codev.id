@@ -247,12 +247,50 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
     setCategoryNameOverrides(current => ({ ...current, [categoryId]: name }));
   };
 
-  const filteredDomains = useMemo(() => domains.filter(domain => {
+  const contextFilteredDomains = useMemo(() => domains.filter(domain => {
     const meta = categorizedDomainById.get(domain.id);
     if (categoryFilter !== 'all' && !meta?.categoryIds.includes(categoryFilter)) return false;
     if (tldFilter !== 'all' && meta?.parts.tld !== tldFilter) return false;
     if (hideRegisteredTargets && domain.tag === 'to-snatch' && domain.status === 'registered') return false;
+    return true;
+  }), [categorizedDomainById, categoryFilter, domains, hideRegisteredTargets, tldFilter]);
 
+  const getFilterMatch = (domain: Domain, filterType: FilterType) => {
+    switch (filterType) {
+      case 'mine':
+        return domain.tag === 'mine' && domain.status !== 'available' && domain.status !== 'dropped';
+      case 'to-snatch':
+        return domain.tag === 'to-snatch' || domain.status === 'available' || domain.status === 'dropped';
+      case 'others':
+        return domain.tag === 'others' && domain.status !== 'available' && domain.status !== 'dropped';
+      case 'available':
+        return domain.status === 'available' || domain.status === 'dropped';
+      case 'expiring':
+        if (!domain.expiration_date) return false;
+        const daysLeft = (new Date(domain.expiration_date).getTime() - Date.now()) / (1000 * 3600 * 24);
+        return daysLeft > 0 && daysLeft <= 90;
+      case 'expired':
+        return domain.status === 'expired';
+      case 'all':
+      default:
+        return true;
+    }
+  };
+
+  const filterCounts = useMemo(() => FILTER_OPTIONS.reduce<Record<FilterType, number>>((counts, filterType) => {
+    counts[filterType] = contextFilteredDomains.filter(domain => getFilterMatch(domain, filterType)).length;
+    return counts;
+  }, {
+    all: 0,
+    mine: 0,
+    'to-snatch': 0,
+    others: 0,
+    expiring: 0,
+    expired: 0,
+    available: 0,
+  }), [contextFilteredDomains]);
+
+  const filteredDomains = useMemo(() => contextFilteredDomains.filter(domain => {
     switch (filter) {
       case 'mine':
         return domain.tag === 'mine' && domain.status !== 'available' && domain.status !== 'dropped';
@@ -272,7 +310,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
       default:
         return true;
     }
-  }), [categorizedDomainById, categoryFilter, domains, filter, hideRegisteredTargets, tldFilter]);
+  }), [contextFilteredDomains, filter]);
 
   const sortedDomains = useMemo(() => {
     const sortable = [...filteredDomains];
@@ -360,6 +398,13 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
       >
         {filterIcons[filterType]}
         {children}
+        <span className={`rounded-full px-1.5 text-[11px] font-semibold ${
+          filter === filterType
+            ? 'bg-white/25 text-white'
+            : 'bg-white/70 text-slate-500 dark:bg-slate-900/60 dark:text-slate-300'
+        }`}>
+          {filterCounts[filterType]}
+        </span>
       </button>
   );
 
