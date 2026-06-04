@@ -3,7 +3,7 @@
 //-------------------------------------------------
 // Types
 //-------------------------------------------------
-type DomainStatus = 'available' | 'registered' | 'expired' | 'dropped' | 'unknown';
+type DomainStatus = 'available' | 'registered' | 'expired' | 'dropped' | 'reserved' | 'unknown';
 
 export type WhoisProviderId =
   | 'who-dat'
@@ -696,6 +696,37 @@ const readNameServers = (...values: unknown[]): string[] => compactStrings(value
 const readDomainStatuses = (...values: unknown[]): string[] => compactStrings(values)
   .map(value => value.replace(/^https?:\/\/icann\.org\/epp#/i, ''));
 
+const textContainsReservedSignal = (value: unknown) => {
+  if (typeof value !== 'string') return false;
+  const normalized = value.toLowerCase();
+  return /\breserved\b/.test(normalized)
+    || /\breserved\s+name\b/.test(normalized)
+    || /\bgovernment\s+reserved\b/.test(normalized)
+    || /\bnot\s+available\s+for\s+registration\b/.test(normalized)
+    || /\bblocked\s+from\s+registration\b/.test(normalized);
+};
+
+const collectTextSignals = (value: unknown, depth = 0): string[] => {
+  if (depth > 3 || value === null || value === undefined) return [];
+  if (typeof value === 'string') return [value];
+  if (typeof value === 'number' || typeof value === 'boolean') return [String(value)];
+  if (Array.isArray(value)) return value.flatMap(item => collectTextSignals(item, depth + 1));
+  if (typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>)
+      .filter(([key]) => /status|state|reason|remark|notice|description|title|message|error/i.test(key))
+      .flatMap(([, item]) => collectTextSignals(item, depth + 1));
+  }
+  return [];
+};
+
+const hasReservedSignal = (...values: unknown[]) => collectTextSignals(values).some(textContainsReservedSignal);
+
+const inferDomainStatus = (isAvailable: boolean, expiryDateStr: string | null | undefined, ...evidence: unknown[]): DomainStatus => {
+  if (hasReservedSignal(evidence)) return 'reserved';
+  if (isAvailable) return 'available';
+  return expiryDateStr && new Date(expiryDateStr) < new Date() ? 'expired' : 'registered';
+};
+
 const withProviderMetadata = (
   providerId: WhoisProviderId,
   data: WhoisData,
@@ -779,14 +810,15 @@ const readRdapRegistrar = (entities: any[] | undefined) => {
 const normalizeRdapData = (_domainName: string, data: any): WhoisData => {
   const expiryDateStr = readRdapEventDate(data.events, ['expiration']);
   const registeredDateStr = readRdapEventDate(data.events, ['registration']);
-  const status = expiryDateStr && new Date(expiryDateStr) < new Date() ? 'expired' : 'registered';
+  const domainStatuses = readDomainStatuses(data.status);
+  const status = inferDomainStatus(false, expiryDateStr, domainStatuses, data.remarks, data.notices);
 
   return {
     status,
     expirationDate: expiryDateStr,
     registeredDate: registeredDateStr,
     registrar: readRdapRegistrar(data.entities),
-    domainStatuses: readDomainStatuses(data.status),
+    domainStatuses,
     nameServers: readNameServers(
       Array.isArray(data.nameservers)
         ? data.nameservers.map((server: any) => server.ldhName || server.unicodeName || server.name)
@@ -817,14 +849,15 @@ const parseFlexibleProviderData = (rawData: any): WhoisData => {
     || data.domain_available === true
     || data.domain_registered === false
     || data.registered === false;
-  const status = isAvailable ? 'available' : (expiryDateStr && new Date(expiryDateStr) < new Date() ? 'expired' : 'registered');
+  const domainStatuses = readDomainStatuses(data.status, data.Status, data.statuses, data.domain_status);
+  const status = inferDomainStatus(isAvailable, expiryDateStr, domainStatuses, data);
 
   return {
     status,
     expirationDate: expiryDateStr,
     registeredDate: registeredDateStr,
     registrar: data.registrar || data.Registrar || data.registrar_name || data.registrarName || null,
-    domainStatuses: readDomainStatuses(data.status, data.Status, data.statuses, data.domain_status),
+    domainStatuses,
     nameServers: readNameServers(data.nameservers, data.name_servers, data.nameServers, data.NameServers),
   };
 };
@@ -839,13 +872,14 @@ const getWhoisDataFromWhoDat = async (domainName: string): Promise<WhoisData> =>
   if (!response.ok) throw new Error(`who-dat failed: ${response.status}`);
   const data = await response.json();
   if (data.error) throw new Error(`who-dat error: ${data.error}`);
-  const status = data.isAvailable ? 'available' : (new Date(data.dates?.expiry) < new Date() ? 'expired' : 'registered');
+  const domainStatuses = readDomainStatuses(data.status, data.statuses);
+  const status = inferDomainStatus(Boolean(data.isAvailable), data.dates?.expiry || null, domainStatuses, data);
   return {
     status,
     expirationDate: data.dates?.expiry || null,
     registeredDate: data.dates?.created || null,
     registrar: data.registrar?.name || null,
-    domainStatuses: readDomainStatuses(data.status, data.statuses),
+    domainStatuses,
     nameServers: readNameServers(data.nameservers, data.nameServers),
   };
 };
@@ -863,13 +897,14 @@ const getWhoisDataFromWhoisXmlApi = async (domainName: string): Promise<WhoisDat
   const record = data.WhoisRecord;
   if (!record) throw new Error('Invalid API response from WhoisXMLAPI');
   const expiryDateStr = record.registryData?.expiresDate || record.expiresDate;
-  const status = record.domainAvailability === 'AVAILABLE' ? 'available' : (expiryDateStr && new Date(expiryDateStr) < new Date() ? 'expired' : 'registered');
+  const domainStatuses = readDomainStatuses(record.status, record.registryData?.status);
+  const status = inferDomainStatus(record.domainAvailability === 'AVAILABLE', expiryDateStr, domainStatuses, record);
   return {
     status,
     expirationDate: expiryDateStr || null,
     registeredDate: record.registryData?.createdDate || record.createdDate || null,
     registrar: record.registrarName || null,
-    domainStatuses: readDomainStatuses(record.status, record.registryData?.status),
+    domainStatuses,
     nameServers: readNameServers(record.nameServers?.hostNames, record.registryData?.nameServers?.hostNames),
   };
 };
@@ -891,13 +926,14 @@ const getWhoisDataFromApiLayer = async (domainName: string): Promise<WhoisData> 
   const data = await response.json();
   if (data.message || !data.result) throw new Error(`APILayer Error: ${data.message || 'Invalid response'}`);
   const { result } = data;
-  const status = result.status === 'available' ? 'available' : (result.expiration_date && new Date(result.expiration_date) < new Date() ? 'expired' : 'registered');
+  const domainStatuses = readDomainStatuses(result.status, result.domain_status);
+  const status = inferDomainStatus(result.status === 'available', result.expiration_date || null, domainStatuses, result);
   return {
     status,
     expirationDate: result.expiration_date || null,
     registeredDate: result.creation_date || null,
     registrar: result.registrar || null,
-    domainStatuses: readDomainStatuses(result.status, result.domain_status),
+    domainStatuses,
     nameServers: readNameServers(result.name_servers, result.nameservers),
     quota,
   };
@@ -913,13 +949,14 @@ const getWhoisDataFromWhoisFreaks = async (domainName: string): Promise<WhoisDat
   if (!response.ok) throw new Error(`WhoisFreaks failed: ${response.status}`);
   const data = await response.json();
   if (!data.status || data.error) throw new Error(`WhoisFreaks Error: ${data.error?.message || 'Request failed'}`);
-  const status = data.domain_registered === 'no' ? 'available' : (data.expiry_date && new Date(data.expiry_date) < new Date() ? 'expired' : 'registered');
+  const domainStatuses = readDomainStatuses(data.domain_status, data.statuses);
+  const status = inferDomainStatus(data.domain_registered === 'no', data.expiry_date || null, domainStatuses, data);
   return {
     status,
     expirationDate: data.expiry_date || null,
     registeredDate: data.create_date || null,
     registrar: data.domain_registrar?.registrar_name || null,
-    domainStatuses: readDomainStatuses(data.domain_status, data.statuses),
+    domainStatuses,
     nameServers: readNameServers(data.name_servers, data.nameservers),
   };
 };
@@ -935,7 +972,8 @@ const getWhoisDataFromWhoapi = async (domainName: string): Promise<WhoisData> =>
   const data = await response.json();
   if (data.status !== '0') throw new Error(`WhoAPI Error: ${data.status_desc || `Status ${data.status}`}`);
   const expiryDateStr = data.date_expires;
-  const status = !data.registered ? 'available' : (expiryDateStr && new Date(expiryDateStr) < new Date() ? 'expired' : 'registered');
+  const domainStatuses = readDomainStatuses(data.statuses, data.domain_status);
+  const status = inferDomainStatus(!data.registered, expiryDateStr, domainStatuses, data);
   const registrarContact = data.contacts?.find((c: any) => c.type === 'registrar');
   const registrarName = registrarContact?.organization || data.whois_name || null;
   return {
@@ -943,7 +981,7 @@ const getWhoisDataFromWhoapi = async (domainName: string): Promise<WhoisData> =>
     expirationDate: expiryDateStr || null,
     registeredDate: data.date_created || null,
     registrar: registrarName,
-    domainStatuses: readDomainStatuses(data.statuses, data.domain_status),
+    domainStatuses,
     nameServers: readNameServers(data.nameservers, data.name_servers),
   };
 };
@@ -977,14 +1015,15 @@ const getWhoisDataFromRapidApi = async (domainName: string): Promise<WhoisData> 
   }
 
   const expiryDateStr = data.expiration_date;
-  const status = expiryDateStr && new Date(expiryDateStr) < new Date() ? 'expired' : 'registered';
+  const domainStatuses = readDomainStatuses(data.status, data.domain_status);
+  const status = inferDomainStatus(false, expiryDateStr, domainStatuses, data);
 
   return {
     status,
     expirationDate: data.expiration_date || null,
     registeredDate: data.creation_date || null,
     registrar: data.registrar || null,
-    domainStatuses: readDomainStatuses(data.status, data.domain_status),
+    domainStatuses,
     nameServers: readNameServers(data.name_servers, data.nameservers),
   };
 };
@@ -1002,14 +1041,15 @@ const getWhoisDataFromWhoisJson = async (domainName: string): Promise<WhoisData>
   const expiryDateStr = data.expires_at || data.expiration_date || data.expiresDate || null;
   const registeredDateStr = data.created_at || data.creation_date || data.createdDate || null;
   const isAvailable = data.available === true || data.domain_registered === false || data.registered === false;
-  const status = isAvailable ? 'available' : (expiryDateStr && new Date(expiryDateStr) < new Date() ? 'expired' : 'registered');
+  const domainStatuses = readDomainStatuses(data.status, data.domain_status, data.domainStatuses);
+  const status = inferDomainStatus(isAvailable, expiryDateStr, domainStatuses, data);
 
   return {
     status,
     expirationDate: expiryDateStr,
     registeredDate: registeredDateStr,
     registrar: data.registrar || data.registrar_name || data.registrarName || null,
-    domainStatuses: readDomainStatuses(data.status, data.domain_status, data.domainStatuses),
+    domainStatuses,
     nameServers: readNameServers(data.name_servers, data.nameservers, data.nameServers),
   };
 };
@@ -1025,14 +1065,15 @@ const getWhoisDataFromIp2Whois = async (domainName: string): Promise<WhoisData> 
   if (data.error || data.error_message) throw new Error(`IP2WHOIS Error: ${data.error_message || data.error}`);
   const expiryDateStr = data.expire_date || data.expiration_date || null;
   const registeredDateStr = data.create_date || data.creation_date || null;
-  const status = data.available === true ? 'available' : (expiryDateStr && new Date(expiryDateStr) < new Date() ? 'expired' : 'registered');
+  const domainStatuses = readDomainStatuses(data.status, data.domain_status);
+  const status = inferDomainStatus(data.available === true, expiryDateStr, domainStatuses, data);
 
   return {
     status,
     expirationDate: expiryDateStr,
     registeredDate: registeredDateStr,
     registrar: data.registrar?.name || data.registrar || null,
-    domainStatuses: readDomainStatuses(data.status, data.domain_status),
+    domainStatuses,
     nameServers: readNameServers(data.nameservers, data.name_servers),
   };
 };

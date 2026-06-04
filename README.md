@@ -68,7 +68,7 @@ pnpm install
 ```sql
 -- Create custom types for cleaner constraints
 CREATE TYPE public.domain_tag_type AS ENUM ('mine', 'to-snatch', 'others');
-CREATE TYPE public.domain_status_type AS ENUM ('available', 'registered', 'expired', 'dropped', 'unknown');
+CREATE TYPE public.domain_status_type AS ENUM ('available', 'registered', 'expired', 'dropped', 'reserved', 'unknown');
 
 -- Create the 'domains' table
 CREATE TABLE public.domains (

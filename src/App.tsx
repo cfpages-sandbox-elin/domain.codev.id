@@ -77,14 +77,12 @@ const getWhoisFailureAdvice = (whoisData: WhoisData): string => {
 
 const isDomainMissingWhoisData = (domain: Domain) => {
   if (!domain.last_checked || domain.status === 'unknown') return true;
-  if (domain.status === 'available' || domain.status === 'dropped') return false;
+  if (domain.status === 'available' || domain.status === 'dropped' || domain.status === 'reserved') return false;
   if (domain.status === 'registered' || domain.status === 'expired' || domain.tag === 'mine') {
     return !domain.expiration_date
       || !domain.registrar
       || !domain.domain_statuses
-      || domain.domain_statuses.length === 0
-      || !domain.name_servers
-      || domain.name_servers.length === 0;
+      || domain.domain_statuses.length === 0;
   }
   return false;
 };
@@ -250,7 +248,9 @@ const App: React.FC = () => {
       const now = new Date();
       const expiry = new Date(domain.expiration_date);
       const daysUntilExpiry = (expiry.getTime() - now.getTime()) / (1000 * 3600 * 24);
-      if (daysUntilExpiry > 0 && daysUntilExpiry <= 7) {
+      if (daysUntilExpiry <= 0) {
+        addNotification(`Your domain ${domain.domain_name} is expired. Renew it immediately if it is still recoverable.`);
+      } else if (daysUntilExpiry <= 7) {
         addNotification(`Your domain ${domain.domain_name} is expiring in ${Math.ceil(daysUntilExpiry)} days!`);
       }
     }

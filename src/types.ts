@@ -1,6 +1,6 @@
 export type DomainTag = 'mine' | 'to-snatch' | 'others';
 
-export type DomainStatus = 'available' | 'registered' | 'expired' | 'dropped' | 'unknown';
+export type DomainStatus = 'available' | 'registered' | 'expired' | 'dropped' | 'reserved' | 'unknown';
 
 // The ground truth for a domain record from the database.
 export interface Domain {

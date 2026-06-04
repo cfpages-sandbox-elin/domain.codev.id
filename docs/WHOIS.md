@@ -1,6 +1,6 @@
 # WHOIS Implementation And Provider Research
 
-Last researched: 2026-06-04.
+Last researched: 2026-06-05.
 
 ## Current Implementation
 
@@ -17,7 +17,7 @@ Normalized return shape:
 
 ```ts
 {
-  status: 'available' | 'registered' | 'expired' | 'dropped' | 'unknown',
+  status: 'available' | 'registered' | 'expired' | 'dropped' | 'reserved' | 'unknown',
   expirationDate: string | null,
   registeredDate: string | null,
   registrar: string | null,
@@ -58,7 +58,8 @@ The current implementation uses `whois_provider_telemetry` when the Supabase mig
 | Monthly free-tier estimates | Coordinated through `whois_provider_telemetry.estimated_month_used` for providers with known free monthly limits. |
 | Quota headers | APILayer quota headers are read, persisted in `quota`, and exposed in the dashboard when present. If remaining day/month quota reaches zero, that provider is skipped until the next UTC day/month. |
 | 429/rate-limit failures | Persist a temporary provider block for 60 seconds and try the next provider. |
-| Incomplete provider results | A provider response is not considered usable just because the HTTP request succeeded. If a provider says a domain is `registered` or `expired` but does not return an expiry date, the waterfall records that provider attempt as failed and continues to the next configured provider. |
+| Incomplete provider results | A provider response is not considered usable just because the HTTP request succeeded. If a provider says a domain is `registered` or `expired` but does not return an expiry date, the waterfall records that provider attempt as failed and continues to the next configured provider. Missing name servers alone do not make otherwise complete WHOIS data unusable. |
+| Reserved domains | Provider/RDAP statuses, remarks, notices, and common text fields are scanned for conservative reserved-domain signals. A `reserved` domain is shown in the app, skipped by automatic refresh, and not treated as buyable. |
 | Bulk add concurrency | Browser bulk add now uses a 6-worker pool instead of 5-domain batches with a fixed 2-second delay. Six is chosen to stay compatible with Cloudflare Workers/Pages' documented simultaneous outgoing connection limit when this flow later moves server-side. |
 
 The current Supabase schema for provider telemetry is in `supabase/migrations/20260603222500_add_whois_provider_telemetry.sql`. The future D1 migration should port the same concept to D1 or a Durable Object if strict global coordination becomes necessary.
@@ -78,11 +79,12 @@ The cron function may run often, but it does not spend WHOIS quota on every doma
 | `to-snatch`, 30-15 days before expiry | Check only if it has been at least 14 days since the last check. |
 | `to-snatch`, 14-8 days before expiry | Check only if it has been at least 7 days since the last check. |
 | `to-snatch`, final 7 days before expiry | Check at most daily. |
-| `to-snatch`, 0-44 days after expiry | Check at most daily; likely grace/redemption period. |
-| `to-snatch`, 45-57 days after expiry | Check at most twice daily; approaching drop window. |
-| `to-snatch`, 58-75 days after expiry | Check at most every 3 hours; likely drop window. |
-| `to-snatch`, past 75 days after expiry but still not available | Check at most daily. |
-| Already `available` or `dropped` | Skip automatic checks. User can buy or manually re-check. |
+| `to-snatch`, 0-44 days after expiry | Check at most weekly; likely grace/redemption period. |
+| `to-snatch`, 45-57 days after expiry | Check at most daily; approaching drop window. |
+| `to-snatch`, 58-75 days after expiry with precise expiry/registration hour | Check hourly only inside the estimated 24-hour drop window, otherwise daily. |
+| `to-snatch`, 58-75 days after expiry without precise hour | Check at most every 3 hours; likely drop date but no exact hour. |
+| `to-snatch`, past 75 days after expiry but still not available | Check at most weekly. |
+| Already `available`, `dropped`, or `reserved` | Skip automatic checks. User can buy available/dropped domains or manually re-check if needed; reserved domains are not expected to become buyable. |
 | Missing expiry | Retry weekly if `unknown`, otherwise monthly. |
 
 The cron run is capped by `WHOIS_CRON_MAX_CHECKS`, default `50`, and processes due domains with concurrency `6`.
@@ -164,7 +166,7 @@ export interface WhoisProvider {
 
 export interface WhoisResult {
   provider: string;
-  status: 'available' | 'registered' | 'expired' | 'dropped' | 'unknown';
+  status: 'available' | 'registered' | 'expired' | 'dropped' | 'reserved' | 'unknown';
   expirationDate: string | null;
   registeredDate: string | null;
   registrar: string | null;

@@ -14,7 +14,13 @@ alter table public.domains
   add column if not exists name_servers text[];
 ```
 
-These fields store provider-returned registry status values such as `autoRenewPeriod` and `clientTransferProhibited`, plus the latest name servers. The app displays them in the domain-row tooltip and refreshes them on add, manual re-check, and scheduled checks.
+These fields store provider-returned registry status values such as `autoRenewPeriod` and `clientTransferProhibited`, plus the latest name servers when providers return them. Name servers are optional detail: a checked domain with expiry, registrar, and registry status data should not be treated as incomplete only because name servers are absent.
+
+Reserved domains are represented as a first-class status while Supabase remains active:
+
+```sql
+alter type public.domain_status_type add value if not exists 'reserved';
+```
 
 Provider quota telemetry should also be persisted while Supabase remains active:
 
@@ -113,7 +119,7 @@ CREATE TABLE IF NOT EXISTS app_domains (
   normalized_domain TEXT NOT NULL COLLATE NOCASE,
   tld TEXT NOT NULL,
   tag TEXT NOT NULL CHECK (tag IN ('mine', 'to-snatch', 'others')),
-  status TEXT NOT NULL CHECK (status IN ('available', 'registered', 'expired', 'dropped', 'unknown')),
+  status TEXT NOT NULL CHECK (status IN ('available', 'registered', 'expired', 'dropped', 'reserved', 'unknown')),
   registrar TEXT,
   registered_at TEXT,
   expires_at TEXT,
@@ -146,7 +152,7 @@ CREATE TABLE IF NOT EXISTS app_domain_checks (
   user_id TEXT NOT NULL,
   normalized_domain TEXT NOT NULL COLLATE NOCASE,
   provider TEXT,
-  status TEXT NOT NULL CHECK (status IN ('available', 'registered', 'expired', 'dropped', 'unknown')),
+  status TEXT NOT NULL CHECK (status IN ('available', 'registered', 'expired', 'dropped', 'reserved', 'unknown')),
   registrar TEXT,
   registered_at TEXT,
   expires_at TEXT,

@@ -11,7 +11,7 @@ This document plans how Hermes Agent, WhatsApp, and future external apps should 
 | ✅ Implemented | Integration tables | 2026-06-04 WIB | Added `integration_clients`, `integration_events`, `notification_channels`, and `notification_deliveries` migration. |
 | ✅ Implemented | App-owned API function | 2026-06-04 WIB | Added `supabase/functions/external-api` with scoped bearer-token auth, idempotency records, domain listing, domain add, WHOIS recheck, and computed due-alert read endpoints. |
 | ✅ Implemented | Dashboard token management | 2026-06-04 WIB | Added an Integration API modal for creating/revoking tokens. Raw tokens are generated in-browser and shown once; only SHA-256 hashes are stored. The modal also shows a copyable Hermes setup prompt with the API base URL and new token. |
-| 🟡 Partial | Alert support | 2026-06-04 WIB | `GET /api/v1/alerts/due` computes current expiry/drop alerts for polling clients like Hermes. Durable queued delivery is still pending. |
+| 🟡 Partial | Alert support | 2026-06-05 WIB | `GET /api/v1/alerts/due` computes current expiry/drop alerts for polling clients like Hermes, and `GET /api/v1/alerts/drop/{domainName}` returns an exact-domain target drop alert. Durable queued delivery is still pending. |
 | ⬜ Pending | Webhook registration endpoints | 2026-06-04 WIB | Tables exist, but `/api/v1/webhooks` is not implemented yet. |
 | ⬜ Pending | Notification dispatcher | 2026-06-04 WIB | `dispatch-notifications` Edge Function is not implemented yet. |
 | ⬜ Pending | Hermes-side skill/prompt | 2026-06-04 WIB | This app now exposes the API Hermes needs, but Hermes still needs tool/prompt configuration. |
@@ -231,6 +231,36 @@ Returns alerts that have not been delivered or acknowledged.
   ]
 }
 ```
+
+### Exact Target Drop Alert
+
+```http
+GET /api/v1/alerts/drop/{domainName}
+```
+
+Returns the current drop-watch alert for one tracked `to-snatch` domain, including estimated drop timing when an expiry or registration timestamp is available.
+
+```json
+{
+  "domain": {
+    "domainName": "target.example",
+    "tag": "to-snatch",
+    "status": "expired"
+  },
+  "alert": {
+    "event": "domain.dropping-now",
+    "severity": "drop-window-now",
+    "dropTiming": {
+      "estimatedDropAt": "2026-08-09T14:30:00.000Z",
+      "windowStart": "2026-08-09T02:30:00.000Z",
+      "windowEnd": "2026-08-10T02:30:00.000Z",
+      "confidence": "expiry-time"
+    }
+  }
+}
+```
+
+Implementation status: ✅ implemented in `supabase/functions/external-api/index.ts`.
 
 ### Acknowledge Alerts
 

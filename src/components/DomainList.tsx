@@ -60,7 +60,7 @@ const readStoredBoolean = (key: string) => {
 
 const hasMissingData = (domain: Domain) => {
   if (!domain.last_checked || domain.status === 'unknown') return true;
-  if (domain.status === 'available' || domain.status === 'dropped') return false;
+  if (domain.status === 'available' || domain.status === 'dropped' || domain.status === 'reserved') return false;
 
   const shouldHaveFullWhoisData = domain.status === 'registered' || domain.status === 'expired' || domain.tag === 'mine';
   if (!shouldHaveFullWhoisData) return false;
@@ -68,9 +68,7 @@ const hasMissingData = (domain: Domain) => {
   return !domain.expiration_date
     || !domain.registrar
     || !domain.domain_statuses
-    || domain.domain_statuses.length === 0
-    || !domain.name_servers
-    || domain.name_servers.length === 0;
+    || domain.domain_statuses.length === 0;
 };
 
 interface RecheckProgress {

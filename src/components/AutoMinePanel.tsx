@@ -23,7 +23,7 @@ const findRuleMatches = (domains: Domain[], rules: AutoMineRule[]) => {
 
   for (const domain of domains) {
     if (domain.tag === 'mine') continue;
-    if (domain.status === 'available' || domain.status === 'dropped') continue;
+    if (domain.status === 'available' || domain.status === 'dropped' || domain.status === 'reserved') continue;
     const domainNameServers = new Set((domain.name_servers || []).map(normalizeNameServer).filter(Boolean));
     if (domainNameServers.size < 2) continue;
 

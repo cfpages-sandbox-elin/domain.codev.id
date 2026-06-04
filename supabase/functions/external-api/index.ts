@@ -7,7 +7,7 @@ import { getWhoisData } from '../_shared/whois-logic.ts'
 console.log('✅ "external-api" function loaded');
 
 type DomainTag = 'mine' | 'to-snatch' | 'others';
-type DomainStatus = 'available' | 'registered' | 'expired' | 'dropped' | 'unknown';
+type DomainStatus = 'available' | 'registered' | 'expired' | 'dropped' | 'reserved' | 'unknown';
 type Scope = 'domains:read' | 'domains:write' | 'whois:check' | 'alerts:read' | 'webhooks:write';
 
 interface IntegrationClient {
@@ -95,16 +95,15 @@ const normalizeTag = (value: unknown): DomainTag => {
 };
 
 const isAvailableLike = (status: DomainStatus) => status === 'available' || status === 'dropped';
+const isAutoCheckTerminal = (status: DomainStatus) => isAvailableLike(status) || status === 'reserved';
 
 const isMissingWhoisData = (domain: DomainRow) => {
   if (!domain.last_checked || domain.status === 'unknown') return true;
-  if (isAvailableLike(domain.status)) return false;
+  if (isAutoCheckTerminal(domain.status)) return false;
   return !domain.expiration_date
     || !domain.registrar
     || !domain.domain_statuses
-    || domain.domain_statuses.length === 0
-    || !domain.name_servers
-    || domain.name_servers.length === 0;
+    || domain.domain_statuses.length === 0;
 };
 
 const daysUntil = (dateString: string | null) => {
@@ -113,6 +112,103 @@ const daysUntil = (dateString: string | null) => {
   const diffMs = date.getTime() - Date.now();
   if (!Number.isFinite(diffMs)) return null;
   return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+};
+
+const hasTimeComponent = (dateString: string | null) => Boolean(dateString && /T\d{2}:\d{2}/.test(dateString));
+
+const addDays = (date: Date, days: number) => {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+};
+
+const estimateDropTiming = (domain: DomainRow) => {
+  if (!domain.expiration_date) return null;
+  const expiry = new Date(domain.expiration_date);
+  if (!Number.isFinite(expiry.getTime())) return null;
+
+  const dropAt = addDays(expiry, 65);
+  let confidence: 'expiry-time' | 'registration-hour' | 'date-only' = hasTimeComponent(domain.expiration_date)
+    ? 'expiry-time'
+    : 'date-only';
+
+  if (confidence === 'date-only' && hasTimeComponent(domain.registered_date)) {
+    const registeredAt = new Date(domain.registered_date);
+    if (Number.isFinite(registeredAt.getTime())) {
+      dropAt.setUTCHours(
+        registeredAt.getUTCHours(),
+        registeredAt.getUTCMinutes(),
+        registeredAt.getUTCSeconds(),
+        registeredAt.getUTCMilliseconds(),
+      );
+      confidence = 'registration-hour';
+    }
+  }
+
+  return {
+    estimatedDropAt: dropAt.toISOString(),
+    windowStart: new Date(dropAt.getTime() - 12 * 60 * 60 * 1000).toISOString(),
+    windowEnd: new Date(dropAt.getTime() + 12 * 60 * 60 * 1000).toISOString(),
+    confidence,
+  };
+};
+
+const buildDropAlert = (domain: DomainRow) => {
+  const days = daysUntil(domain.expiration_date);
+  const dropTiming = estimateDropTiming(domain);
+  const now = Date.now();
+  const inDropWindow = Boolean(dropTiming
+    && now >= new Date(dropTiming.windowStart).getTime()
+    && now <= new Date(dropTiming.windowEnd).getTime());
+
+  if (domain.tag !== 'to-snatch') return null;
+
+  if (isAvailableLike(domain.status)) {
+    return {
+      id: `domain-${domain.id}-available`,
+      event: 'domain.dropped',
+      domainName: domain.domain_name,
+      tag: domain.tag,
+      status: domain.status,
+      severity: 'available',
+      expirationDate: domain.expiration_date,
+      daysUntilExpiry: days,
+      dropTiming,
+      message: `${domain.domain_name} is marked available. Re-check before buying.`,
+    };
+  }
+
+  if (domain.status === 'reserved') {
+    return {
+      id: `domain-${domain.id}-reserved`,
+      event: 'domain.reserved',
+      domainName: domain.domain_name,
+      tag: domain.tag,
+      status: domain.status,
+      severity: 'reserved',
+      expirationDate: domain.expiration_date,
+      daysUntilExpiry: days,
+      dropTiming,
+      message: `${domain.domain_name} is reserved and not expected to become publicly available.`,
+    };
+  }
+
+  if (days === null || days > 0 || days < -75) return null;
+
+  return {
+    id: `domain-${domain.id}-drop-watch-${domain.expiration_date || 'unknown'}`,
+    event: inDropWindow ? 'domain.dropping-now' : 'domain.drop-watch',
+    domainName: domain.domain_name,
+    tag: domain.tag,
+    status: domain.status,
+    severity: inDropWindow ? 'drop-window-now' : 'watch-drop-window',
+    expirationDate: domain.expiration_date,
+    daysUntilExpiry: days,
+    dropTiming,
+    message: inDropWindow
+      ? `${domain.domain_name} is inside the estimated drop-hour window. Check registrar availability now.`
+      : `${domain.domain_name} expired ${Math.abs(days)} day(s) ago. Estimated drop timing is being watched.`,
+  };
 };
 
 const formatDomain = (domain: DomainRow) => ({
@@ -516,34 +612,23 @@ const getDueAlerts = async (_req: Request, client: IntegrationClient, supabaseAd
       }
 
       if (domain.tag === 'to-snatch' && days !== null && days <= 30 && days >= -75) {
+        if (days < 0) return buildDropAlert(domain);
         return {
           id: `domain-${domain.id}-snatch-expiry-${domain.expiration_date || 'unknown'}`,
-          event: days < 0 ? 'domain.drop-watch' : 'domain.expiring',
+          event: 'domain.expiring',
           domainName: domain.domain_name,
           tag: domain.tag,
           status: domain.status,
-          severity: days < 0 ? 'watch-drop-window' : 'watch-expiry',
+          severity: 'watch-expiry',
           expirationDate: domain.expiration_date,
           daysUntilExpiry: days,
-          message: days >= 0
-            ? `${domain.domain_name} expires in ${days} day(s). Prepare if you want to snatch it.`
-            : `${domain.domain_name} expired ${Math.abs(days)} day(s) ago. Watch for possible drop timing.`,
+          dropTiming: estimateDropTiming(domain),
+          message: `${domain.domain_name} expires in ${days} day(s). Prepare if you want to snatch it.`,
         };
       }
 
-      if (domain.tag === 'to-snatch' && isAvailableLike(domain.status)) {
-        return {
-          id: `domain-${domain.id}-available`,
-          event: 'domain.dropped',
-          domainName: domain.domain_name,
-          tag: domain.tag,
-          status: domain.status,
-          severity: 'available',
-          expirationDate: domain.expiration_date,
-          daysUntilExpiry: days,
-          message: `${domain.domain_name} is marked available. Re-check before buying.`,
-        };
-      }
+      const dropAlert = buildDropAlert(domain);
+      if (dropAlert) return dropAlert;
 
       return null;
     })
@@ -551,6 +636,40 @@ const getDueAlerts = async (_req: Request, client: IntegrationClient, supabaseAd
     .sort((a: any, b: any) => (a.daysUntilExpiry ?? 99999) - (b.daysUntilExpiry ?? 99999));
 
   return jsonResponse({ alerts, count: alerts.length });
+};
+
+const getDropAlertForDomain = async (req: Request, client: IntegrationClient, supabaseAdmin: ReturnType<typeof createClient>) => {
+  requireScope(client, 'alerts:read');
+
+  const url = new URL(req.url);
+  const path = normalizePath(url);
+  const rawDomainName = decodeURIComponent(path.replace(/^\/api\/v1\/alerts\/drop\//, ''));
+  const domainName = normalizeDomainName(rawDomainName);
+  if (!domainName) return jsonResponse({ error: 'Invalid domain name.' }, 400);
+
+  const { data, error } = await supabaseAdmin
+    .from('domains')
+    .select('*')
+    .eq('user_id', client.user_id)
+    .eq('domain_name', domainName)
+    .maybeSingle();
+
+  if (error) return jsonResponse({ error: error.message }, 500);
+  if (!data) return jsonResponse({ error: 'Domain is not tracked.' }, 404);
+
+  const domain = data as DomainRow;
+  if (domain.tag !== 'to-snatch') {
+    return jsonResponse({
+      domain: formatDomain(domain),
+      alert: null,
+      message: 'Domain is tracked, but it is not tagged as to-snatch.',
+    });
+  }
+
+  return jsonResponse({
+    domain: formatDomain(domain),
+    alert: buildDropAlert(domain),
+  });
 };
 
 serve(async (req) => {
@@ -583,6 +702,10 @@ serve(async (req) => {
 
     if (req.method === 'GET' && path === '/api/v1/alerts/due') {
       return await getDueAlerts(req, client, supabaseAdmin);
+    }
+
+    if (req.method === 'GET' && path.startsWith('/api/v1/alerts/drop/')) {
+      return await getDropAlertForDomain(req, client, supabaseAdmin);
     }
 
     return jsonResponse({ error: 'Not found', path }, 404);

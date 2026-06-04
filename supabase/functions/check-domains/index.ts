@@ -10,7 +10,7 @@ console.log('✅ "check-domains" function loaded');
 // Types
 //-------------------------------------------------
 type DomainTag = 'mine' | 'to-snatch' | 'others';
-type DomainStatus = 'available' | 'registered' | 'expired' | 'dropped' | 'unknown';
+type DomainStatus = 'available' | 'registered' | 'expired' | 'dropped' | 'reserved' | 'unknown';
 
 interface Domain {
   id: number;
@@ -19,6 +19,7 @@ interface Domain {
   status: DomainStatus;
   tag: DomainTag;
   expiration_date: string | null;
+  registered_date: string | null;
   last_checked: string | null;
 }
 
@@ -55,15 +56,53 @@ const daysUntil = (dateString: string | null, now: Date) => {
 };
 
 const isAvailableLike = (status: DomainStatus) => status === 'available' || status === 'dropped';
+const isAutoCheckTerminal = (status: DomainStatus) => isAvailableLike(status) || status === 'reserved';
+
+const hasTimeComponent = (dateString: string | null) => Boolean(dateString && /T\d{2}:\d{2}/.test(dateString));
+
+const addDays = (date: Date, days: number) => {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+};
+
+const estimateDropTiming = (expirationDate: string, registeredDate: string | null) => {
+  const expiry = new Date(expirationDate);
+  if (!Number.isFinite(expiry.getTime())) return null;
+
+  const dropAt = addDays(expiry, 65);
+  let confidence: 'expiry-time' | 'registration-hour' | 'date-only' = hasTimeComponent(expirationDate)
+    ? 'expiry-time'
+    : 'date-only';
+
+  if (confidence === 'date-only' && hasTimeComponent(registeredDate)) {
+    const registeredAt = new Date(registeredDate!);
+    if (Number.isFinite(registeredAt.getTime())) {
+      dropAt.setUTCHours(
+        registeredAt.getUTCHours(),
+        registeredAt.getUTCMinutes(),
+        registeredAt.getUTCSeconds(),
+        registeredAt.getUTCMilliseconds(),
+      );
+      confidence = 'registration-hour';
+    }
+  }
+
+  const windowStart = new Date(dropAt.getTime() - 12 * 60 * 60 * 1000);
+  const windowEnd = new Date(dropAt.getTime() + 12 * 60 * 60 * 1000);
+  return { dropAt, windowStart, windowEnd, confidence };
+};
 
 const checkDecisionForDomain = (domain: Domain, now: Date): CheckDecision => {
   const lastCheckedHours = hoursSince(domain.last_checked, now);
   const daysUntilExpiry = daysUntil(domain.expiration_date, now);
 
-  if (isAvailableLike(domain.status)) {
+  if (isAutoCheckTerminal(domain.status)) {
     return {
       due: false,
-      reason: 'already marked available; manual buy/re-check is enough',
+      reason: domain.status === 'reserved'
+        ? 'reserved domain; skip automatic checks'
+        : 'already marked available; manual buy/re-check is enough',
       priority: 0,
     };
   }
@@ -149,32 +188,44 @@ const checkDecisionForDomain = (domain: Domain, now: Date): CheckDecision => {
   const daysSinceExpiry = Math.abs(daysUntilExpiry);
   if (daysSinceExpiry < 45) {
     return {
-      due: lastCheckedHours >= 24,
-      reason: 'target domain likely in grace/redemption period; daily check',
-      priority: 70,
+      due: lastCheckedHours >= 24 * 7,
+      reason: 'target domain likely in grace/redemption period; weekly check until drop window gets closer',
+      priority: 55,
     };
   }
 
   if (daysSinceExpiry < 58) {
     return {
-      due: lastCheckedHours >= 12,
-      reason: 'target domain approaching estimated drop window; twice-daily check',
-      priority: 80,
+      due: lastCheckedHours >= 24,
+      reason: 'target domain approaching estimated drop window; daily check',
+      priority: 75,
     };
   }
 
   if (daysSinceExpiry <= 75) {
+    const dropTiming = estimateDropTiming(domain.expiration_date, domain.registered_date);
+    if (dropTiming?.confidence !== 'date-only') {
+      const inExactDropWindow = now >= dropTiming.windowStart && now <= dropTiming.windowEnd;
+      return {
+        due: lastCheckedHours >= (inExactDropWindow ? 1 : 24),
+        reason: inExactDropWindow
+          ? `target domain inside estimated drop-hour window (${dropTiming.confidence}); hourly check`
+          : `target domain near drop date but outside estimated drop-hour window (${dropTiming.confidence}); daily check`,
+        priority: inExactDropWindow ? 100 : 85,
+      };
+    }
+
     return {
       due: lastCheckedHours >= 3,
-      reason: 'target domain near estimated drop date; check every 3 hours',
+      reason: 'target domain near estimated drop date without exact hour; check every 3 hours',
       priority: 95,
     };
   }
 
   return {
-    due: lastCheckedHours >= 24,
-    reason: 'target domain is past estimated drop window but not available yet; daily check',
-    priority: 75,
+    due: lastCheckedHours >= 24 * 7,
+    reason: 'target domain is past estimated drop window but not available yet; weekly check',
+    priority: 45,
   };
 };
 
@@ -211,7 +262,7 @@ serve(async (req) => {
     const now = new Date();
     const { data: domains, error: fetchError } = await supabaseAdmin
       .from('domains')
-      .select('id, user_id, domain_name, status, tag, expiration_date, last_checked');
+      .select('id, user_id, domain_name, status, tag, expiration_date, registered_date, last_checked');
     
     if (fetchError) throw fetchError;
 

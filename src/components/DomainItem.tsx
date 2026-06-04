@@ -45,10 +45,11 @@ const StatusBadge: React.FC<{ status: DomainStatus, isCompact: boolean }> = ({ s
         dropped: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
         registered: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
         expired: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
+        reserved: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300',
         unknown: 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300',
     };
     
-    const statusText = status === 'dropped' ? 'available' : status;
+    const statusText = status === 'dropped' ? 'available' : status === 'reserved' ? 'reserved domain' : status;
 
     return (
         <span className={`px-2 font-semibold rounded-full capitalize ${statusStyles[status]} ${isCompact ? 'py-0 text-[9px]' : 'py-0.5 text-[10px]'}`}>
@@ -68,6 +69,7 @@ const getRowStyles = (status: DomainStatus, tag: DomainTag, daysUntilExpiry: num
         available: 'bg-teal-100 border-teal-300 dark:bg-teal-950/80 dark:border-teal-700/90',
         dropped: 'bg-teal-100 border-teal-300 dark:bg-teal-950/80 dark:border-teal-700/90',
         expired: 'bg-red-100 border-red-300 dark:bg-red-950/80 dark:border-red-700/90',
+        reserved: 'bg-amber-100 border-amber-300 dark:bg-amber-950/80 dark:border-amber-700/90',
         unknown: 'bg-slate-100 dark:bg-slate-900/90 border-slate-300 dark:border-slate-600',
     };
 
@@ -77,9 +79,9 @@ const getRowStyles = (status: DomainStatus, tag: DomainTag, daysUntilExpiry: num
 
 const hasIncompleteWhoisData = (domain: Domain, registryStatuses: string[], nameServers: string[]) => {
   if (!domain.last_checked || domain.status === 'unknown') return true;
-  if (domain.status === 'available' || domain.status === 'dropped') return false;
+  if (domain.status === 'available' || domain.status === 'dropped' || domain.status === 'reserved') return false;
   if (domain.status === 'registered' || domain.status === 'expired' || domain.tag === 'mine') {
-    return !domain.expiration_date || !domain.registrar || registryStatuses.length === 0 || nameServers.length === 0;
+    return !domain.expiration_date || !domain.registrar || registryStatuses.length === 0;
   }
   return false;
 };
@@ -90,6 +92,7 @@ const getDomainTextStyles = (status: DomainStatus): string => {
         dropped: 'text-green-800 hover:text-green-700 dark:text-green-300 dark:hover:text-green-200',
         registered: 'text-blue-900 hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200',
         expired: 'text-red-900 hover:text-red-700 dark:text-red-300 dark:hover:text-red-200',
+        reserved: 'text-amber-900 hover:text-amber-700 dark:text-amber-300 dark:hover:text-amber-200',
         unknown: 'text-slate-900 hover:text-slate-700 dark:text-white dark:hover:text-slate-200',
     };
     return statusStyles[status];
@@ -152,6 +155,7 @@ const explainRegistryStatus = (status: string) => {
     serverTransferProhibited: 'Transfer is blocked at the registry level.',
     pendingDelete: 'The domain is in the final deletion phase and may become available soon.',
     redemptionPeriod: 'The domain expired and is in a recovery period for the current owner.',
+    reserved: 'Reserved by the registry or government and not available for public registration.',
     ok: 'The domain has no special restrictions reported.',
   };
   return explanations[normalized] || 'Registry status reported by the WHOIS provider.';
@@ -237,10 +241,13 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
 
   const daysUntilExpiry = getDaysUntilExpiry(domain.expiration_date);
   const isAvailableStatus = domain.status === 'available' || domain.status === 'dropped';
+  const isReservedStatus = domain.status === 'reserved';
   const effectiveTag = isAvailableStatus ? 'to-snatch' : domain.tag;
   const isRegisteredTarget = domain.tag === 'to-snatch' && domain.status === 'registered';
   const rowStyles = getRowStyles(domain.status, effectiveTag, daysUntilExpiry);
-  const needsExpiryDate = (domain.status === 'registered' || domain.status === 'expired' || effectiveTag === 'mine') && !domain.expiration_date;
+  const needsExpiryDate = domain.status !== 'reserved'
+    && (domain.status === 'registered' || domain.status === 'expired' || effectiveTag === 'mine')
+    && !domain.expiration_date;
   const isAvailableForPurchase = isAvailableStatus;
   const canShowDropTimeline = domain.status === 'expired' && Boolean(domain.expiration_date);
   const actionButtonClass = 'p-1.5 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-wait';
@@ -290,7 +297,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
     <div className="space-y-3">
       <div className="space-y-1">
         <DetailRow label="Domain" value={domain.domain_name} />
-        <DetailRow label="Status" value={domain.status === 'dropped' ? 'available' : domain.status} />
+        <DetailRow label="Status" value={domain.status === 'dropped' ? 'available' : domain.status === 'reserved' ? 'reserved domain' : domain.status} />
         <DetailRow label="Tag" value={tagLabel} />
         <DetailRow label="TLD" value={tld || 'N/A'} />
         {categoryLabels.length > 0 && <DetailRow label="Category" value={categoryLabels.join(', ')} />}
@@ -324,7 +331,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
             {nameServers.map(server => <li key={server} className="font-mono text-[11px]">{server}</li>)}
           </ul>
         ) : (
-          <p className="text-slate-500 dark:text-slate-400">No name server details stored yet.</p>
+          <p className="text-slate-500 dark:text-slate-400">No name server details returned by the provider.</p>
         )}
       </div>
     </div>
@@ -445,6 +452,15 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
                 aria-label={`${domain.domain_name} is marked To Snatch because it is available`}
               >
                 <TargetIcon className={tagIconClass} />
+              </span>
+            </Tooltip>
+          ) : isReservedStatus ? (
+            <Tooltip content={<PlainTooltipText title="Reserved domain" body="Reserved domains are not buyable and are skipped by automatic refresh." />}>
+              <span
+                className="inline-flex h-8 w-8 cursor-default items-center justify-center"
+                aria-label={`${domain.domain_name} is reserved and skipped by automatic refresh`}
+              >
+                <InfoIcon className="h-5 w-5 text-amber-700 dark:text-amber-300" />
               </span>
             </Tooltip>
           ) : (
