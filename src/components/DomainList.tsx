@@ -80,30 +80,30 @@ const hasMissingData = (domain: Domain) => {
     || domain.name_servers.length === 0;
 };
 
-const CategoryMap: React.FC<{
+const CATEGORY_GROUP_STYLES = [
+  'border-indigo-300 bg-indigo-50/70 dark:border-indigo-700 dark:bg-indigo-950/30',
+  'border-teal-300 bg-teal-50/70 dark:border-teal-700 dark:bg-teal-950/30',
+  'border-amber-300 bg-amber-50/70 dark:border-amber-700 dark:bg-amber-950/30',
+  'border-rose-300 bg-rose-50/70 dark:border-rose-700 dark:bg-rose-950/30',
+  'border-sky-300 bg-sky-50/70 dark:border-sky-700 dark:bg-sky-950/30',
+  'border-violet-300 bg-violet-50/70 dark:border-violet-700 dark:bg-violet-950/30',
+];
+
+const CategoryControls: React.FC<{
   categories: DomainCategory[];
   categoryNames: Record<string, string>;
   selectedCategoryId: string;
   onSelectCategory: (categoryId: string) => void;
   onRenameCategory: (categoryId: string, name: string) => void;
-  overlapDomains: Array<{ domainName: string; categoryNames: string[] }>;
-}> = ({ categories, categoryNames, selectedCategoryId, onSelectCategory, onRenameCategory, overlapDomains }) => {
+}> = ({ categories, categoryNames, selectedCategoryId, onSelectCategory, onRenameCategory }) => {
   if (categories.length === 0) return null;
-
-  const palette = [
-    'border-indigo-300 bg-indigo-200/70 text-indigo-950 dark:border-indigo-500 dark:bg-indigo-950/80 dark:text-indigo-100',
-    'border-teal-300 bg-teal-200/70 text-teal-950 dark:border-teal-500 dark:bg-teal-950/80 dark:text-teal-100',
-    'border-amber-300 bg-amber-200/70 text-amber-950 dark:border-amber-500 dark:bg-amber-950/80 dark:text-amber-100',
-    'border-rose-300 bg-rose-200/70 text-rose-950 dark:border-rose-500 dark:bg-rose-950/80 dark:text-rose-100',
-    'border-sky-300 bg-sky-200/70 text-sky-950 dark:border-sky-500 dark:bg-sky-950/80 dark:text-sky-100',
-  ];
 
   return (
     <div className="mb-5 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950/60">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Category Venn</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Auto grouped by base-name containment, consonants, vowels, and phonetic similarity. TLD is ignored.</p>
+          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Categories</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Rows are grouped by primary base-name category. Domains can still carry overlap chips when they match more than one category.</p>
         </div>
         <button
           type="button"
@@ -114,45 +114,33 @@ const CategoryMap: React.FC<{
         </button>
       </div>
 
-      <div className="flex min-h-[116px] items-center overflow-x-auto py-2 pl-2">
+      <div className="flex flex-wrap gap-2">
         {categories.map((category, index) => {
           const label = categoryNames[category.id] || category.suggestedName;
           const isSelected = selectedCategoryId === category.id;
-          const sizeClass = category.members.length >= 5 ? 'h-32 w-32' : category.members.length >= 3 ? 'h-28 w-28' : 'h-24 w-24';
           return (
-            <button
+            <div
               key={category.id}
-              type="button"
-              onClick={() => onSelectCategory(category.id)}
-              className={`relative -ml-3 first:ml-0 flex flex-none flex-col items-center justify-center rounded-full border-2 p-3 text-center shadow-sm backdrop-blur transition-transform hover:z-10 hover:scale-105 ${sizeClass} ${palette[index % palette.length]} ${isSelected ? 'z-10 ring-2 ring-brand-blue ring-offset-2 dark:ring-offset-slate-950' : ''}`}
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 ${CATEGORY_GROUP_STYLES[index % CATEGORY_GROUP_STYLES.length]} ${isSelected ? 'ring-2 ring-brand-blue ring-offset-2 dark:ring-offset-slate-950' : ''}`}
             >
               <input
                 value={label}
                 onChange={(event) => onRenameCategory(category.id, event.target.value)}
-                onClick={(event) => event.stopPropagation()}
-                className="w-full rounded bg-white/60 px-1 text-center text-xs font-bold outline-none focus:ring-1 focus:ring-brand-blue dark:bg-black/20"
+                onFocus={() => onSelectCategory(category.id)}
+                className="w-28 rounded bg-white/70 px-1.5 py-0.5 text-xs font-bold text-slate-700 outline-none focus:ring-1 focus:ring-brand-blue dark:bg-black/20 dark:text-slate-100"
                 aria-label={`Rename category ${category.suggestedName}`}
               />
-              <span className="mt-1 text-[10px] font-semibold opacity-80">{category.members.length} domains</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => onSelectCategory(category.id)}
+                className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-slate-600 hover:bg-white dark:bg-slate-900/60 dark:text-slate-300 dark:hover:bg-slate-900"
+              >
+                {category.members.length}
+              </button>
+            </div>
           );
         })}
       </div>
-
-      {overlapDomains.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-200 pt-3 dark:border-slate-700">
-          {overlapDomains.slice(0, 8).map(item => (
-            <button
-              key={item.domainName}
-              type="button"
-              onClick={() => onSelectCategory(categories.find(category => item.categoryNames.includes(categoryNames[category.id] || category.suggestedName))?.id || 'all')}
-              className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 shadow-sm hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-            >
-              {item.domainName} overlaps {item.categoryNames.join(' + ')}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 };
@@ -367,14 +355,66 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
     return sortable;
   }, [categorizedDomainById, categoryNames, filter, filteredDomains, sortOption]);
 
-  const overlapDomains = useMemo(() => categorization.categorizedDomains
-    .filter(item => item.categoryIds.length > 1)
-    .map(item => ({
-      domainName: item.domain.domain_name,
-      categoryNames: item.categoryIds.map(categoryId => categoryNames[categoryId] || categoryId),
-    })),
-    [categorization.categorizedDomains, categoryNames],
-  );
+  const categoryGroups = useMemo(() => {
+    if (categoryFilter !== 'all' || categorization.categories.length === 0) {
+      return [];
+    }
+
+    const domainsByPrimaryCategory = new Map<string, Domain[]>();
+    const uncategorized: Domain[] = [];
+    for (const domain of sortedDomains) {
+      const primaryCategoryId = categorizedDomainById.get(domain.id)?.primaryCategoryId;
+      if (!primaryCategoryId) {
+        uncategorized.push(domain);
+        continue;
+      }
+      domainsByPrimaryCategory.set(primaryCategoryId, [
+        ...(domainsByPrimaryCategory.get(primaryCategoryId) || []),
+        domain,
+      ]);
+    }
+
+    const groups = categorization.categories
+      .map((category, index) => {
+        const groupDomains = domainsByPrimaryCategory.get(category.id) || [];
+        if (groupDomains.length === 0) return null;
+
+        const overlapCategoryIds = new Set<string>();
+        for (const domain of groupDomains) {
+          const meta = categorizedDomainById.get(domain.id);
+          for (const categoryId of meta?.categoryIds || []) {
+            if (categoryId !== category.id) overlapCategoryIds.add(categoryId);
+          }
+        }
+
+        return {
+          id: category.id,
+          label: categoryNames[category.id] || category.suggestedName,
+          domains: groupDomains,
+          style: CATEGORY_GROUP_STYLES[index % CATEGORY_GROUP_STYLES.length],
+          overlapLabels: Array.from(overlapCategoryIds).map(categoryId => categoryNames[categoryId] || categoryId),
+        };
+      })
+      .filter((group): group is {
+        id: string;
+        label: string;
+        domains: Domain[];
+        style: string;
+        overlapLabels: string[];
+      } => Boolean(group));
+
+    if (uncategorized.length > 0) {
+      groups.push({
+        id: 'uncategorized',
+        label: 'Uncategorized',
+        domains: uncategorized,
+        style: 'border-slate-300 bg-slate-50/70 dark:border-slate-700 dark:bg-slate-950/40',
+        overlapLabels: [],
+      });
+    }
+
+    return groups;
+  }, [categorizedDomainById, categorization.categories, categoryFilter, categoryNames, sortedDomains]);
 
   const filterIcons: Record<FilterType, React.ReactNode> = {
     all: <DomainCodevIcon className="h-4 w-4" />,
@@ -585,13 +625,12 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
         </div>
       </div>
 
-      <CategoryMap
+      <CategoryControls
         categories={categorization.categories}
         categoryNames={categoryNames}
         selectedCategoryId={categoryFilter}
         onSelectCategory={setCategoryFilter}
         onRenameCategory={handleRenameCategory}
-        overlapDomains={overlapDomains}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -651,9 +690,31 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
         </div>
       </div>
 
-      <div className={`space-y-2 transition-opacity ${isProcessing ? 'opacity-50' : 'opacity-100'}`}>
+      <div className={`space-y-3 transition-opacity ${isProcessing ? 'opacity-50' : 'opacity-100'}`}>
         {sortedDomains.length > 0 ? (
-          sortedDomains.map(renderDomainItem)
+          categoryGroups.length > 0 ? (
+            categoryGroups.map(group => (
+              <section key={group.id} className={`rounded-lg border-2 p-2 shadow-sm ${group.style}`}>
+                <div className="mb-2 flex flex-wrap items-center gap-2 px-1">
+                  <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">{group.label}</h3>
+                  <span className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-900/70 dark:text-slate-300">
+                    {group.domains.length}
+                  </span>
+                  {group.overlapLabels.length > 0 && (
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                      overlaps {group.overlapLabels.slice(0, 3).join(' + ')}
+                      {group.overlapLabels.length > 3 ? ` +${group.overlapLabels.length - 3}` : ''}
+                    </span>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {group.domains.map(renderDomainItem)}
+                </div>
+              </section>
+            ))
+          ) : (
+            sortedDomains.map(renderDomainItem)
+          )
         ) : (
             <div className="text-center py-12">
                 <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">No domains match this filter</h3>

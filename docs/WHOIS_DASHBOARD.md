@@ -1,6 +1,6 @@
 # WHOIS Provider Dashboard And Backup Guide
 
-Last updated: 2026-06-03 13:58 WIB.
+Last updated: 2026-06-04 21:20 WIB.
 
 ## Position
 
@@ -128,12 +128,20 @@ Add a compact "WHOIS Providers" panel above or beside the domain list.
 | RapidAPI Domain WHOIS Lookup API | Yes | `RAPIDAPI_KEY` | Last fallback | Marketplace APIs vary by provider and plan. Treat as optional. |
 | WhoisJSON | Yes | `WHOISJSON_API_KEY` | New backup | 1,000 free monthly requests across endpoints. Adapter added, but response mapping needs live validation. |
 | IP2WHOIS / IP2Location.io | Yes | `IP2WHOIS_API_KEY` | New backup | 500 domain WHOIS API queries/month on free tier per IP2Location.io pricing. Adapter added, but response mapping needs live validation. |
-| JsonWhois.io | No | Proposed `JSONWHOIS_API_KEY` | Optional backup | Has availability and WHOIS endpoints; pricing model needs confirmation before implementation. |
-| RDAP direct lookup | No | None | Future no-key fallback | Useful for common TLDs but response formats vary by registry. |
+| Direct RDAP via IANA bootstrap | No | None | Proposed no-key primary fallback | Official structured registration-data path. Needs bootstrap cache, registry-specific parsing, and careful 404/429 handling. |
+| RDAP.org bootstrap | No | None | Proposed no-key prototype fallback | Easy single endpoint, but documented Cloudflare limit is 10 requests per 10 seconds, so it should be low-volume or prototype-only. |
+| OTI Labs WHOIS API | No | Proposed `OTI_LABS_API_KEY` | Optional backup | RDAP-first API with port-43 fallback, free 1,000 requests/month through RapidAPI. |
+| Domainduck | No | Proposed `DOMAINDUCK_API_KEY` | Optional backup | Availability plus WHOIS. Free plan lists 2,500 requests and 500/hour when cache rules apply. |
+| JsonWhois.io | No | Proposed `JSONWHOIS_API_KEY` | Optional backup | Has availability and WHOIS endpoints; free quota should be verified from account/docs before implementation. |
+| WHOIS.LS | No | None | Experimental no-key fallback | Free JSON/raw WHOIS proxy claiming no usage limits. Keep low priority until reliability is measured. |
+| Domiquo | No | Proposed `DOMIQUO_API_KEY` | Availability-only backup | RDAP-based availability API. Useful for buy/not-buy checks, not full expiry/name-server metadata. |
+| RDAP API | No | Proposed `RDAP_API_KEY` | Paid/trial fallback | Normalized RDAP/WHOIS with 7-day free trial, then paid. Good commercial fallback if free providers are exhausted. |
+| Domainr / Fastly Domain Research API | No | Proposed `DOMAINR_API_KEY` | Availability/status-only backup | Useful for status/search, but not a replacement for full WHOIS expiry/name-server metadata. |
+| Hexillion Whois API | No | Proposed `HEXILLION_API_KEY` | Low-priority backup | Mature parser, but current free automated quota is unclear. |
 
 ## Current Public Free-Tier / Limit Notes
 
-These numbers were checked on 2026-06-03. Verify before coding billing-sensitive behavior.
+These numbers were checked on 2026-06-04. Verify before coding billing-sensitive behavior.
 
 | Provider | Free/limit data found | Dashboard confidence | Source |
 | --- | --- | --- | --- |
@@ -144,6 +152,14 @@ These numbers were checked on 2026-06-03. Verify before coding billing-sensitive
 | IP2WHOIS / IP2Location.io | 500 Domain WHOIS API queries/month on free tier. | High | https://www.ip2location.io/pricing |
 | RapidAPI marketplace WHOIS APIs | Free plans vary by individual API. RapidAPI says quota monitoring is the subscriber's responsibility. | Low/varies | https://docs.rapidapi.com/v2.0/docs/api-pricing |
 | WhoAPI | Current free quota not confirmed in this pass. | Low | Verify from account/pricing page before implementation. |
+| Direct RDAP via IANA bootstrap | No vendor quota or key, but each registry has its own rate limits and behavior. | High for protocol, medium for per-registry reliability | https://www.icann.org/rdap/ and https://www.iana.org/help/rdap-requirements |
+| RDAP.org bootstrap | No key, but Cloudflare limits clients to 10 requests in 10 seconds. | High | https://about.rdap.org/ |
+| OTI Labs WHOIS API | 1,000 requests/month, no credit card, RDAP + port-43 fallback. | Medium/high | https://oti-labs.com/whois-api |
+| Domainduck | Free plan lists 2,500 requests, WHOIS and availability data, no credit card, and 500 requests/hour. | Medium/high | https://api.domainduck.io/ |
+| WHOIS.LS | Claims free API access with no usage limits. | Low until tested | https://whois.ls/api |
+| Domiquo | Search/indexed docs show 1,000 checks/month and no credit card; availability-focused. | Medium/low until account docs are verified | https://domiquo.com/ |
+| RDAP API | 7-day free trial; paid plans start with 30,000 requests/month and 30 requests/minute. | Medium | https://rdapapi.io/pricing |
+| Domainr / Fastly Domain Research API | Original Domainr API docs are deprecated; treat as a status/search provider, not full WHOIS. | Low | https://domainr.com/docs/api |
 | JsonWhois.io | Current free quota not confirmed in this pass. | Low | Verify from account/pricing page before implementation. |
 
 ## Data Model For Provider Telemetry

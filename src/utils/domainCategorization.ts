@@ -97,6 +97,45 @@ const normalizedSimilarity = (left: string, right: string) => {
   return 1 - (levenshteinDistance(left, right) / longest);
 };
 
+const longestCommonSubstringLength = (left: string, right: string) => {
+  let longest = 0;
+  const previous = Array(right.length + 1).fill(0);
+  const current = Array(right.length + 1).fill(0);
+
+  for (let i = 1; i <= left.length; i += 1) {
+    for (let j = 1; j <= right.length; j += 1) {
+      current[j] = left[i - 1] === right[j - 1] ? previous[j - 1] + 1 : 0;
+      longest = Math.max(longest, current[j]);
+    }
+    for (let j = 0; j <= right.length; j += 1) {
+      previous[j] = current[j];
+      current[j] = 0;
+    }
+  }
+
+  return longest;
+};
+
+const commonPrefixLength = (left: string, right: string) => {
+  let index = 0;
+  while (index < left.length && index < right.length && left[index] === right[index]) {
+    index += 1;
+  }
+  return index;
+};
+
+const commonSuffixLength = (left: string, right: string) => {
+  let index = 0;
+  while (
+    index < left.length
+    && index < right.length
+    && left[left.length - 1 - index] === right[right.length - 1 - index]
+  ) {
+    index += 1;
+  }
+  return index;
+};
+
 const splitLetters = (value: string) => {
   const letters = value.replace(/[^a-z]/g, '');
   let vowels = '';
@@ -137,12 +176,53 @@ const scoreBaseSimilarity = (left: string, right: string) => {
   return Math.max(score, phoneticScore * 0.9);
 };
 
+const hasStrongContainment = (anchor: string, base: string) => {
+  const shorter = anchor.length <= base.length ? anchor : base;
+  const longer = anchor.length <= base.length ? base : anchor;
+  if (shorter.length < 4 || !longer.includes(shorter)) return false;
+
+  const startsOrEnds = longer.startsWith(shorter) || longer.endsWith(shorter);
+  const coverage = shorter.length / longer.length;
+
+  if (shorter.length <= 5) {
+    return startsOrEnds && coverage >= 0.22;
+  }
+
+  return coverage >= 0.30 || startsOrEnds;
+};
+
+const hasStrongSimilarityEvidence = (left: string, right: string) => {
+  const shortest = Math.min(left.length, right.length);
+  const longest = Math.max(left.length, right.length);
+  if (shortest < 5) return false;
+  if (longest / shortest > 1.55) return false;
+
+  const fullScore = normalizedSimilarity(left, right);
+  const phoneticScore = normalizedSimilarity(phoneticKey(left), phoneticKey(right));
+  if (phoneticScore >= 0.88 && fullScore >= 0.42) return true;
+
+  const sharedRun = longestCommonSubstringLength(left, right);
+  const prefix = commonPrefixLength(left, right);
+  const suffix = commonSuffixLength(left, right);
+  const hasSharedShape = sharedRun >= 4 || prefix >= 4 || suffix >= 4;
+  if (!hasSharedShape) return false;
+
+  const leftLetters = splitLetters(left);
+  const rightLetters = splitLetters(right);
+  const vowelScore = normalizedSimilarity(leftLetters.vowels, rightLetters.vowels);
+  const consonantScore = normalizedSimilarity(leftLetters.consonants, rightLetters.consonants);
+
+  return fullScore >= 0.62
+    && consonantScore >= 0.58
+    && vowelScore >= 0.50;
+};
+
 const getMembership = (anchor: string, base: string): DomainCategoryMember['reason'] | null => {
   if (anchor === base) return 'exact';
-  if (anchor.length >= 4 && base.length >= 4 && (anchor.includes(base) || base.includes(anchor))) return 'contains';
+  if (hasStrongContainment(anchor, base)) return 'contains';
 
   const score = scoreBaseSimilarity(anchor, base);
-  return score >= 0.68 ? 'similar' : null;
+  return score >= 0.74 && hasStrongSimilarityEvidence(anchor, base) ? 'similar' : null;
 };
 
 const getMembershipScore = (anchor: string, base: string, reason: DomainCategoryMember['reason']) => {

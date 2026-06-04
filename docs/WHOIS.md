@@ -1,6 +1,6 @@
 # WHOIS Implementation And Provider Research
 
-Last researched: 2026-06-03.
+Last researched: 2026-06-04.
 
 ## Current Implementation
 
@@ -91,7 +91,7 @@ The cron run is capped by `WHOIS_CRON_MAX_CHECKS`, default `50`, and processes d
 
 ## Free-Tier Provider Research
 
-Provider offers change, so verify before implementation. These were checked on 2026-06-03.
+Provider offers change, so verify before implementation. These were checked on 2026-06-04.
 
 | Provider | Free tier found | Good fit | Notes | Source |
 | --- | --- | --- | --- | --- |
@@ -102,17 +102,44 @@ Provider offers change, so verify before implementation. These were checked on 2
 | IP2WHOIS | 500 WHOIS domain queries/month | Added backup candidate | Adapter added; needs live response validation. | https://www.ip2whois.com/developers-api |
 | JsonWhois | 250 free domain WHOIS calls/month and 500 free availability calls/month listed | Useful if availability checks are more important than full WHOIS | Not currently implemented. | https://jsonwhois.io/ |
 | RapidAPI WHOIS APIs | Depends on individual marketplace API | Use only as backup | RapidAPI free tiers vary per provider and add marketplace dependency. Current code supports one RapidAPI host. | https://rapidapi.com/collection/whois-api |
+| Direct RDAP via IANA bootstrap | No API key; public registry RDAP services | Strong next implementation because it removes vendor dependency | RDAP gives structured JSON and is the modern replacement for WHOIS, but registry rate limits and fields vary. Cache aggressively and treat 404/429 carefully. | https://www.icann.org/rdap/ and https://www.iana.org/help/rdap-requirements |
+| RDAP.org bootstrap | No API key; public bootstrap endpoint | Useful prototype/fallback before implementing full IANA bootstrap client | Single endpoint redirects to authoritative RDAP. It documents a 10 requests / 10 seconds Cloudflare limit, so this should not be used for large bulk checks. | https://about.rdap.org/ |
+| RDAP API | 7-day free trial; paid plans start at 30,000 requests/month | Good commercial RDAP fallback if free providers are noisy | Normalized JSON, cached responses, bulk domain lookups, and 1,200+ TLD coverage. Not free long-term. | https://rdapapi.io/pricing |
+| OTI Labs WHOIS API | 1,000 free requests/month, no credit card | Good candidate because it is RDAP-first with port-43 fallback | Uses a fallback chain across RDAP.org, IANA RDAP bootstrap, hardcoded RDAP servers, and WHOIS. Hosted on RapidAPI for keys. | https://oti-labs.com/whois-api |
+| Domainduck | 2,500 free requests, no credit card, 500/hour | Good candidate for availability plus WHOIS | Supports availability and WHOIS data. Free plan omits premium marketplace pricing. | https://api.domainduck.io/ |
+| Domiquo | 1,000 checks/month, no credit card listed in search result | Availability-focused candidate | RDAP-based availability API. Better for "can I buy this?" than full ownership metadata. Needs live docs/account validation before implementation. | https://domiquo.com/ |
+| WHOIS.LS | Free API, no usage limits claimed | Experimental no-key fallback | Returns raw and JSON responses. Because it is a free proxy, use after official RDAP and cache results; validate reliability before trusting availability. | https://whois.ls/api |
+| Whoxy | Free research package can include 250,000 WHOIS / history / reverse lookups | Not a normal hobby default | Free access is for qualifying non-commercial security/research organizations, not ordinary hobby usage. | https://www.whoxy.com/free-whois-api/ |
+| Domainr / Fastly Domain Research API | Free/lower-volume path documented through API access; original Domainr API is deprecated | Availability-only candidate | Useful for domain search/status, not full WHOIS metadata. Current docs say the original Domainr API moved under Fastly and older docs are deprecated. | https://domainr.com/docs/api |
+| Hexillion Whois API | Limited free web tools; API account needed for automation | Lower priority | Mature WHOIS parser with JSON/XML output, but free automated quota is not clearly advertised. | https://hexillion.com/support/reference/whois-api |
+
+## Provider Expansion Shortlist
+
+The project already has 8 implemented providers. To get beyond 10 without adding weak providers blindly, add these in this order:
+
+| Priority | Provider | Why |
+| --- | --- | --- |
+| 1 | Direct RDAP via IANA bootstrap | No API key, structured data, official protocol path. Best quota saver if cached. |
+| 2 | RDAP.org bootstrap | Fast way to validate RDAP parsing before maintaining the full bootstrap cache. |
+| 3 | OTI Labs | Free monthly quota and RDAP + WHOIS fallback chain. |
+| 4 | Domainduck | Useful free quota and availability + WHOIS combination. |
+| 5 | JsonWhois | Small but clear free WHOIS/availability quota. |
+| 6 | WHOIS.LS | No-key fallback, but should be low priority until reliability is tested. |
+| 7 | RDAP API | Good paid/trial fallback if free providers are exhausted. |
+| 8 | Domainr/Fastly | Use only for availability/status, not expiry/name-server metadata. |
 
 ## Recommendation
 
 For a hobby project on Cloudflare:
 
 1. Keep a provider waterfall, but make providers configurable.
-2. Start with APILayer + WhoisJSON + WhoisXMLAPI because the free quotas are useful and the APIs are structured.
-3. Keep WhoisFreaks as a fallback if the one-time credits are enough.
-4. Use provider-specific adapters that all return one normalized shape.
-5. Store every check result and error in D1 so debugging does not depend on runtime logs.
-6. Add a provider priority setting in code, not in the UI initially.
+2. Add direct RDAP support before adding more paid/free-key vendors. RDAP is the official structured replacement path and avoids one more vendor account.
+3. Keep APILayer + WhoisJSON + WhoisXMLAPI because the free quotas are useful and the APIs are structured.
+4. Keep WhoisFreaks as a fallback if the one-time credits are enough.
+5. Add OTI Labs, Domainduck, JsonWhois, and WHOIS.LS as optional backups after the provider registry supports per-provider toggles and test calls.
+6. Use provider-specific adapters that all return one normalized shape.
+7. Store every check result and error in D1/Supabase so debugging does not depend on runtime logs.
+8. Add a provider priority setting in code, not in the UI initially.
 
 ## Dashboard Requirement
 
