@@ -346,6 +346,7 @@ const App: React.FC = () => {
         return;
     }
 
+    setIsDomainEntryModalOpen(false);
     setIsBulkProcessing(true);
     addLog(`➡️ Starting bulk add of ${domainsToAdd.length} domains...`);
 
@@ -360,7 +361,7 @@ const App: React.FC = () => {
         nextIndex += 1;
         const item = domainsToAdd[currentIndex];
         addLog(`🔄 Worker ${workerIndex + 1}: checking ${item.domainName} (${currentIndex + 1}/${domainsToAdd.length})...`);
-        await addDomain(item.domainName, item.tag || defaultTag);
+        await addDomain(item.domainName, item.tag || defaultTag, { optimistic: true });
         completedCount += 1;
         if (completedCount % BULK_CONCURRENCY === 0 || completedCount === domainsToAdd.length) {
           addLog(`ℹ️ Bulk add progress: ${completedCount}/${domainsToAdd.length} processed.`);
@@ -371,7 +372,6 @@ const App: React.FC = () => {
     try {
       await Promise.allSettled(Array.from({ length: workerCount }, (_, index) => runWorker(index)));
       addLog('✅ Bulk add finished.');
-      setIsDomainEntryModalOpen(false);
     } finally {
       setIsBulkProcessing(false);
     }

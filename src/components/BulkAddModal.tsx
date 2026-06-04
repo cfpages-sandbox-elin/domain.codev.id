@@ -7,6 +7,7 @@ import { ArrowUpOnSquareIcon, ExclamationTriangleIcon, HomeIcon, TargetIcon } fr
 
 type BulkDomain = { domainName: string; tag?: DomainTag };
 type ActiveTab = 'single' | 'bulk';
+type BulkEntryMode = 'paste' | 'file';
 
 interface BulkAddModalProps {
     isOpen: boolean;
@@ -123,6 +124,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
     const [singleTag, setSingleTag] = useState<DomainTag>('mine');
     const [textValue, setTextValue] = useState('');
     const [defaultTag, setDefaultTag] = useState<DomainTag>('mine');
+    const [bulkEntryMode, setBulkEntryMode] = useState<BulkEntryMode>('paste');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const singleInputRef = useRef<HTMLInputElement>(null);
     const bulkInputRef = useRef<HTMLTextAreaElement>(null);
@@ -152,12 +154,14 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
         const timer = window.setTimeout(() => {
             if (activeTab === 'single') {
                 singleInputRef.current?.focus();
-            } else {
+            } else if (bulkEntryMode === 'paste') {
                 bulkInputRef.current?.focus();
+            } else {
+                fileInputRef.current?.focus();
             }
         }, 0);
         return () => window.clearTimeout(timer);
-    }, [isOpen, activeTab]);
+    }, [isOpen, activeTab, bulkEntryMode]);
 
     const parsedPaste = useMemo(() => parseBulkDomains(splitBulkInput(textValue), existingDomainNames), [existingDomainNames, textValue]);
 
@@ -195,17 +199,24 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
         }
     };
 
-    const handlePasteSubmit = () => {
+    const handlePasteSubmit = (tagOverride?: DomainTag) => {
         if (isBusy) return;
         if (parsedPaste.domains.length === 0) {
             alert(parsedPaste.invalid.length > 0 ? 'No valid domain names found in the pasted list.' : 'Please enter at least one domain name.');
             return;
         }
 
+        if (tagOverride) setDefaultTag(tagOverride);
         const skippedLog = formatSkippedImportLog('Bulk input', parsedPaste);
         if (skippedLog) addLog(skippedLog);
 
-        onBulkAdd(parsedPaste.domains, defaultTag);
+        onBulkAdd(parsedPaste.domains, tagOverride || defaultTag);
+    };
+
+    const handleBulkPasteKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (event.key !== 'Enter' || (!event.ctrlKey && !event.metaKey)) return;
+        event.preventDefault();
+        handlePasteSubmit(event.shiftKey ? 'to-snatch' : 'mine');
     };
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -379,41 +390,67 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                     </div>
                 ) : (
                     <div className="flex flex-col gap-6" role="tabpanel">
-                        <div>
-                            <h4 className="font-semibold text-lg text-slate-800 dark:text-slate-200 mb-2">Paste a List</h4>
-                    <textarea
-                        ref={bulkInputRef}
-                        value={textValue}
-                        onChange={(e) => setTextValue(e.target.value)}
-                        placeholder="example.com, anotherexample.net\nfinaldomain.org"
-                        className="w-full h-32 p-3 bg-slate-100 dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-600 focus:border-brand-blue focus:ring-0 rounded-lg transition"
-                        disabled={isBusy}
-                    />
-                    {textValue.trim() && (
-                        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                            {parsedPaste.domains.length} new valid, {parsedPaste.invalid.length} invalid, {parsedPaste.duplicates.length} duplicate, {parsedPaste.existing.length} already tracked.
-                        </p>
-                    )}
-                </div>
+                        <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1 dark:bg-slate-900" role="tablist" aria-label="Bulk input source">
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={bulkEntryMode === 'paste'}
+                                onClick={() => setBulkEntryMode('paste')}
+                                className={`inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${bulkEntryMode === 'paste' ? 'bg-white text-brand-blue shadow-sm dark:bg-slate-700 dark:text-white' : 'text-slate-600 hover:bg-white/60 dark:text-slate-300 dark:hover:bg-slate-800'}`}
+                            >
+                                Paste List
+                            </button>
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={bulkEntryMode === 'file'}
+                                onClick={() => setBulkEntryMode('file')}
+                                className={`inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${bulkEntryMode === 'file' ? 'bg-white text-brand-blue shadow-sm dark:bg-slate-700 dark:text-white' : 'text-slate-600 hover:bg-white/60 dark:text-slate-300 dark:hover:bg-slate-800'}`}
+                            >
+                                Upload File
+                            </button>
+                        </div>
 
-                <div>
-                    <h4 className="font-semibold text-lg text-slate-800 dark:text-slate-200 mb-2">Upload a File</h4>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">Upload a `.json` or `.csv` file. CSV files must have a `domain_name` column header. An optional `tag` column can be included.</p>
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileChange}
-                        accept=".json,.csv,application/json,text/csv"
-                        disabled={isBusy}
-                        className="block w-full text-sm text-slate-500
-                                   file:mr-4 file:py-2 file:px-4
-                                   file:rounded-full file:border-0
-                                   file:text-sm file:font-semibold
-                                   file:bg-blue-50 file:text-brand-blue
-                                   dark:file:bg-blue-900/50 dark:file:text-blue-300
-                                   hover:file:bg-blue-100 dark:hover:file:bg-blue-900"
-                    />
-                </div>
+                        {bulkEntryMode === 'paste' ? (
+                            <div>
+                                <h4 className="mb-2 text-lg font-semibold text-slate-800 dark:text-slate-200">Paste a List</h4>
+                                <Tooltip content="Ctrl + Enter = check as Mine. Ctrl + Shift + Enter = check as To Snatch.">
+                                    <textarea
+                                        ref={bulkInputRef}
+                                        value={textValue}
+                                        onChange={(e) => setTextValue(e.target.value)}
+                                        onKeyDown={handleBulkPasteKeyDown}
+                                        placeholder="example.com, anotherexample.net\nfinaldomain.org"
+                                        className="h-32 w-full rounded-lg border-2 border-slate-200 bg-slate-100 p-3 transition focus:border-brand-blue focus:ring-0 dark:border-slate-600 dark:bg-slate-700"
+                                        disabled={isBusy}
+                                    />
+                                </Tooltip>
+                                {textValue.trim() && (
+                                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                                        {parsedPaste.domains.length} new valid, {parsedPaste.invalid.length} invalid, {parsedPaste.duplicates.length} duplicate, {parsedPaste.existing.length} already tracked.
+                                    </p>
+                                )}
+                            </div>
+                        ) : (
+                            <div>
+                                <h4 className="mb-2 text-lg font-semibold text-slate-800 dark:text-slate-200">Upload a File</h4>
+                                <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">Upload a `.json` or `.csv` file. CSV files must have a `domain_name` column header. An optional `tag` column can be included.</p>
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    onChange={handleFileChange}
+                                    accept=".json,.csv,application/json,text/csv"
+                                    disabled={isBusy}
+                                    className="block w-full text-sm text-slate-500
+                                            file:mr-4 file:rounded-full file:border-0
+                                            file:bg-blue-50 file:px-4 file:py-2
+                                            file:text-sm file:font-semibold
+                                            file:text-brand-blue hover:file:bg-blue-100
+                                            dark:file:bg-blue-900/50 dark:file:text-blue-300
+                                            dark:hover:file:bg-blue-900"
+                                />
+                            </div>
+                        )}
 
                 <div>
                     <h4 className="font-semibold text-lg text-slate-800 dark:text-slate-200 mb-2">Default Tag</h4>
@@ -425,17 +462,19 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                     </fieldset>
                 </div>
 
-                <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-600">
-                    <Tooltip content="Each new valid domain runs WHOIS before saving. Invalid, repeated, and already tracked domains are skipped.">
-                    <button
-                        onClick={handlePasteSubmit}
-                        disabled={isBusy || !textValue.trim() || parsedPaste.domains.length === 0}
-                        className="px-6 py-3 font-semibold text-white bg-brand-blue hover:bg-blue-600 rounded-lg transition-colors flex items-center justify-center disabled:bg-blue-300 dark:disabled:bg-blue-800 disabled:cursor-not-allowed"
-                    >
-                        {isLoading ? <><Spinner /> Processing...</> : 'Check and Add Valid Domains'}
-                    </button>
-                    </Tooltip>
-                </div>
+                {bulkEntryMode === 'paste' && (
+                    <div className="flex justify-end border-t border-slate-200 pt-4 dark:border-slate-600">
+                        <Tooltip content="Each new valid domain runs WHOIS before saving. Invalid, repeated, and already tracked domains are skipped. Ctrl + Enter checks as Mine; Ctrl + Shift + Enter checks as To Snatch.">
+                        <button
+                            onClick={() => handlePasteSubmit()}
+                            disabled={isBusy || !textValue.trim() || parsedPaste.domains.length === 0}
+                            className="flex items-center justify-center rounded-lg bg-brand-blue px-6 py-3 font-semibold text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-blue-300 dark:disabled:bg-blue-800"
+                        >
+                            {isLoading ? <><Spinner /> Processing...</> : 'Check and Add Valid Domains'}
+                        </button>
+                        </Tooltip>
+                    </div>
+                )}
                     </div>
                 )}
             </div>
