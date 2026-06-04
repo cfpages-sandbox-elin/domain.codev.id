@@ -11,6 +11,7 @@ interface DomainItemProps {
   onRemove: (id: number) => void;
   onShowInfo: (domain: Domain) => void;
   onToggleTag: (id: number) => void;
+  onSetTag: (id: number, tag: DomainTag) => void;
   onRecheck: (id: number) => Promise<void>;
   isAutoRefreshing?: boolean;
   isPending?: boolean;
@@ -168,10 +169,10 @@ const getTagIcon = (tag: DomainTag) => {
   return TargetIcon;
 };
 
-const getNextTagLabel = (tag: DomainTag) => {
-  if (tag === 'mine') return 'To Snatch';
-  if (tag === 'to-snatch') return 'Others';
-  return 'Mine';
+const getTagColorClass = (tag: DomainTag) => {
+  if (tag === 'mine') return 'text-indigo-700 dark:text-indigo-200';
+  if (tag === 'others') return 'text-violet-700 dark:text-violet-200';
+  return 'text-teal-700 dark:text-teal-200';
 };
 
 const DetailRow: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
@@ -188,7 +189,7 @@ const PlainTooltipText: React.FC<{ title: string; body?: string }> = ({ title, b
   </span>
 );
 
-const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove, onShowInfo, onToggleTag, onRecheck, isAutoRefreshing = false, isPending = false, categoryLabels = [], tld }) => {
+const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove, onShowInfo, onToggleTag, onSetTag, onRecheck, isAutoRefreshing = false, isPending = false, categoryLabels = [], tld }) => {
   const [selectedRegistrar, setSelectedRegistrar] = useState<string>('');
   const [isRechecking, setIsRechecking] = useState(false);
   const { isCompact } = useCompactMode();
@@ -251,11 +252,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
   const whoisUrl = `https://www.whois.com/whois/${encodeURIComponent(domain.domain_name)}`;
   const TagIconComponent = getTagIcon(effectiveTag);
   const tagLabel = getTagLabel(effectiveTag);
-  const tagColorClass = effectiveTag === 'mine'
-    ? 'text-indigo-700 dark:text-indigo-200'
-    : effectiveTag === 'others'
-      ? 'text-violet-700 dark:text-violet-200'
-      : 'text-teal-700 dark:text-teal-200';
+  const tagColorClass = getTagColorClass(effectiveTag);
   const tagIconClass = `h-5 w-5 ${tagColorClass}`;
   const leadingTagIconClass = `mt-0.5 h-4 w-4 flex-none ${tagColorClass}`;
   const selectedRegistrarName = registrars[selectedRegistrar] || selectedRegistrar;
@@ -451,15 +448,37 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
               </span>
             </Tooltip>
           ) : (
-            <Tooltip content={<PlainTooltipText title={`Tag: ${tagLabel}`} body={`Click to switch to ${getNextTagLabel(effectiveTag)}.`} />}>
-              <button
-                onClick={() => onToggleTag(domain.id)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-slate-200 dark:hover:bg-slate-700"
-                aria-label={`Switch tag for ${domain.domain_name}`}
-              >
-                <TagIconComponent className={tagIconClass} />
-              </button>
-            </Tooltip>
+            <div className="group/tag inline-flex h-8 w-[104px] items-center justify-end gap-1 rounded-md focus-within:bg-slate-200 hover:bg-slate-200 dark:focus-within:bg-slate-700 dark:hover:bg-slate-700">
+              <span className="hidden items-center gap-1 pl-1 group-hover/tag:inline-flex group-focus-within/tag:inline-flex">
+                {(['mine', 'to-snatch', 'others'] as DomainTag[])
+                  .filter(tag => tag !== effectiveTag)
+                  .map(tag => {
+                    const OptionIcon = getTagIcon(tag);
+                    const optionLabel = getTagLabel(tag);
+                    return (
+                      <Tooltip key={tag} content={<PlainTooltipText title={`Set ${optionLabel}`} body={`Change this domain tag to ${optionLabel}.`} />}>
+                        <button
+                          type="button"
+                          onClick={() => onSetTag(domain.id, tag)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-white/70 dark:hover:bg-slate-800"
+                          aria-label={`Set ${domain.domain_name} tag to ${optionLabel}`}
+                        >
+                          <OptionIcon className={`h-5 w-5 ${getTagColorClass(tag)}`} />
+                        </button>
+                      </Tooltip>
+                    );
+                  })}
+              </span>
+              <Tooltip content={<PlainTooltipText title={`Current tag: ${tagLabel}`} body="Hover to choose Mine, To Snatch, or Others directly." />}>
+                <button
+                  onClick={() => onToggleTag(domain.id)}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors"
+                  aria-label={`Current tag for ${domain.domain_name}: ${tagLabel}`}
+                >
+                  <TagIconComponent className={tagIconClass} />
+                </button>
+              </Tooltip>
+            </div>
           )}
           <Tooltip content={<PlainTooltipText title="Remove domain" body="Delete this domain from your tracking list." />}>
             <button

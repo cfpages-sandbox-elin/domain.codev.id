@@ -443,6 +443,20 @@ const App: React.FC = () => {
     }
   };
 
+  const setDomainTag = useCallback(async (id: number, tag: DomainTag) => {
+    const domain = domains.find(d => d.id === id);
+    if (!domain || domain.tag === tag) return;
+    if ((domain.status === 'available' || domain.status === 'dropped') && tag !== 'to-snatch') return;
+
+    const updatedDomain = await SupabaseService.updateDomain(id, { tag });
+    if (updatedDomain) {
+      setDomains(prevDomains => prevDomains.map(d =>
+        d.id === id ? updatedDomain : d
+      ));
+      addLog(`✅ Switched tag for ${domain.domain_name} to "${tag}".`);
+    }
+  }, [addLog, domains]);
+
   const markDomainsAsMine = useCallback(async (domainIds: number[], reason: string) => {
     const targets = domains.filter(domain => (
       domainIds.includes(domain.id)
@@ -651,6 +665,7 @@ const App: React.FC = () => {
             onRemove={removeDomain}
             onShowInfo={handleShowInfo}
             onToggleTag={toggleDomainTag}
+            onSetTag={setDomainTag}
             onRecheck={recheckDomain}
             autoRepairingDomainIds={autoRepairingDomainIds}
             pendingDomainIds={pendingDomainIds}

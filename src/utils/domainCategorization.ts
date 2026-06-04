@@ -245,23 +245,45 @@ const getMembershipScore = (anchor: string, base: string, reason: DomainCategory
 
 const getCategoryId = (base: string) => `category:${base}`;
 
+const makePairKey = (left: string, right: string) => left <= right ? `${left}\u0000${right}` : `${right}\u0000${left}`;
+
 export const categorizeDomains = (domains: Domain[]): DomainCategorizationResult => {
   const domainsWithParts = domains.map(domain => ({
     domain,
     parts: getDomainParts(domain.domain_name),
   }));
   const knownBases = new Set(domainsWithParts.map(item => item.parts.base));
+  const categoriesById = new Map<string, DomainCategory>();
+  const membershipCache = new Map<string, DomainCategoryMember['reason'] | null>();
+  const scoreCache = new Map<string, number>();
+  const getCachedMembership = (anchor: string, base: string) => {
+    const key = makePairKey(anchor, base);
+    if (membershipCache.has(key)) return membershipCache.get(key) || null;
+    const membership = getMembership(anchor, base, knownBases);
+    membershipCache.set(key, membership);
+    return membership;
+  };
+  const getCachedScore = (anchor: string, base: string, reason: DomainCategoryMember['reason']) => {
+    if (reason === 'exact') return 1;
+    if (reason === 'contains') return getMembershipScore(anchor, base, reason);
+    const key = makePairKey(anchor, base);
+    const cached = scoreCache.get(key);
+    if (cached !== undefined) return cached;
+    const score = scoreBaseSimilarity(anchor, base);
+    scoreCache.set(key, score);
+    return score;
+  };
   const anchors = Array.from(new Set(domainsWithParts.map(item => item.parts.base)))
-    .filter(base => base.length >= 3)
+    .filter(base => base.length >= 4)
     .sort((a, b) => a.length - b.length || a.localeCompare(b));
   const rawCategories = anchors.map(anchor => {
     const members = domainsWithParts
       .map(item => {
-        const reason = getMembership(anchor, item.parts.base, knownBases);
+        const reason = getCachedMembership(anchor, item.parts.base);
         if (!reason) return null;
         return {
           domainId: item.domain.id,
-          score: getMembershipScore(anchor, item.parts.base, reason),
+          score: getCachedScore(anchor, item.parts.base, reason),
           reason,
         };
       })
@@ -281,6 +303,7 @@ export const categorizeDomains = (domains: Domain[]): DomainCategorizationResult
     const memberKey = category.members.map(member => member.domainId).sort((a, b) => a - b).join(',');
     if (seenMemberSets.has(memberKey)) return false;
     seenMemberSets.add(memberKey);
+    categoriesById.set(category.id, category);
     return true;
   });
   const categoryIdsByDomainId: Record<number, string[]> = {};
@@ -297,7 +320,7 @@ export const categorizeDomains = (domains: Domain[]): DomainCategorizationResult
   const categorizedDomains = domainsWithParts.map(item => {
     const categoryIds = categoryIdsByDomainId[item.domain.id] || [];
     const primaryCategoryId = categoryIds
-      .map(categoryId => categories.find(category => category.id === categoryId))
+      .map(categoryId => categoriesById.get(categoryId))
       .filter((category): category is DomainCategory => Boolean(category))
       .sort((a, b) => a.suggestedName.length - b.suggestedName.length || a.suggestedName.localeCompare(b.suggestedName))[0]?.id || null;
 

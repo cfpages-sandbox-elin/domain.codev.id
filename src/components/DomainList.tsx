@@ -11,6 +11,7 @@ interface DomainListProps {
   onRemove: (id: number) => void;
   onShowInfo: (domain: Domain) => void;
   onToggleTag: (id: number) => void;
+  onSetTag: (id: number, tag: Domain['tag']) => void;
   onRecheck: (id: number) => Promise<void>;
   autoRepairingDomainIds?: Set<number>;
   pendingDomainIds?: Set<number>;
@@ -167,7 +168,7 @@ const CategoryControls: React.FC<{
   );
 };
 
-const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId, onRemove, onShowInfo, onToggleTag, onRecheck, autoRepairingDomainIds, pendingDomainIds, onImportRequest, onExportRequest, isProcessing }) => {
+const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId, onRemove, onShowInfo, onToggleTag, onSetTag, onRecheck, autoRepairingDomainIds, pendingDomainIds, onImportRequest, onExportRequest, isProcessing }) => {
   const [filter, setFilter] = useState<FilterType>(readStoredFilter);
   const [sortOption, setSortOption] = useState<SortOption>(readStoredSort);
   const [categoryFilter, setCategoryFilter] = useState(readStoredString(CATEGORY_FILTER_STORAGE_KEY));
@@ -287,18 +288,29 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
     }
   };
 
-  const filterCounts = useMemo(() => FILTER_OPTIONS.reduce<Record<FilterType, number>>((counts, filterType) => {
-    counts[filterType] = contextFilteredDomains.filter(domain => getFilterMatch(domain, filterType)).length;
+  const filterCounts = useMemo(() => {
+    const counts: Record<FilterType, number> = {
+      all: 0,
+      mine: 0,
+      'to-snatch': 0,
+      others: 0,
+      expiring: 0,
+      expired: 0,
+      available: 0,
+    };
+
+    for (const domain of contextFilteredDomains) {
+      counts.all += 1;
+      if (getFilterMatch(domain, 'mine')) counts.mine += 1;
+      if (getFilterMatch(domain, 'to-snatch')) counts['to-snatch'] += 1;
+      if (getFilterMatch(domain, 'others')) counts.others += 1;
+      if (getFilterMatch(domain, 'expiring')) counts.expiring += 1;
+      if (getFilterMatch(domain, 'expired')) counts.expired += 1;
+      if (getFilterMatch(domain, 'available')) counts.available += 1;
+    }
+
     return counts;
-  }, {
-    all: 0,
-    mine: 0,
-    'to-snatch': 0,
-    others: 0,
-    expiring: 0,
-    expired: 0,
-    available: 0,
-  }), [contextFilteredDomains]);
+  }, [contextFilteredDomains]);
 
   const filteredDomains = useMemo(() => contextFilteredDomains.filter(domain => {
     switch (filter) {
@@ -414,6 +426,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
           label: categoryNames[category.id] || category.suggestedName,
           domains: groupDomains,
           style: CATEGORY_GROUP_STYLES[index % CATEGORY_GROUP_STYLES.length],
+          overlapCategoryIds: Array.from(overlapCategoryIds),
           overlapLabels: Array.from(overlapCategoryIds).map(categoryId => categoryNames[categoryId] || categoryId),
         };
       })
@@ -422,20 +435,41 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
         label: string;
         domains: Domain[];
         style: string;
+        overlapCategoryIds: string[];
         overlapLabels: string[];
       } => Boolean(group));
 
+    const orderedGroups: typeof groups = [];
+    const remaining = new Map(groups.map(group => [group.id, group]));
+    while (remaining.size > 0) {
+      const seed = Array.from(remaining.values())
+        .sort((a, b) => b.overlapCategoryIds.length - a.overlapCategoryIds.length || a.label.localeCompare(b.label))[0];
+      const queue = [seed.id];
+      while (queue.length > 0) {
+        const id = queue.shift()!;
+        const group = remaining.get(id);
+        if (!group) continue;
+        remaining.delete(id);
+        orderedGroups.push(group);
+        const relatedIds = group.overlapCategoryIds
+          .filter(categoryId => remaining.has(categoryId))
+          .sort((a, b) => (categoryNames[a] || a).localeCompare(categoryNames[b] || b));
+        queue.push(...relatedIds);
+      }
+    }
+
     if (uncategorized.length > 0) {
-      groups.push({
+      orderedGroups.push({
         id: 'uncategorized',
         label: 'Uncategorized',
         domains: uncategorized,
         style: 'border-slate-300 bg-slate-50/70 dark:border-slate-700 dark:bg-slate-950/40',
+        overlapCategoryIds: [],
         overlapLabels: [],
       });
     }
 
-    return groups;
+    return orderedGroups;
   }, [categorizedDomainById, categorization.categories, categoryFilter, categoryNames, sortedDomains]);
 
   const filterIcons: Record<FilterType, React.ReactNode> = {
@@ -495,6 +529,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
         onRemove={onRemove}
         onShowInfo={onShowInfo}
         onToggleTag={onToggleTag}
+        onSetTag={onSetTag}
         onRecheck={onRecheck}
         isAutoRefreshing={autoRepairingDomainIds?.has(domain.id)}
         isPending={pendingDomainIds?.has(domain.id)}
@@ -538,8 +573,8 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-center gap-3">
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="mb-6 flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-center gap-3">
             <FilterButton filterType="all">All</FilterButton>
             <FilterButton filterType="mine">Mine</FilterButton>
             <FilterButton filterType="to-snatch">To Snatch</FilterButton>
@@ -548,10 +583,8 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
             <FilterButton filterType="expiring">Expiring Soon</FilterButton>
             <FilterButton filterType="expired">Expired</FilterButton>
         </div>
-        
-        <div className="flex-grow"></div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center justify-center gap-3">
             <div className="relative" ref={recheckMenuRef}>
                 <Tooltip content="Choose what to re-check. This may use WHOIS API quota.">
                     <button
@@ -655,7 +688,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
         onRenameCategory={handleRenameCategory}
       />
 
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+      <div className="mb-4 flex flex-wrap items-center justify-center gap-3">
         <Tooltip content="Registered target domains are mostly useful for their expiry date. Hide them when you want to focus on owned, client, available, expired, or failed rows.">
           <button
             type="button"
