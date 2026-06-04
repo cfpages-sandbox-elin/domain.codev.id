@@ -176,7 +176,15 @@ const scoreBaseSimilarity = (left: string, right: string) => {
   return Math.max(score, phoneticScore * 0.9);
 };
 
-const hasStrongContainment = (anchor: string, base: string) => {
+const hasKnownRemainder = (shorter: string, longer: string, knownBases: Set<string>) => {
+  const remainders: string[] = [];
+  if (longer.startsWith(shorter)) remainders.push(longer.slice(shorter.length));
+  if (longer.endsWith(shorter)) remainders.push(longer.slice(0, -shorter.length));
+
+  return remainders.some(remainder => remainder.length >= 4 && knownBases.has(remainder));
+};
+
+const hasStrongContainment = (anchor: string, base: string, knownBases: Set<string>) => {
   const shorter = anchor.length <= base.length ? anchor : base;
   const longer = anchor.length <= base.length ? base : anchor;
   if (shorter.length < 4 || !longer.includes(shorter)) return false;
@@ -185,7 +193,7 @@ const hasStrongContainment = (anchor: string, base: string) => {
   const coverage = shorter.length / longer.length;
 
   if (shorter.length <= 5) {
-    return startsOrEnds && coverage >= 0.22;
+    return startsOrEnds && coverage >= 0.22 && hasKnownRemainder(shorter, longer, knownBases);
   }
 
   return coverage >= 0.30 || startsOrEnds;
@@ -217,9 +225,9 @@ const hasStrongSimilarityEvidence = (left: string, right: string) => {
     && vowelScore >= 0.50;
 };
 
-const getMembership = (anchor: string, base: string): DomainCategoryMember['reason'] | null => {
+const getMembership = (anchor: string, base: string, knownBases: Set<string>): DomainCategoryMember['reason'] | null => {
   if (anchor === base) return 'exact';
-  if (hasStrongContainment(anchor, base)) return 'contains';
+  if (hasStrongContainment(anchor, base, knownBases)) return 'contains';
 
   const score = scoreBaseSimilarity(anchor, base);
   return score >= 0.74 && hasStrongSimilarityEvidence(anchor, base) ? 'similar' : null;
@@ -242,13 +250,14 @@ export const categorizeDomains = (domains: Domain[]): DomainCategorizationResult
     domain,
     parts: getDomainParts(domain.domain_name),
   }));
+  const knownBases = new Set(domainsWithParts.map(item => item.parts.base));
   const anchors = Array.from(new Set(domainsWithParts.map(item => item.parts.base)))
     .filter(base => base.length >= 3)
     .sort((a, b) => a.length - b.length || a.localeCompare(b));
   const rawCategories = anchors.map(anchor => {
     const members = domainsWithParts
       .map(item => {
-        const reason = getMembership(anchor, item.parts.base);
+        const reason = getMembership(anchor, item.parts.base, knownBases);
         if (!reason) return null;
         return {
           domainId: item.domain.id,
