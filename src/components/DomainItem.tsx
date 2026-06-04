@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { memo, useMemo, useState, useEffect } from 'react';
 import { Domain, DomainStatus, DomainTag, WhoisData } from '../types';
 import { useCompactMode } from '../contexts/CompactModeContext';
 import { TrashIcon, InfoIcon, ShoppingCartIcon, RefreshIcon, HomeIcon, TargetIcon, UsersIcon } from './icons';
@@ -286,7 +286,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
     </div>
   );
 
-  const tooltipContent = (
+  const tooltipContent = useMemo(() => (
     <div className="space-y-3">
       <div className="space-y-1">
         <DetailRow label="Domain" value={domain.domain_name} />
@@ -328,7 +328,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
         )}
       </div>
     </div>
-  );
+  ), [categoryLabels, domain, nameServers, registryStatuses, tagLabel, tld, whoisDetails?.providerLabel]);
 
   return (
     <div className={`relative overflow-hidden rounded-md border transition-all ${rowStyles} ${isRegisteredTarget ? 'saturate-50 opacity-[0.55] grayscale-[35%]' : ''} ${isWhoisIncomplete ? 'grayscale opacity-75' : ''} ${isCompact ? 'px-3 py-2' : 'px-4 py-3'}`}>
@@ -503,4 +503,17 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
   );
 };
 
-export default DomainItem;
+const areStringArraysEqual = (left?: string[], right?: string[]) => {
+  if (left === right) return true;
+  if (!left || !right || left.length !== right.length) return false;
+  return left.every((value, index) => value === right[index]);
+};
+
+export default memo(DomainItem, (prev, next) => (
+  prev.domain === next.domain
+  && prev.whoisDetails === next.whoisDetails
+  && prev.isAutoRefreshing === next.isAutoRefreshing
+  && prev.isPending === next.isPending
+  && prev.tld === next.tld
+  && areStringArraysEqual(prev.categoryLabels, next.categoryLabels)
+));

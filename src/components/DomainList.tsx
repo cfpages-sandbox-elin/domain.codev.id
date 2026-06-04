@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useCallback, useState, useMemo, useRef, useEffect } from 'react';
 import { Domain, WhoisData } from '../types';
 import DomainItem from './DomainItem';
 import { ChevronUpDownIcon, ArrowUpOnSquareIcon, ArrowDownOnSquareIcon, RefreshIcon, HomeIcon, TargetIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, DomainCodevIcon, UsersIcon } from './icons';
@@ -31,6 +31,8 @@ const CATEGORY_NAMES_STORAGE_KEY = 'domain-codev-category-names';
 const HIDE_REGISTERED_TARGETS_STORAGE_KEY = 'domain-codev-hide-registered-targets';
 const FILTER_OPTIONS: FilterType[] = ['all', 'mine', 'to-snatch', 'others', 'expiring', 'expired', 'available'];
 const SORT_OPTIONS: SortOption[] = ['added-desc', 'added-asc', 'name-asc', 'name-desc', 'expiry-asc', 'expiry-desc', 'checked-desc', 'checked-asc', 'category-asc', 'category-desc', 'tld-asc', 'tld-desc'];
+const INITIAL_RENDERED_DOMAINS = 180;
+const RENDER_INCREMENT = 120;
 
 const readStoredFilter = (): FilterType => {
   if (typeof window === 'undefined') return 'all';
@@ -178,8 +180,10 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isRecheckMenuOpen, setIsRecheckMenuOpen] = useState(false);
   const [isRecheckingVisible, setIsRecheckingVisible] = useState(false);
+  const [visibleDomainLimit, setVisibleDomainLimit] = useState(INITIAL_RENDERED_DOMAINS);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const recheckMenuRef = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -217,6 +221,10 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
   useEffect(() => {
     window.localStorage.setItem(CATEGORY_NAMES_STORAGE_KEY, JSON.stringify(categoryNameOverrides));
   }, [categoryNameOverrides]);
+
+  useEffect(() => {
+    setVisibleDomainLimit(INITIAL_RENDERED_DOMAINS);
+  }, [categoryFilter, filter, hideRegisteredTargets, sortOption, tldFilter]);
 
   const categorization = useMemo(() => categorizeDomains(domains), [domains]);
   const categoriesById = useMemo(
@@ -471,6 +479,51 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
 
     return orderedGroups;
   }, [categorizedDomainById, categorization.categories, categoryFilter, categoryNames, sortedDomains]);
+
+  const shouldWindowDomains = sortedDomains.length > INITIAL_RENDERED_DOMAINS;
+  const renderedDomainLimit = shouldWindowDomains ? visibleDomainLimit : sortedDomains.length;
+  const renderedDomains = useMemo(
+    () => sortedDomains.slice(0, renderedDomainLimit),
+    [renderedDomainLimit, sortedDomains],
+  );
+  const renderedCategoryGroups = useMemo(() => {
+    if (categoryGroups.length === 0) return [];
+    let remaining = renderedDomainLimit;
+    const groups = [];
+
+    for (const group of categoryGroups) {
+      if (remaining <= 0) break;
+      const domainsForGroup = group.domains.slice(0, remaining);
+      if (domainsForGroup.length > 0) {
+        groups.push({
+          ...group,
+          domains: domainsForGroup,
+          renderedCount: domainsForGroup.length,
+          totalCount: group.domains.length,
+        });
+        remaining -= domainsForGroup.length;
+      }
+    }
+
+    return groups;
+  }, [categoryGroups, renderedDomainLimit]);
+  const renderedCount = Math.min(renderedDomainLimit, sortedDomains.length);
+  const hasMoreDomainsToRender = renderedCount < sortedDomains.length;
+
+  const loadMoreDomains = useCallback(() => {
+    setVisibleDomainLimit(current => Math.min(current + RENDER_INCREMENT, sortedDomains.length));
+  }, [sortedDomains.length]);
+
+  useEffect(() => {
+    if (!hasMoreDomainsToRender || !loadMoreRef.current || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        loadMoreDomains();
+      }
+    }, { rootMargin: '600px 0px' });
+    observer.observe(loadMoreRef.current);
+    return () => observer.disconnect();
+  }, [hasMoreDomainsToRender, loadMoreDomains]);
 
   const filterIcons: Record<FilterType, React.ReactNode> = {
     all: <DomainCodevIcon className="h-4 w-4" />,
@@ -748,12 +801,12 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
       <div className={`space-y-3 transition-opacity ${isProcessing ? 'opacity-50' : 'opacity-100'}`}>
         {sortedDomains.length > 0 ? (
           categoryGroups.length > 0 ? (
-            categoryGroups.map(group => (
+            renderedCategoryGroups.map(group => (
               <section key={group.id} className={`rounded-lg border-2 p-2 shadow-sm ${group.style}`}>
                 <div className="mb-2 flex flex-wrap items-center gap-2 px-1">
                   <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">{group.label}</h3>
                   <span className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-900/70 dark:text-slate-300">
-                    {group.domains.length}
+                    {group.renderedCount === group.totalCount ? group.totalCount : `${group.renderedCount}/${group.totalCount}`}
                   </span>
                   {group.overlapLabels.length > 0 && (
                     <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
@@ -768,13 +821,27 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
               </section>
             ))
           ) : (
-            sortedDomains.map(renderDomainItem)
+            renderedDomains.map(renderDomainItem)
           )
         ) : (
             <div className="text-center py-12">
                 <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">No domains match this filter</h3>
                 <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Try selecting another category.</p>
             </div>
+        )}
+        {hasMoreDomainsToRender && (
+          <div ref={loadMoreRef} className="flex flex-col items-center gap-2 py-4">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              Showing {renderedCount} of {sortedDomains.length} domains
+            </p>
+            <button
+              type="button"
+              onClick={loadMoreDomains}
+              className="rounded-full bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
+            >
+              Load more
+            </button>
+          </div>
         )}
       </div>
     </div>

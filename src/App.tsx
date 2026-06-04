@@ -97,12 +97,17 @@ const App: React.FC = () => {
   const [pendingDomainIds, setPendingDomainIds] = useState<Set<number>>(() => new Set());
   const autoRepairAttemptedIdsRef = useRef<Set<number>>(new Set());
   const nextPendingDomainIdRef = useRef(-1);
+  const domainsRef = useRef<Domain[]>([]);
   const [isAutoRepairingWhois, setIsAutoRepairingWhois] = useState(false);
 
   const addLog = useCallback((message: string) => {
     const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
     setLogs(prev => [`[${timestamp}] ${message}`, ...prev.slice(0, 99)]);
   }, []);
+
+  useEffect(() => {
+    domainsRef.current = domains;
+  }, [domains]);
 
   const refreshWhoisProviders = useCallback(async () => {
     setIsWhoisProviderLoading(true);
@@ -412,8 +417,8 @@ const App: React.FC = () => {
     return true;
   };
 
-  const removeDomain = async (id: number) => {
-    const domainToRemove = domains.find(d => d.id === id);
+  const removeDomain = useCallback(async (id: number) => {
+    const domainToRemove = domainsRef.current.find(d => d.id === id);
     const success = await SupabaseService.removeDomain(id);
     if(success){
         setDomains(prevDomains => prevDomains.filter(d => d.id !== id));
@@ -424,10 +429,10 @@ const App: React.FC = () => {
         });
         if(domainToRemove) addLog(`✅ Successfully removed ${domainToRemove.domain_name}.`);
     }
-  };
+  }, [addLog]);
   
-  const toggleDomainTag = async (id: number) => {
-    const domain = domains.find(d => d.id === id);
+  const toggleDomainTag = useCallback(async (id: number) => {
+    const domain = domainsRef.current.find(d => d.id === id);
     if (!domain) return;
   
     const nextTags: DomainTag[] = ['mine', 'to-snatch', 'others'];
@@ -441,10 +446,10 @@ const App: React.FC = () => {
       ));
       addLog(`✅ Switched tag for ${domain.domain_name} to "${newTag}".`);
     }
-  };
+  }, [addLog]);
 
   const setDomainTag = useCallback(async (id: number, tag: DomainTag) => {
-    const domain = domains.find(d => d.id === id);
+    const domain = domainsRef.current.find(d => d.id === id);
     if (!domain || domain.tag === tag) return;
     if ((domain.status === 'available' || domain.status === 'dropped') && tag !== 'to-snatch') return;
 
@@ -455,7 +460,7 @@ const App: React.FC = () => {
       ));
       addLog(`✅ Switched tag for ${domain.domain_name} to "${tag}".`);
     }
-  }, [addLog, domains]);
+  }, [addLog]);
 
   const markDomainsAsMine = useCallback(async (domainIds: number[], reason: string) => {
     const targets = domains.filter(domain => (
@@ -518,11 +523,11 @@ const App: React.FC = () => {
     }
   }, [addLog, checkAndNotify, updateProviderFromWhoisData]);
 
-  const recheckDomain = async (id: number) => {
-    const domain = domains.find(d => d.id === id);
+  const recheckDomain = useCallback(async (id: number) => {
+    const domain = domainsRef.current.find(d => d.id === id);
     if (!domain) return;
     await syncWhoisForDomain(domain, 'manual');
-  };
+  }, [syncWhoisForDomain]);
 
   useEffect(() => {
     if (!session || view !== 'dashboard' || domains.length === 0 || isAutoRepairingWhois || isBulkProcessing) return;
@@ -583,7 +588,7 @@ const App: React.FC = () => {
     };
   }, [session, view, domains, pendingDomainIds, isAutoRepairingWhois, isBulkProcessing, syncWhoisForDomain, addLog]);
 
-  const handleShowInfo = (domain: Domain) => {
+  const handleShowInfo = useCallback((domain: Domain) => {
     if (!domain.expiration_date) return;
     const expiry = new Date(domain.expiration_date);
     const gracePeriodEnd = new Date(expiry);
@@ -608,7 +613,7 @@ const App: React.FC = () => {
     });
     setIsInfoModalOpen(true);
     addLog(`ℹ️ Displayed drop info for ${domain.domain_name}.`);
-  };
+  }, [addLog]);
 
   const handleExport = (format: 'json' | 'csv') => {
     let content = '';
