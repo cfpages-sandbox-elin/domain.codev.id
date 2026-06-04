@@ -20,7 +20,7 @@ interface DomainListProps {
   isProcessing: boolean;
 }
 
-type FilterType = 'all' | 'mine' | 'to-snatch' | 'others' | 'expiring' | 'expired' | 'available';
+type FilterType = 'all' | 'mine' | 'to-snatch' | 'others' | 'missing' | 'expiring' | 'expired' | 'available';
 type SortOption = 'added-desc' | 'added-asc' | 'name-asc' | 'name-desc' | 'expiry-asc' | 'expiry-desc' | 'checked-desc' | 'checked-asc' | 'category-asc' | 'category-desc' | 'tld-asc' | 'tld-desc';
 
 const FILTER_STORAGE_KEY = 'domain-codev-filter';
@@ -29,7 +29,7 @@ const CATEGORY_FILTER_STORAGE_KEY = 'domain-codev-category-filter';
 const TLD_FILTER_STORAGE_KEY = 'domain-codev-tld-filter';
 const CATEGORY_NAMES_STORAGE_KEY = 'domain-codev-category-names';
 const HIDE_REGISTERED_TARGETS_STORAGE_KEY = 'domain-codev-hide-registered-targets';
-const FILTER_OPTIONS: FilterType[] = ['all', 'mine', 'to-snatch', 'others', 'expiring', 'expired', 'available'];
+const FILTER_OPTIONS: FilterType[] = ['all', 'mine', 'to-snatch', 'others', 'missing', 'expiring', 'expired', 'available'];
 const SORT_OPTIONS: SortOption[] = ['added-desc', 'added-asc', 'name-asc', 'name-desc', 'expiry-asc', 'expiry-desc', 'checked-desc', 'checked-asc', 'category-asc', 'category-desc', 'tld-asc', 'tld-desc'];
 const INITIAL_RENDERED_DOMAINS = 180;
 const RENDER_INCREMENT = 120;
@@ -83,6 +83,13 @@ const hasMissingData = (domain: Domain) => {
     || domain.name_servers.length === 0;
 };
 
+interface RecheckProgress {
+  label: string;
+  total: number;
+  completed: number;
+  currentDomainName: string;
+}
+
 const CATEGORY_GROUP_STYLES = [
   'border-indigo-300 bg-indigo-50/70 dark:border-indigo-700 dark:bg-indigo-950/30',
   'border-teal-300 bg-teal-50/70 dark:border-teal-700 dark:bg-teal-950/30',
@@ -102,10 +109,12 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isRecheckMenuOpen, setIsRecheckMenuOpen] = useState(false);
   const [isRecheckingVisible, setIsRecheckingVisible] = useState(false);
+  const [recheckProgress, setRecheckProgress] = useState<RecheckProgress | null>(null);
   const [visibleDomainLimit, setVisibleDomainLimit] = useState(INITIAL_RENDERED_DOMAINS);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const recheckMenuRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  const recheckProgressTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -118,6 +127,12 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => () => {
+    if (recheckProgressTimeoutRef.current !== null) {
+      window.clearTimeout(recheckProgressTimeoutRef.current);
+    }
   }, []);
 
   useEffect(() => {
@@ -196,6 +211,8 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
         return domain.tag === 'to-snatch' || domain.status === 'available' || domain.status === 'dropped';
       case 'others':
         return domain.tag === 'others' && domain.status !== 'available' && domain.status !== 'dropped';
+      case 'missing':
+        return hasMissingData(domain);
       case 'available':
         return domain.status === 'available' || domain.status === 'dropped';
       case 'expiring':
@@ -218,6 +235,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
       others: 0,
       expiring: 0,
       expired: 0,
+      missing: 0,
       available: 0,
     };
 
@@ -226,6 +244,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
       if (getFilterMatch(domain, 'mine')) counts.mine += 1;
       if (getFilterMatch(domain, 'to-snatch')) counts['to-snatch'] += 1;
       if (getFilterMatch(domain, 'others')) counts.others += 1;
+      if (getFilterMatch(domain, 'missing')) counts.missing += 1;
       if (getFilterMatch(domain, 'expiring')) counts.expiring += 1;
       if (getFilterMatch(domain, 'expired')) counts.expired += 1;
       if (getFilterMatch(domain, 'available')) counts.available += 1;
@@ -233,6 +252,12 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
 
     return counts;
   }, [contextFilteredDomains]);
+
+  useEffect(() => {
+    if (filter === 'missing' && filterCounts.missing === 0) {
+      setFilter('all');
+    }
+  }, [filter, filterCounts.missing]);
 
   const filteredDomains = useMemo(() => contextFilteredDomains.filter(domain => {
     switch (filter) {
@@ -242,6 +267,8 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
         return domain.tag === 'to-snatch' || domain.status === 'available' || domain.status === 'dropped';
       case 'others':
         return domain.tag === 'others' && domain.status !== 'available' && domain.status !== 'dropped';
+      case 'missing':
+        return hasMissingData(domain);
       case 'available':
         return domain.status === 'available' || domain.status === 'dropped';
       case 'expiring':
@@ -444,6 +471,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
     mine: <HomeIcon className="h-4 w-4" />,
     'to-snatch': <TargetIcon className="h-4 w-4" />,
     others: <UsersIcon className="h-4 w-4" />,
+    missing: <ExclamationTriangleIcon className="h-4 w-4" />,
     available: <CheckCircleIcon className="h-4 w-4" />,
     expiring: <ExclamationTriangleIcon className="h-4 w-4" />,
     expired: <XCircleIcon className="h-4 w-4" />,
@@ -513,14 +541,45 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
 
     setIsRecheckMenuOpen(false);
     setIsRecheckingVisible(true);
+    if (recheckProgressTimeoutRef.current !== null) {
+      window.clearTimeout(recheckProgressTimeoutRef.current);
+      recheckProgressTimeoutRef.current = null;
+    }
+    setRecheckProgress({
+      label,
+      total: targetDomains.length,
+      completed: 0,
+      currentDomainName: targetDomains[0]?.domain_name || '',
+    });
     try {
-      for (const domain of targetDomains) {
+      for (let index = 0; index < targetDomains.length; index += 1) {
+        const domain = targetDomains[index];
+        setRecheckProgress({
+          label,
+          total: targetDomains.length,
+          completed: index,
+          currentDomainName: domain.domain_name,
+        });
         await onRecheck(domain.id);
+        setRecheckProgress({
+          label,
+          total: targetDomains.length,
+          completed: index + 1,
+          currentDomainName: domain.domain_name,
+        });
       }
     } finally {
       setIsRecheckingVisible(false);
+      recheckProgressTimeoutRef.current = window.setTimeout(() => {
+        setRecheckProgress(null);
+        recheckProgressTimeoutRef.current = null;
+      }, 900);
     }
   };
+
+  const recheckProgressPercent = recheckProgress
+    ? Math.round((recheckProgress.completed / Math.max(recheckProgress.total, 1)) * 100)
+    : 0;
 
   if (domains.length === 0 && !isProcessing) {
     return (
@@ -546,6 +605,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
             <FilterButton filterType="mine">Mine</FilterButton>
             <FilterButton filterType="to-snatch">To Snatch</FilterButton>
             <FilterButton filterType="others">Others</FilterButton>
+            {filterCounts.missing > 0 && <FilterButton filterType="missing">Missing Data</FilterButton>}
             <FilterButton filterType="available">Available</FilterButton>
             <FilterButton filterType="expiring">Expiring Soon</FilterButton>
             <FilterButton filterType="expired">Expired</FilterButton>
@@ -750,6 +810,30 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
           </div>
         )}
       </div>
+
+      {recheckProgress && (
+        <div className="fixed inset-x-0 bottom-4 z-50 flex justify-center px-4">
+          <div className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-4 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Re-checking WHOIS data</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {recheckProgress.completed >= recheckProgress.total ? 'Finished' : `Processing ${recheckProgress.currentDomainName}`}
+                </p>
+              </div>
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {recheckProgress.completed}/{recheckProgress.total}
+              </span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+              <div
+                className="h-full rounded-full bg-brand-blue transition-all"
+                style={{ width: `${recheckProgressPercent}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
