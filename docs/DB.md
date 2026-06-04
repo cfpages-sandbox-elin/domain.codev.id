@@ -36,6 +36,25 @@ create table if not exists public.whois_provider_telemetry (
 );
 ```
 
+User app settings should also be persisted while Supabase remains active:
+
+```sql
+-- Full SQL is checked in at:
+-- supabase/migrations/20260604224500_add_app_user_settings.sql
+
+create table if not exists public.app_user_settings (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  category_name_overrides jsonb not null default '{}'::jsonb,
+  category_manual_overrides jsonb not null default '{}'::jsonb,
+  category_word_groups jsonb not null default '[]'::jsonb,
+  auto_mine_rules jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+```
+
+`category_name_overrides` stores editable auto-category labels. `category_manual_overrides` stores manual include/exclude corrections when the deterministic category heuristic gets a domain wrong. `category_word_groups` stores synonym-style category rules such as `steel`, `besi`, and `baja` becoming one category. `auto_mine_rules` stores normalized two-or-more-name-server combinations so ownership automation follows the user across browsers/devices instead of staying trapped in one browser profile.
+
 The migration also creates `claim_whois_provider_attempt(...)`, which atomically claims provider usage before an Edge Function makes an external WHOIS request. This is what lets multiple Edge Function instances coordinate per-minute and monthly provider limits.
 
 ## Direction
@@ -195,6 +214,10 @@ CREATE TABLE IF NOT EXISTS app_user_settings (
   user_id TEXT PRIMARY KEY,
   expiry_notice_days TEXT NOT NULL DEFAULT '[90,30,7]',
   default_domain_tag TEXT NOT NULL DEFAULT 'mine' CHECK (default_domain_tag IN ('mine', 'to-snatch', 'others')),
+  category_name_overrides TEXT NOT NULL DEFAULT '{}',
+  category_manual_overrides TEXT NOT NULL DEFAULT '{}',
+  category_word_groups TEXT NOT NULL DEFAULT '[]',
+  auto_mine_rules TEXT NOT NULL DEFAULT '[]',
   compact_mode INTEGER NOT NULL DEFAULT 0,
   theme TEXT NOT NULL DEFAULT 'system' CHECK (theme IN ('system', 'light', 'dark')),
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),

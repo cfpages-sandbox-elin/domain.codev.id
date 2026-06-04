@@ -1,12 +1,15 @@
 import React, { useCallback, useState, useMemo, useRef, useEffect } from 'react';
-import { Domain, WhoisData } from '../types';
+import { CategoryManualOverrides, CategoryWordGroup, Domain, WhoisData } from '../types';
 import DomainItem from './DomainItem';
 import { ChevronUpDownIcon, ArrowUpOnSquareIcon, ArrowDownOnSquareIcon, RefreshIcon, HomeIcon, TargetIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, DomainCodevIcon, UsersIcon } from './icons';
 import Tooltip from './Tooltip';
-import { categorizeDomains } from '../utils/domainCategorization';
+import { applyCategoryManualOverrides, applyCategoryWordGroups, categorizeDomains } from '../utils/domainCategorization';
 
 interface DomainListProps {
   domains: Domain[];
+  categoryNameOverrides: Record<string, string>;
+  categoryManualOverrides: CategoryManualOverrides;
+  categoryWordGroups: CategoryWordGroup[];
   whoisDetailsByDomainId: Record<number, WhoisData>;
   onRemove: (id: number) => void;
   onShowInfo: (domain: Domain) => void;
@@ -27,7 +30,6 @@ const FILTER_STORAGE_KEY = 'domain-codev-filter';
 const SORT_STORAGE_KEY = 'domain-codev-sort';
 const CATEGORY_FILTER_STORAGE_KEY = 'domain-codev-category-filter';
 const TLD_FILTER_STORAGE_KEY = 'domain-codev-tld-filter';
-const CATEGORY_NAMES_STORAGE_KEY = 'domain-codev-category-names';
 const HIDE_REGISTERED_TARGETS_STORAGE_KEY = 'domain-codev-hide-registered-targets';
 const FILTER_OPTIONS: FilterType[] = ['all', 'mine', 'to-snatch', 'others', 'missing', 'expiring', 'expired', 'available'];
 const SORT_OPTIONS: SortOption[] = ['added-desc', 'added-asc', 'name-asc', 'name-desc', 'expiry-asc', 'expiry-desc', 'checked-desc', 'checked-asc', 'category-asc', 'category-desc', 'tld-asc', 'tld-desc'];
@@ -54,18 +56,6 @@ const readStoredString = (key: string) => {
 const readStoredBoolean = (key: string) => {
   if (typeof window === 'undefined') return false;
   return window.localStorage.getItem(key) === 'true';
-};
-
-const readStoredCategoryNames = (): Record<string, string> => {
-  if (typeof window === 'undefined') return {};
-  try {
-    const stored = window.localStorage.getItem(CATEGORY_NAMES_STORAGE_KEY);
-    if (!stored) return {};
-    const parsed = JSON.parse(stored);
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch {
-    return {};
-  }
 };
 
 const hasMissingData = (domain: Domain) => {
@@ -99,13 +89,12 @@ const CATEGORY_GROUP_STYLES = [
   'border-violet-300 bg-violet-50/70 dark:border-violet-700 dark:bg-violet-950/30',
 ];
 
-const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId, onRemove, onShowInfo, onToggleTag, onSetTag, onRecheck, autoRepairingDomainIds, pendingDomainIds, onImportRequest, onExportRequest, isProcessing }) => {
+const DomainList: React.FC<DomainListProps> = ({ domains, categoryNameOverrides, categoryManualOverrides, categoryWordGroups, whoisDetailsByDomainId, onRemove, onShowInfo, onToggleTag, onSetTag, onRecheck, autoRepairingDomainIds, pendingDomainIds, onImportRequest, onExportRequest, isProcessing }) => {
   const [filter, setFilter] = useState<FilterType>(readStoredFilter);
   const [sortOption, setSortOption] = useState<SortOption>(readStoredSort);
   const [categoryFilter, setCategoryFilter] = useState(readStoredString(CATEGORY_FILTER_STORAGE_KEY));
   const [tldFilter, setTldFilter] = useState(readStoredString(TLD_FILTER_STORAGE_KEY));
   const [hideRegisteredTargets, setHideRegisteredTargets] = useState(() => readStoredBoolean(HIDE_REGISTERED_TARGETS_STORAGE_KEY));
-  const [categoryNameOverrides] = useState<Record<string, string>>(readStoredCategoryNames);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isRecheckMenuOpen, setIsRecheckMenuOpen] = useState(false);
   const [isRecheckingVisible, setIsRecheckingVisible] = useState(false);
@@ -159,7 +148,14 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
     setVisibleDomainLimit(INITIAL_RENDERED_DOMAINS);
   }, [categoryFilter, filter, hideRegisteredTargets, sortOption, tldFilter]);
 
-  const categorization = useMemo(() => categorizeDomains(domains), [domains]);
+  const categorization = useMemo(
+    () => applyCategoryManualOverrides(
+      applyCategoryWordGroups(categorizeDomains(domains), domains, categoryWordGroups),
+      domains,
+      categoryManualOverrides,
+    ),
+    [categoryManualOverrides, categoryWordGroups, domains],
+  );
   const categoriesById = useMemo(
     () => new Map(categorization.categories.map(category => [category.id, category])),
     [categorization.categories],

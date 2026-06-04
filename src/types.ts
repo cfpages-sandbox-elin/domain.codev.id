@@ -68,6 +68,34 @@ export interface WhoisProviderCredentialInput {
   apiKey: string;
 }
 
+export interface AutoMineRule {
+  id: string;
+  label: string;
+  nameServers: string[];
+  enabled: boolean;
+}
+
+export interface CategoryManualOverride {
+  includeDomainIds: number[];
+  excludeDomainIds: number[];
+}
+
+export type CategoryManualOverrides = Record<string, CategoryManualOverride>;
+
+export interface CategoryWordGroup {
+  id: string;
+  label: string;
+  words: string[];
+  enabled: boolean;
+}
+
+export interface UserAppSettings {
+  categoryNameOverrides: Record<string, string>;
+  categoryManualOverrides: CategoryManualOverrides;
+  categoryWordGroups: CategoryWordGroup[];
+  autoMineRules: AutoMineRule[];
+}
+
 export type IntegrationScope = 'domains:read' | 'domains:write' | 'whois:check' | 'alerts:read' | 'webhooks:write';
 
 export interface IntegrationClient {

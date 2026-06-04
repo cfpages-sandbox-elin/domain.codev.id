@@ -1,56 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Domain } from '../types';
+import { AutoMineRule, Domain } from '../types';
 import { ChevronDownIcon, ChevronUpIcon, HomeIcon, PlusIcon, TrashIcon } from './icons';
 import Tooltip from './Tooltip';
-
-export interface AutoMineRule {
-  id: string;
-  label: string;
-  nameServers: string[];
-  enabled: boolean;
-}
+import { normalizeNameServer, splitNameServers } from '../utils/userSettingsStorage';
 
 interface AutoMinePanelProps {
   domains: Domain[];
+  rules: AutoMineRule[];
+  onRulesChange: React.Dispatch<React.SetStateAction<AutoMineRule[]>>;
   onApplyMatches: (domainIds: number[], reason: string) => Promise<void>;
   addLog: (message: string) => void;
 }
-
-const STORAGE_KEY = 'domain-codev-auto-mine-rules';
-
-const normalizeNameServer = (value: string) => value
-  .trim()
-  .toLowerCase()
-  .replace(/^https?:\/\//, '')
-  .replace(/\/.*$/, '')
-  .replace(/\.$/, '');
-
-const splitNameServers = (value: string) => value
-  .split(/[\s,;]+/)
-  .map(normalizeNameServer)
-  .filter(Boolean);
-
-const readStoredRules = (): AutoMineRule[] => {
-  if (typeof window === 'undefined') return [];
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (!stored) return [];
-    const parsed = JSON.parse(stored);
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .map(item => ({
-        id: typeof item.id === 'string' ? item.id : crypto.randomUUID(),
-        label: typeof item.label === 'string' && item.label.trim() ? item.label.trim() : 'Name server rule',
-        nameServers: Array.isArray(item.nameServers)
-          ? Array.from(new Set<string>(item.nameServers.map(String).map(normalizeNameServer).filter(Boolean)))
-          : [],
-        enabled: item.enabled !== false,
-      }))
-      .filter(item => item.nameServers.length >= 2);
-  } catch {
-    return [];
-  }
-};
 
 const getRuleLabel = (nameServers: string[]) => nameServers
   .slice(0, 2)
@@ -77,17 +37,12 @@ const findRuleMatches = (domains: Domain[], rules: AutoMineRule[]) => {
   return matches;
 };
 
-const AutoMinePanel: React.FC<AutoMinePanelProps> = ({ domains, onApplyMatches, addLog }) => {
+const AutoMinePanel: React.FC<AutoMinePanelProps> = ({ domains, rules, onRulesChange, onApplyMatches, addLog }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [rules, setRules] = useState<AutoMineRule[]>(readStoredRules);
   const [label, setLabel] = useState('');
   const [nameServerInput, setNameServerInput] = useState('');
   const [isApplying, setIsApplying] = useState(false);
   const lastAutoApplyKeyRef = useRef('');
-
-  useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(rules));
-  }, [rules]);
 
   const matchesByDomainId = useMemo(() => findRuleMatches(domains, rules), [domains, rules]);
   const matchedDomainIds = useMemo(() => Array.from(matchesByDomainId.keys()), [matchesByDomainId]);
@@ -136,18 +91,18 @@ const AutoMinePanel: React.FC<AutoMinePanelProps> = ({ domains, onApplyMatches, 
       nameServers,
       enabled: true,
     };
-    setRules(current => [nextRule, ...current]);
+    onRulesChange(current => [nextRule, ...current]);
     setLabel('');
     setNameServerInput('');
     addLog(`✅ Added Auto Mine rule: ${nextRule.label}.`);
   };
 
   const toggleRule = (id: string) => {
-    setRules(current => current.map(rule => rule.id === id ? { ...rule, enabled: !rule.enabled } : rule));
+    onRulesChange(current => current.map(rule => rule.id === id ? { ...rule, enabled: !rule.enabled } : rule));
   };
 
   const removeRule = (id: string) => {
-    setRules(current => current.filter(rule => rule.id !== id));
+    onRulesChange(current => current.filter(rule => rule.id !== id));
   };
 
   return (

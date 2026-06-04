@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Domain, DomainTag, WhoisData, WhoisProviderStatus } from './types';
+import { AutoMineRule, CategoryManualOverrides, CategoryWordGroup, Domain, DomainTag, WhoisData, WhoisProviderStatus } from './types';
 import { getWhoisData, getWhoisProviderStatuses } from './services/whoisService';
 import { saveWhoisProviderCredential, removeWhoisProviderCredential, supabase, supabaseConfigError } from './services/supabaseService';
 import { Session } from '@supabase/supabase-js';
@@ -21,6 +21,16 @@ import IntegrationSettingsModal from './components/IntegrationSettingsModal';
 import AutoMinePanel from './components/AutoMinePanel';
 import CategoriesPage from './components/CategoriesPage';
 import { PlusIcon } from './components/icons';
+import {
+  readStoredAutoMineRules,
+  readStoredCategoryManualOverrides,
+  readStoredCategoryNameOverrides,
+  readStoredCategoryWordGroups,
+  writeStoredAutoMineRules,
+  writeStoredCategoryManualOverrides,
+  writeStoredCategoryNameOverrides,
+  writeStoredCategoryWordGroups,
+} from './utils/userSettingsStorage';
 
 const formatDate = (date: Date) => date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
@@ -96,6 +106,11 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<string[]>([]);
   const [view, setView] = useState<View>('dashboard');
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('whois');
+  const [categoryNameOverrides, setCategoryNameOverrides] = useState<Record<string, string>>(readStoredCategoryNameOverrides);
+  const [categoryManualOverrides, setCategoryManualOverrides] = useState<CategoryManualOverrides>(readStoredCategoryManualOverrides);
+  const [categoryWordGroups, setCategoryWordGroups] = useState<CategoryWordGroup[]>(readStoredCategoryWordGroups);
+  const [autoMineRules, setAutoMineRules] = useState<AutoMineRule[]>(readStoredAutoMineRules);
+  const [userSettingsLoaded, setUserSettingsLoaded] = useState(false);
   const [autoRepairingDomainIds, setAutoRepairingDomainIds] = useState<Set<number>>(() => new Set());
   const [pendingDomainIds, setPendingDomainIds] = useState<Set<number>>(() => new Set());
   const autoRepairAttemptedIdsRef = useRef<Set<number>>(new Set());
@@ -192,6 +207,11 @@ const App: React.FC = () => {
           setWhoisDetailsByDomainId({});
           setAutoRepairingDomainIds(new Set());
           setPendingDomainIds(new Set());
+          setCategoryNameOverrides(readStoredCategoryNameOverrides());
+          setCategoryManualOverrides(readStoredCategoryManualOverrides());
+          setCategoryWordGroups(readStoredCategoryWordGroups());
+          setAutoMineRules(readStoredAutoMineRules());
+          setUserSettingsLoaded(false);
           autoRepairAttemptedIdsRef.current.clear();
           addLog('ℹ️ User signed out.');
         } else {
@@ -249,6 +269,24 @@ const App: React.FC = () => {
   
   useEffect(() => {
     if (session) {
+      const fetchUserSettings = async () => {
+        setUserSettingsLoaded(false);
+        const settings = await SupabaseService.getUserAppSettings();
+        if (settings) {
+          setCategoryNameOverrides(settings.categoryNameOverrides);
+          setCategoryManualOverrides(settings.categoryManualOverrides);
+          setCategoryWordGroups(settings.categoryWordGroups);
+          setAutoMineRules(settings.autoMineRules);
+          writeStoredCategoryNameOverrides(settings.categoryNameOverrides);
+          writeStoredCategoryManualOverrides(settings.categoryManualOverrides);
+          writeStoredCategoryWordGroups(settings.categoryWordGroups);
+          writeStoredAutoMineRules(settings.autoMineRules);
+          addLog('✅ Loaded synced app settings.');
+        } else {
+          addLog('ℹ️ Using local app settings. Apply the app_user_settings migration to sync these across browsers.');
+        }
+        setUserSettingsLoaded(true);
+      };
       const fetchAndSyncDomains = async () => {
         addLog('➡️ Fetching user domains...');
         const userDomains = await SupabaseService.getDomains();
@@ -259,10 +297,35 @@ const App: React.FC = () => {
            addLog(`❌ Failed to fetch domains.`);
         }
       };
+      fetchUserSettings();
       fetchAndSyncDomains();
       refreshWhoisProviders();
     }
   }, [session, addLog, refreshWhoisProviders]);
+
+  useEffect(() => {
+    writeStoredCategoryNameOverrides(categoryNameOverrides);
+    if (!session || !userSettingsLoaded) return;
+    void SupabaseService.saveUserAppSettings({ categoryNameOverrides });
+  }, [categoryNameOverrides, session, userSettingsLoaded]);
+
+  useEffect(() => {
+    writeStoredCategoryManualOverrides(categoryManualOverrides);
+    if (!session || !userSettingsLoaded) return;
+    void SupabaseService.saveUserAppSettings({ categoryManualOverrides });
+  }, [categoryManualOverrides, session, userSettingsLoaded]);
+
+  useEffect(() => {
+    writeStoredCategoryWordGroups(categoryWordGroups);
+    if (!session || !userSettingsLoaded) return;
+    void SupabaseService.saveUserAppSettings({ categoryWordGroups });
+  }, [categoryWordGroups, session, userSettingsLoaded]);
+
+  useEffect(() => {
+    writeStoredAutoMineRules(autoMineRules);
+    if (!session || !userSettingsLoaded) return;
+    void SupabaseService.saveUserAppSettings({ autoMineRules });
+  }, [autoMineRules, session, userSettingsLoaded]);
 
   useEffect(() => {
     if (session && domains.length > 0) {
@@ -657,6 +720,9 @@ const App: React.FC = () => {
         <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-white">Tracked Domains</h2>
         <DomainList 
             domains={domains}
+            categoryNameOverrides={categoryNameOverrides}
+            categoryManualOverrides={categoryManualOverrides}
+            categoryWordGroups={categoryWordGroups}
             whoisDetailsByDomainId={whoisDetailsByDomainId}
             onRemove={removeDomain}
             onShowInfo={handleShowInfo}
@@ -721,6 +787,8 @@ const App: React.FC = () => {
         ) : (
           <AutoMinePanel
             domains={domains}
+            rules={autoMineRules}
+            onRulesChange={setAutoMineRules}
             onApplyMatches={markDomainsAsMine}
             addLog={addLog}
           />
@@ -734,7 +802,17 @@ const App: React.FC = () => {
       case 'docs':
         return <DocsPage />;
       case 'categories':
-        return <CategoriesPage domains={domains} />;
+        return (
+          <CategoriesPage
+            domains={domains}
+            categoryNameOverrides={categoryNameOverrides}
+            categoryManualOverrides={categoryManualOverrides}
+            categoryWordGroups={categoryWordGroups}
+            onCategoryNameOverridesChange={setCategoryNameOverrides}
+            onCategoryManualOverridesChange={setCategoryManualOverrides}
+            onCategoryWordGroupsChange={setCategoryWordGroups}
+          />
+        );
       case 'settings':
         return renderSettings();
       case 'dashboard':

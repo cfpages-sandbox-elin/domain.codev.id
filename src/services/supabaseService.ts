@@ -1,6 +1,7 @@
 
 import { createClient, Session, SupabaseClient } from '@supabase/supabase-js';
-import { Domain, DomainTag, DomainStatus, IntegrationClient, IntegrationScope, WhoisProviderCredentialInput } from '../types';
+import { Domain, DomainTag, DomainStatus, IntegrationClient, IntegrationScope, UserAppSettings, WhoisProviderCredentialInput } from '../types';
+import { sanitizeAutoMineRules, sanitizeCategoryManualOverrides, sanitizeCategoryNameOverrides, sanitizeCategoryWordGroups } from '../utils/userSettingsStorage';
 
 // The type for inserting a new row. DB handles id, user_id, and created_at.
 export type DomainInsert = Omit<Domain, 'id' | 'user_id' | 'created_at'>;
@@ -47,6 +48,34 @@ export interface Database {
         };
         Update: {
           api_key?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      app_user_settings: {
+        Row: {
+          user_id: string;
+          category_name_overrides: Record<string, string>;
+          category_manual_overrides: Record<string, unknown>;
+          category_word_groups: unknown[];
+          auto_mine_rules: unknown[];
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          category_name_overrides?: Record<string, string>;
+          category_manual_overrides?: Record<string, unknown>;
+          category_word_groups?: unknown[];
+          auto_mine_rules?: unknown[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          category_name_overrides?: Record<string, string>;
+          category_manual_overrides?: Record<string, unknown>;
+          category_word_groups?: unknown[];
+          auto_mine_rules?: unknown[];
           updated_at?: string;
         };
         Relationships: [];
@@ -305,6 +334,75 @@ export const removeWhoisProviderCredential = async (providerId: string): Promise
     if (error) {
         console.error("Error removing WHOIS provider credential:", error);
         alert('Could not remove the WHOIS provider key.');
+        return false;
+    }
+
+    return true;
+};
+
+// --- App User Settings Functions ---
+
+export const getUserAppSettings = async (): Promise<UserAppSettings | null> => {
+    if (!supabase) return null;
+
+    const { data, error } = await supabase
+        .from('app_user_settings')
+        .select('category_name_overrides, category_manual_overrides, category_word_groups, auto_mine_rules')
+        .maybeSingle();
+
+    if (error) {
+        console.error("Error fetching app user settings:", error);
+        return null;
+    }
+
+    if (!data) return null;
+    const row = data as {
+        category_name_overrides: unknown;
+        category_manual_overrides?: unknown;
+        category_word_groups?: unknown;
+        auto_mine_rules: unknown;
+    };
+
+    return {
+        categoryNameOverrides: sanitizeCategoryNameOverrides(row.category_name_overrides),
+        categoryManualOverrides: sanitizeCategoryManualOverrides(row.category_manual_overrides),
+        categoryWordGroups: sanitizeCategoryWordGroups(row.category_word_groups),
+        autoMineRules: sanitizeAutoMineRules(row.auto_mine_rules),
+    };
+};
+
+export const saveUserAppSettings = async (updates: Partial<UserAppSettings>): Promise<boolean> => {
+    if (!supabase) return false;
+    const session = await getSession();
+    if (!session) return false;
+
+    const payload: Record<string, unknown> = {
+        user_id: session.user.id,
+        updated_at: new Date().toISOString(),
+    };
+
+    if (updates.categoryNameOverrides) {
+        payload.category_name_overrides = sanitizeCategoryNameOverrides(updates.categoryNameOverrides);
+    }
+
+    if (updates.categoryManualOverrides) {
+        payload.category_manual_overrides = sanitizeCategoryManualOverrides(updates.categoryManualOverrides);
+    }
+
+    if (updates.categoryWordGroups) {
+        payload.category_word_groups = sanitizeCategoryWordGroups(updates.categoryWordGroups);
+    }
+
+    if (updates.autoMineRules) {
+        payload.auto_mine_rules = sanitizeAutoMineRules(updates.autoMineRules);
+    }
+
+    const { error } = await supabase
+        .from('app_user_settings')
+        .upsert([payload] as never, { onConflict: 'user_id' });
+
+    if (error) {
+        console.error("Error saving app user settings:", error);
         return false;
     }
 

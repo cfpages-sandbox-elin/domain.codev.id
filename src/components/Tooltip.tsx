@@ -1,4 +1,4 @@
-import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 interface TooltipProps {
@@ -8,9 +8,19 @@ interface TooltipProps {
   placement?: 'top' | 'bottom';
 }
 
+let nextTooltipId = 0;
+let activeTooltipId: string | null = null;
+const activeTooltipListeners = new Set<(id: string | null) => void>();
+
+const setActiveTooltip = (id: string | null) => {
+  activeTooltipId = id;
+  activeTooltipListeners.forEach(listener => listener(id));
+};
+
 const Tooltip: React.FC<TooltipProps> = ({ children, content, className = '', placement = 'bottom' }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [position, setPosition] = useState({ left: 0, top: 0, width: 320, transform: 'translateX(-50%)' });
+  const tooltipIdRef = useRef(`tooltip-${++nextTooltipId}`);
   const triggerRef = useRef<HTMLSpanElement>(null);
   const tooltipRef = useRef<HTMLSpanElement>(null);
 
@@ -56,12 +66,58 @@ const Tooltip: React.FC<TooltipProps> = ({ children, content, className = '', pl
     };
   }, [isVisible, updatePosition]);
 
+  const hideTooltip = useCallback(() => {
+    setIsVisible(false);
+    if (activeTooltipId === tooltipIdRef.current) {
+      setActiveTooltip(null);
+    }
+  }, []);
+
   const showTooltip = () => {
+    setActiveTooltip(tooltipIdRef.current);
     setIsVisible(true);
     updatePosition();
   };
 
-  const hideTooltip = () => setIsVisible(false);
+  useEffect(() => {
+    const handleActiveTooltipChange = (id: string | null) => {
+      if (id !== tooltipIdRef.current) {
+        setIsVisible(false);
+      }
+    };
+
+    activeTooltipListeners.add(handleActiveTooltipChange);
+    return () => {
+      activeTooltipListeners.delete(handleActiveTooltipChange);
+      if (activeTooltipId === tooltipIdRef.current) {
+        setActiveTooltip(null);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isVisible) return;
+
+    const hideOnInactivePage = () => hideTooltip();
+    const hideOnVisibilityChange = () => {
+      if (document.hidden) hideTooltip();
+    };
+    const hideOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') hideTooltip();
+    };
+
+    window.addEventListener('blur', hideOnInactivePage);
+    window.addEventListener('pagehide', hideOnInactivePage);
+    document.addEventListener('visibilitychange', hideOnVisibilityChange);
+    document.addEventListener('keydown', hideOnEscape);
+
+    return () => {
+      window.removeEventListener('blur', hideOnInactivePage);
+      window.removeEventListener('pagehide', hideOnInactivePage);
+      document.removeEventListener('visibilitychange', hideOnVisibilityChange);
+      document.removeEventListener('keydown', hideOnEscape);
+    };
+  }, [hideTooltip, isVisible]);
 
   const handleBlur = (event: React.FocusEvent<HTMLSpanElement>) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
