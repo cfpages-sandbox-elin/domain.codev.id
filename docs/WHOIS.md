@@ -67,6 +67,7 @@ The cron function may run often, but it does not spend WHOIS quota on every doma
 | `mine`, 14-8 days before expiry | Check only if it has been at least 7 days since the last check. |
 | `mine`, 7-4 days before expiry | Check only if it has been at least 3 days since the last check. |
 | `mine`, final 3 days or expired | Check at most daily. The app should emphasize renewal, not drop chasing. |
+| `others`, within the expiry month | Use the same low-noise confirmation schedule as `mine`, but treat it as client/third-party monitoring rather than the user's own renewal queue. |
 | `to-snatch`, 30-15 days before expiry | Check only if it has been at least 14 days since the last check. |
 | `to-snatch`, 14-8 days before expiry | Check only if it has been at least 7 days since the last check. |
 | `to-snatch`, final 7 days before expiry | Check at most daily. |

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Domain, DomainStatus, WhoisData } from '../types';
+import { Domain, DomainStatus, DomainTag, WhoisData } from '../types';
 import { useCompactMode } from '../contexts/CompactModeContext';
-import { TrashIcon, InfoIcon, ShoppingCartIcon, RefreshIcon, HomeIcon, TargetIcon } from './icons';
+import { TrashIcon, InfoIcon, ShoppingCartIcon, RefreshIcon, HomeIcon, TargetIcon, UsersIcon } from './icons';
 import Spinner from './Spinner';
 import Tooltip from './Tooltip';
 
@@ -56,10 +56,12 @@ const StatusBadge: React.FC<{ status: DomainStatus, isCompact: boolean }> = ({ s
     );
 };
 
-const getRowStyles = (status: DomainStatus, tag: 'mine' | 'to-snatch', daysUntilExpiry: number | null): string => {
-    const tagStyles = tag === 'mine'
-      ? 'bg-indigo-100 border-indigo-300 dark:bg-indigo-950/80 dark:border-indigo-700/90'
-      : 'bg-teal-100 border-teal-300 dark:bg-teal-950/80 dark:border-teal-700/90';
+const getRowStyles = (status: DomainStatus, tag: DomainTag, daysUntilExpiry: number | null): string => {
+    const tagStyles: Record<DomainTag, string> = {
+      mine: 'bg-indigo-100 border-indigo-300 dark:bg-indigo-950/80 dark:border-indigo-700/90',
+      'to-snatch': 'bg-teal-100 border-teal-300 dark:bg-teal-950/80 dark:border-teal-700/90',
+      others: 'bg-violet-100 border-violet-300 dark:bg-violet-950/80 dark:border-violet-700/90',
+    };
 
     const statusStyles: Partial<Record<DomainStatus, string>> = {
         available: 'bg-teal-100 border-teal-300 dark:bg-teal-950/80 dark:border-teal-700/90',
@@ -69,7 +71,7 @@ const getRowStyles = (status: DomainStatus, tag: 'mine' | 'to-snatch', daysUntil
     };
 
     const urgency = getUrgencyStyles(status, daysUntilExpiry);
-    return `${statusStyles[status] || tagStyles} ${urgency}`;
+    return `${statusStyles[status] || tagStyles[tag]} ${urgency}`;
 };
 
 const hasIncompleteWhoisData = (domain: Domain, registryStatuses: string[], nameServers: string[]) => {
@@ -154,6 +156,24 @@ const explainRegistryStatus = (status: string) => {
   return explanations[normalized] || 'Registry status reported by the WHOIS provider.';
 };
 
+const getTagLabel = (tag: DomainTag) => {
+  if (tag === 'mine') return 'Mine';
+  if (tag === 'others') return 'Others';
+  return 'To Snatch';
+};
+
+const getTagIcon = (tag: DomainTag) => {
+  if (tag === 'mine') return HomeIcon;
+  if (tag === 'others') return UsersIcon;
+  return TargetIcon;
+};
+
+const getNextTagLabel = (tag: DomainTag) => {
+  if (tag === 'mine') return 'To Snatch';
+  if (tag === 'to-snatch') return 'Others';
+  return 'Mine';
+};
+
 const DetailRow: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
   <div className="grid grid-cols-[92px_1fr] gap-2">
     <span className="text-slate-400 dark:text-slate-500">{label}</span>
@@ -217,6 +237,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
   const daysUntilExpiry = getDaysUntilExpiry(domain.expiration_date);
   const isAvailableStatus = domain.status === 'available' || domain.status === 'dropped';
   const effectiveTag = isAvailableStatus ? 'to-snatch' : domain.tag;
+  const isRegisteredTarget = domain.tag === 'to-snatch' && domain.status === 'registered';
   const rowStyles = getRowStyles(domain.status, effectiveTag, daysUntilExpiry);
   const needsExpiryDate = (domain.status === 'registered' || domain.status === 'expired' || effectiveTag === 'mine') && !domain.expiration_date;
   const isAvailableForPurchase = isAvailableStatus;
@@ -228,14 +249,15 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
   const isWhoisFailed = domain.status === 'unknown' && Boolean(domain.last_checked);
   const isWhoisProcessing = isRechecking || isAutoRefreshing || isPending;
   const whoisUrl = `https://www.whois.com/whois/${encodeURIComponent(domain.domain_name)}`;
-  const TagIconComponent = effectiveTag === 'mine' ? HomeIcon : TargetIcon;
-  const tagLabel = effectiveTag === 'mine' ? 'Mine' : 'To Snatch';
-  const tagIconClass = effectiveTag === 'mine'
-    ? 'h-5 w-5 text-indigo-700 dark:text-indigo-200'
-    : 'h-5 w-5 text-teal-700 dark:text-teal-200';
-  const leadingTagIconClass = effectiveTag === 'mine'
-    ? 'mt-0.5 h-4 w-4 flex-none text-indigo-700 dark:text-indigo-200'
-    : 'mt-0.5 h-4 w-4 flex-none text-teal-700 dark:text-teal-200';
+  const TagIconComponent = getTagIcon(effectiveTag);
+  const tagLabel = getTagLabel(effectiveTag);
+  const tagColorClass = effectiveTag === 'mine'
+    ? 'text-indigo-700 dark:text-indigo-200'
+    : effectiveTag === 'others'
+      ? 'text-violet-700 dark:text-violet-200'
+      : 'text-teal-700 dark:text-teal-200';
+  const tagIconClass = `h-5 w-5 ${tagColorClass}`;
+  const leadingTagIconClass = `mt-0.5 h-4 w-4 flex-none ${tagColorClass}`;
   const selectedRegistrarName = registrars[selectedRegistrar] || selectedRegistrar;
   const buyTooltip = (
     <PlainTooltipText
@@ -312,7 +334,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
   );
 
   return (
-    <div className={`relative overflow-hidden rounded-md border transition-all ${rowStyles} ${isWhoisIncomplete ? 'grayscale opacity-75' : ''} ${isCompact ? 'px-3 py-2' : 'px-4 py-3'}`}>
+    <div className={`relative overflow-hidden rounded-md border transition-all ${rowStyles} ${isRegisteredTarget ? 'saturate-50 opacity-[0.55] grayscale-[35%]' : ''} ${isWhoisIncomplete ? 'grayscale opacity-75' : ''} ${isCompact ? 'px-3 py-2' : 'px-4 py-3'}`}>
       {(isWhoisIncomplete || isWhoisProcessing) && (
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center">
           <span className="rounded-b-md bg-slate-800/90 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white dark:bg-slate-100/90 dark:text-slate-900">
@@ -368,6 +390,11 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
           ) : (
             <>
               {formatDate(domain.expiration_date)}
+              {isRegisteredTarget && (
+                <span className="block text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  Registered target
+                </span>
+              )}
               {daysUntilExpiry !== null && daysUntilExpiry <= 90 && domain.status !== 'unknown' && (
                 <span className="block text-xs font-semibold text-slate-500 dark:text-slate-400">
                   {domain.status === 'expired' ? 'Expired' : `${daysUntilExpiry} days left`}
@@ -424,7 +451,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
               </span>
             </Tooltip>
           ) : (
-            <Tooltip content={<PlainTooltipText title={`Tag: ${tagLabel}`} body={`Click to switch to ${effectiveTag === 'mine' ? 'To Snatch' : 'Mine'}.`} />}>
+            <Tooltip content={<PlainTooltipText title={`Tag: ${tagLabel}`} body={`Click to switch to ${getNextTagLabel(effectiveTag)}.`} />}>
               <button
                 onClick={() => onToggleTag(domain.id)}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-slate-200 dark:hover:bg-slate-700"

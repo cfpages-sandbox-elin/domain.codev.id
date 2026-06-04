@@ -3,7 +3,7 @@ import { Domain, DomainTag } from '../types';
 import Modal from './Modal';
 import Spinner from './Spinner';
 import Tooltip from './Tooltip';
-import { ArrowUpOnSquareIcon, ExclamationTriangleIcon, HomeIcon, TargetIcon } from './icons';
+import { ArrowUpOnSquareIcon, ExclamationTriangleIcon, HomeIcon, TargetIcon, UsersIcon } from './icons';
 
 type BulkDomain = { domainName: string; tag?: DomainTag };
 type ActiveTab = 'single' | 'bulk';
@@ -99,7 +99,9 @@ const TagChoice: React.FC<{
     onChange: () => void;
 }> = ({ id, name, tag, checked, disabled, onChange }) => {
     const isMine = tag === 'mine';
-    const Icon = isMine ? HomeIcon : TargetIcon;
+    const isOthers = tag === 'others';
+    const Icon = isMine ? HomeIcon : isOthers ? UsersIcon : TargetIcon;
+    const label = isMine ? 'Mine' : isOthers ? 'Others' : 'To Snatch';
     return (
         <div>
             <input type="radio" id={id} name={name} value={tag} checked={checked} onChange={onChange} disabled={disabled} className="sr-only peer" />
@@ -108,14 +110,36 @@ const TagChoice: React.FC<{
                 className={`inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-2 px-4 py-3 text-sm font-semibold transition-all peer-disabled:cursor-not-allowed peer-disabled:opacity-60 ${
                     isMine
                         ? 'border-slate-300 text-indigo-700 peer-checked:border-brand-blue peer-checked:ring-2 peer-checked:ring-brand-blue dark:border-slate-600 dark:text-indigo-200'
-                        : 'border-slate-300 text-teal-700 peer-checked:border-brand-green peer-checked:ring-2 peer-checked:ring-brand-green dark:border-slate-600 dark:text-teal-200'
+                        : isOthers
+                            ? 'border-slate-300 text-violet-700 peer-checked:border-violet-500 peer-checked:ring-2 peer-checked:ring-violet-500 dark:border-slate-600 dark:text-violet-200'
+                            : 'border-slate-300 text-teal-700 peer-checked:border-brand-green peer-checked:ring-2 peer-checked:ring-brand-green dark:border-slate-600 dark:text-teal-200'
                 }`}
             >
                 <Icon className="h-4 w-4" />
-                {isMine ? 'Mine' : 'To Snatch'}
+                {label}
             </label>
         </div>
     );
+};
+
+const isDomainTag = (value: unknown): value is DomainTag => value === 'mine' || value === 'to-snatch' || value === 'others';
+
+const getTagLabel = (tag: DomainTag) => {
+    if (tag === 'mine') return 'Mine';
+    if (tag === 'others') return 'Others';
+    return 'To Snatch';
+};
+
+const getTagIcon = (tag: DomainTag) => {
+    if (tag === 'mine') return HomeIcon;
+    if (tag === 'others') return UsersIcon;
+    return TargetIcon;
+};
+
+const getTagIconClass = (tag: DomainTag) => {
+    if (tag === 'mine') return 'text-indigo-500';
+    if (tag === 'others') return 'text-violet-500';
+    return 'text-teal-500';
 };
 
 const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab = 'single', existingDomains, onAddDomain, onBulkAdd, isLoading, addLog }) => {
@@ -240,7 +264,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                     bulkDomains = parsed.domains.map(item => {
                         const source = data.find(row => normalizeDomainInput(row.domain_name || '') === item.domainName);
                         if (!source) return item;
-                        const tag = (source.tag === 'mine' || source.tag === 'to-snatch') ? source.tag : undefined;
+                        const tag = isDomainTag(source.tag) ? source.tag : undefined;
                         return { ...item, tag };
                     });
                     const skippedLog = formatSkippedImportLog('JSON import', parsed);
@@ -265,7 +289,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                         const domain = values[domainIndex]?.trim().replace(/"/g, '');
                         if (domain) {
                             const tagValue = tagIndex !== -1 ? values[tagIndex]?.trim().replace(/"/g, '') as DomainTag : undefined;
-                            const tag = (tagValue === 'mine' || tagValue === 'to-snatch') ? tagValue : undefined;
+                            const tag = isDomainTag(tagValue) ? tagValue : undefined;
                             rawDomains.push(domain);
                             const normalized = normalizeDomainInput(domain);
                             if (normalized && tag) tagByDomain.set(normalized, tag);
@@ -327,7 +351,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
 
                 {activeTab === 'single' ? (
                     <div className="flex flex-col gap-4" role="tabpanel">
-                        <Tooltip content="Enter = save as Mine. Shift + Enter = save as To Snatch. Available domains are always saved as To Snatch.">
+                        <Tooltip content="Enter = save as Mine. Shift + Enter = save as To Snatch. Choose Others for client-owned domains. Available domains are always saved as To Snatch.">
                             <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200" htmlFor="single-domain-input">
                                 Domain name
                             </label>
@@ -347,7 +371,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                             <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-100">
                                 <ExclamationTriangleIcon className="mt-0.5 h-4 w-4 flex-none" />
                                 <p>
-                                    <span className="font-semibold">{exactExistingDomain.domain_name}</span> is already tracked as {exactExistingDomain.tag === 'mine' ? 'Mine' : 'To Snatch'}.
+                                    <span className="font-semibold">{exactExistingDomain.domain_name}</span> is already tracked as {getTagLabel(exactExistingDomain.tag)}.
                                 </p>
                             </div>
                         )}
@@ -356,11 +380,11 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Existing matches</p>
                                 <ul className="space-y-1">
                                     {existingDomainMatches.map(domain => {
-                                        const Icon = domain.tag === 'mine' ? HomeIcon : TargetIcon;
+                                        const Icon = getTagIcon(domain.tag);
                                         return (
                                             <li key={domain.id} className="flex items-center justify-between gap-3 text-sm">
                                                 <span className="inline-flex min-w-0 items-center gap-2">
-                                                    <Icon className={`h-4 w-4 flex-none ${domain.tag === 'mine' ? 'text-indigo-500' : 'text-teal-500'}`} />
+                                                    <Icon className={`h-4 w-4 flex-none ${getTagIconClass(domain.tag)}`} />
                                                     <span className="truncate font-medium text-slate-800 dark:text-slate-100">{domain.domain_name}</span>
                                                 </span>
                                                 <span className="flex-none text-xs capitalize text-slate-500 dark:text-slate-400">{domain.status}</span>
@@ -371,14 +395,15 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                             </div>
                         )}
 
-                        <fieldset className="grid gap-2 sm:grid-cols-2">
+                        <fieldset className="grid gap-2 sm:grid-cols-3">
                             <legend className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">Save as</legend>
                             <TagChoice id="single-tag-mine" name="single-tag" tag="mine" checked={singleTag === 'mine'} disabled={isBusy} onChange={() => setSingleTag('mine')} />
                             <TagChoice id="single-tag-snatch" name="single-tag" tag="to-snatch" checked={singleTag === 'to-snatch'} disabled={isBusy} onChange={() => setSingleTag('to-snatch')} />
+                            <TagChoice id="single-tag-others" name="single-tag" tag="others" checked={singleTag === 'others'} disabled={isBusy} onChange={() => setSingleTag('others')} />
                         </fieldset>
 
                         <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-600">
-                            <Tooltip content="Runs WHOIS first, then saves only if the result is usable. Enter saves as Mine; Shift + Enter saves as To Snatch.">
+                            <Tooltip content="Runs WHOIS first, then saves only if the result is usable. Enter saves as Mine; Shift + Enter saves as To Snatch. Use Others for client-owned domains.">
                                 <button
                                     type="button"
                                     onClick={() => handleSingleSubmit(singleTag)}
@@ -457,10 +482,11 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                 <div>
                     <h4 className="font-semibold text-lg text-slate-800 dark:text-slate-200 mb-2">Default Tag</h4>
                     <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">Imported available domains are always saved as To Snatch. This default is used when WHOIS says the domain is registered.</p>
-                     <fieldset className="grid gap-2 sm:grid-cols-2">
+                     <fieldset className="grid gap-2 sm:grid-cols-3">
                         <legend className="sr-only">Default tag selection</legend>
                         <TagChoice id="tag-mine" name="default-tag" tag="mine" checked={defaultTag === 'mine'} disabled={isBusy} onChange={() => setDefaultTag('mine')} />
                         <TagChoice id="tag-snatch" name="default-tag" tag="to-snatch" checked={defaultTag === 'to-snatch'} disabled={isBusy} onChange={() => setDefaultTag('to-snatch')} />
+                        <TagChoice id="tag-others" name="default-tag" tag="others" checked={defaultTag === 'others'} disabled={isBusy} onChange={() => setDefaultTag('others')} />
                     </fieldset>
                 </div>
 

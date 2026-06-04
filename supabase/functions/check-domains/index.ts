@@ -9,7 +9,7 @@ console.log('✅ "check-domains" function loaded');
 //-------------------------------------------------
 // Types
 //-------------------------------------------------
-type DomainTag = 'mine' | 'to-snatch';
+type DomainTag = 'mine' | 'to-snatch' | 'others';
 type DomainStatus = 'available' | 'registered' | 'expired' | 'dropped' | 'unknown';
 
 interface Domain {
@@ -86,11 +86,12 @@ const checkDecisionForDomain = (domain: Domain, now: Date): CheckDecision => {
     };
   }
 
-  if (domain.tag === 'mine') {
+  if (domain.tag === 'mine' || domain.tag === 'others') {
+    const ownerLabel = domain.tag === 'mine' ? 'owned' : 'other tracked';
     if (daysUntilExpiry > 14) {
       return {
         due: lastCheckedHours >= 24 * 14,
-        reason: 'owned domain inside expiry month; check once around 30 days',
+        reason: `${ownerLabel} domain inside expiry month; check once around 30 days`,
         priority: 30,
       };
     }
@@ -98,7 +99,7 @@ const checkDecisionForDomain = (domain: Domain, now: Date): CheckDecision => {
     if (daysUntilExpiry > 7) {
       return {
         due: lastCheckedHours >= 24 * 7,
-        reason: 'owned domain nearing renewal window; weekly confirmation',
+        reason: `${ownerLabel} domain nearing renewal window; weekly confirmation`,
         priority: 40,
       };
     }
@@ -106,7 +107,7 @@ const checkDecisionForDomain = (domain: Domain, now: Date): CheckDecision => {
     if (daysUntilExpiry > 3) {
       return {
         due: lastCheckedHours >= 24 * 3,
-        reason: 'owned domain close to expiry; confirm every 3 days',
+        reason: `${ownerLabel} domain close to expiry; confirm every 3 days`,
         priority: 50,
       };
     }
@@ -114,8 +115,8 @@ const checkDecisionForDomain = (domain: Domain, now: Date): CheckDecision => {
     return {
       due: lastCheckedHours >= 24,
       reason: daysUntilExpiry >= 0
-        ? 'owned domain in final renewal days; daily confirmation'
-        : 'owned domain expired; daily renewal reminder confirmation',
+        ? `${ownerLabel} domain in final renewal days; daily confirmation`
+        : `${ownerLabel} domain expired; daily confirmation`,
       priority: 60,
     };
   }

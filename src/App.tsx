@@ -18,6 +18,7 @@ import BulkAddModal from './components/BulkAddModal';
 import WhoisProviderPanel from './components/WhoisProviderPanel';
 import Tooltip from './components/Tooltip';
 import IntegrationSettingsModal from './components/IntegrationSettingsModal';
+import AutoMinePanel from './components/AutoMinePanel';
 import { PlusIcon } from './components/icons';
 
 const formatDate = (date: Date) => date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -207,6 +208,14 @@ const App: React.FC = () => {
       const daysUntilExpiry = (expiry.getTime() - now.getTime()) / (1000 * 3600 * 24);
       if (daysUntilExpiry > 0 && daysUntilExpiry <= 7) {
         addNotification(`Your domain ${domain.domain_name} is expiring in ${Math.ceil(daysUntilExpiry)} days!`);
+      }
+    }
+    if (domain.tag === 'others' && domain.expiration_date) {
+      const now = new Date();
+      const expiry = new Date(domain.expiration_date);
+      const daysUntilExpiry = (expiry.getTime() - now.getTime()) / (1000 * 3600 * 24);
+      if (daysUntilExpiry > 0 && daysUntilExpiry <= 7) {
+        addNotification(`Client/other domain ${domain.domain_name} is expiring in ${Math.ceil(daysUntilExpiry)} days.`);
       }
     }
     if(domain.status === 'dropped' && domain.tag === 'to-snatch') {
@@ -405,7 +414,9 @@ const App: React.FC = () => {
     const domain = domains.find(d => d.id === id);
     if (!domain) return;
   
-    const newTag = domain.tag === 'mine' ? 'to-snatch' : 'mine';
+    const nextTags: DomainTag[] = ['mine', 'to-snatch', 'others'];
+    const currentIndex = nextTags.indexOf(domain.tag);
+    const newTag = nextTags[(currentIndex + 1) % nextTags.length];
   
     const updatedDomain = await SupabaseService.updateDomain(id, { tag: newTag });
     if (updatedDomain) {
@@ -415,6 +426,34 @@ const App: React.FC = () => {
       addLog(`✅ Switched tag for ${domain.domain_name} to "${newTag}".`);
     }
   };
+
+  const markDomainsAsMine = useCallback(async (domainIds: number[], reason: string) => {
+    const targets = domains.filter(domain => (
+      domainIds.includes(domain.id)
+      && domain.tag !== 'mine'
+      && domain.status !== 'available'
+      && domain.status !== 'dropped'
+    ));
+
+    if (targets.length === 0) return;
+
+    addLog(`➡️ ${reason}: marking ${targets.length} domain(s) as Mine based on name-server combination.`);
+    const updatedDomains: Domain[] = [];
+
+    for (const domain of targets) {
+      const updatedDomain = await SupabaseService.updateDomain(domain.id, { tag: 'mine' });
+      if (updatedDomain) {
+        updatedDomains.push(updatedDomain);
+      }
+    }
+
+    if (updatedDomains.length > 0) {
+      setDomains(prevDomains => prevDomains.map(domain => (
+        updatedDomains.find(updated => updated.id === domain.id) || domain
+      )));
+      addLog(`✅ Auto Mine updated ${updatedDomains.length}/${targets.length} domain(s).`);
+    }
+  }, [addLog, domains]);
 
   const syncWhoisForDomain = useCallback(async (domain: Domain, mode: 'manual' | 'auto' = 'manual') => {
     addLog(mode === 'manual'
@@ -582,6 +621,11 @@ const App: React.FC = () => {
             providers={whoisProviders}
             isLoading={isWhoisProviderLoading}
             onRefresh={refreshWhoisProviders}
+        />
+        <AutoMinePanel
+            domains={domains}
+            onApplyMatches={markDomainsAsMine}
+            addLog={addLog}
         />
         <DomainList 
             domains={domains}

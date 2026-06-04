@@ -14,7 +14,7 @@ An aesthetically pleasing app to check domain availability and track domain expi
 *   **Direct Purchase Links:** For available domains, get quick links to recommended registrars to purchase the domain immediately.
 *   **Advanced Expiration Alerts:** Get multi-level, color-coded visual alerts for domains expiring within 90, 30, and 7 days, plus a critical alert for already expired domains.
 *   **Track Your Portfolio:** Add domains to a personal tracking list.
-*   **Smart Tagging & Keyboard Shortcuts:** Tag domains as "Mine" or "To Snatch". Add them even faster using `Enter` (for Mine) and `Shift+Enter` (for To Snatch).
+*   **Smart Tagging & Keyboard Shortcuts:** Tag domains as "Mine", "To Snatch", or "Others" for client-owned domains. Add them even faster using `Enter` (for Mine) and `Shift+Enter` (for To Snatch).
 *   **Advanced Filtering:** Filter your list by tag, status, or urgency, including a dedicated "Available" filter.
 *   **Drop-Catching Helper:** For expired domains, get an estimated timeline for when they might become available.
 *   **Light/Dark & Compact/Standard Modes:** Beautifully designed interface that's easy on the eyes, with view modes to suit your preference.
@@ -67,7 +67,7 @@ pnpm install
 (Instructions for this step are unchanged and can be found in the original `README.md`)
 ```sql
 -- Create custom types for cleaner constraints
-CREATE TYPE public.domain_tag_type AS ENUM ('mine', 'to-snatch');
+CREATE TYPE public.domain_tag_type AS ENUM ('mine', 'to-snatch', 'others');
 CREATE TYPE public.domain_status_type AS ENUM ('available', 'registered', 'expired', 'dropped', 'unknown');
 
 -- Create the 'domains' table
@@ -92,7 +92,7 @@ COMMENT ON TABLE public.domains IS 'Stores domains tracked by users.';
 COMMENT ON COLUMN public.domains.id IS 'Primary key for the domain entry.';
 COMMENT ON COLUMN public.domains.user_id IS 'Foreign key linking to the user who owns this entry.';
 COMMENT ON COLUMN public.domains.domain_name IS 'The domain name being tracked.';
-COMMENT ON COLUMN public.domains.tag IS 'User-defined tag: "mine" or "to-snatch".';
+COMMENT ON COLUMN public.domains.tag IS 'User-defined tag: "mine", "to-snatch", or "others".';
 COMMENT ON COLUMN public.domains.status IS 'Current status of the domain.';
 COMMENT ON COLUMN public.domains.expiration_date IS 'The expiration date of the domain.';
 COMMENT ON COLUMN public.domains.registered_date IS 'The registration date of the domain.';

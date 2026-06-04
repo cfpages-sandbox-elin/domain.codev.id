@@ -6,7 +6,7 @@ import { getWhoisData } from '../_shared/whois-logic.ts'
 
 console.log('✅ "external-api" function loaded');
 
-type DomainTag = 'mine' | 'to-snatch';
+type DomainTag = 'mine' | 'to-snatch' | 'others';
 type DomainStatus = 'available' | 'registered' | 'expired' | 'dropped' | 'unknown';
 type Scope = 'domains:read' | 'domains:write' | 'whois:check' | 'alerts:read' | 'webhooks:write';
 
@@ -89,7 +89,10 @@ const normalizeDomainName = (value: unknown) => {
   return domain;
 };
 
-const normalizeTag = (value: unknown): DomainTag => value === 'to-snatch' ? 'to-snatch' : 'mine';
+const normalizeTag = (value: unknown): DomainTag => {
+  if (value === 'to-snatch' || value === 'others') return value;
+  return 'mine';
+};
 
 const isAvailableLike = (status: DomainStatus) => status === 'available' || status === 'dropped';
 
@@ -253,6 +256,7 @@ const getDomains = async (req: Request, client: IntegrationClient, supabaseAdmin
     switch (filter) {
       case 'mine': return domain.tag === 'mine';
       case 'to-snatch': return domain.tag === 'to-snatch';
+      case 'others': return domain.tag === 'others';
       case 'available': return isAvailableLike(domain.status);
       case 'missing-data': return isMissingWhoisData(domain);
       case 'expiring-soon': return days !== null && days >= 0 && days < 90;
@@ -492,6 +496,22 @@ const getDueAlerts = async (_req: Request, client: IntegrationClient, supabaseAd
           message: days >= 0
             ? `${domain.domain_name} expires in ${days} day(s). Renew it before ${domain.expiration_date}.`
             : `${domain.domain_name} expired ${Math.abs(days)} day(s) ago. Check renewal immediately.`,
+        };
+      }
+
+      if (domain.tag === 'others' && days !== null && days <= 30 && days >= -30) {
+        return {
+          id: `domain-${domain.id}-others-expiry-${domain.expiration_date || 'unknown'}`,
+          event: 'domain.expiring',
+          domainName: domain.domain_name,
+          tag: domain.tag,
+          status: domain.status,
+          severity: days <= 3 ? 'client-critical' : days <= 7 ? 'client-soon' : 'client-month',
+          expirationDate: domain.expiration_date,
+          daysUntilExpiry: days,
+          message: days >= 0
+            ? `${domain.domain_name} is a client/other domain and expires in ${days} day(s).`
+            : `${domain.domain_name} is a client/other domain and expired ${Math.abs(days)} day(s) ago.`,
         };
       }
 

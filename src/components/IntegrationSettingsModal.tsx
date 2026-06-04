@@ -182,11 +182,22 @@ Body:
   "checkWhois": true
 }
 
-3. List domains:
-GET {API_BASE_URL}/domains?filter=all
-Useful filters: all, mine, to-snatch, available, missing-data, expiring-soon.
+3. Add client/other-owned domain:
+POST {API_BASE_URL}/domains
+Body:
+{
+  "domains": [
+    { "domainName": "example.com", "tag": "others" }
+  ],
+  "source": "hermes-whatsapp",
+  "checkWhois": true
+}
 
-4. Recheck missing WHOIS data:
+4. List domains:
+GET {API_BASE_URL}/domains?filter=all
+Useful filters: all, mine, to-snatch, others, available, missing-data, expiring-soon.
+
+5. Recheck missing WHOIS data:
 POST {API_BASE_URL}/domains/recheck
 Body:
 {
@@ -194,12 +205,13 @@ Body:
   "reason": "requested-by-hermes"
 }
 
-5. Read due alerts:
+6. Read due alerts:
 GET {API_BASE_URL}/alerts/due
 
 Behavior rules:
 - When I say "add DOMAIN as mine", call the add-domain endpoint with tag "mine".
 - When I say "track DOMAIN", "watch DOMAIN", or "to snatch DOMAIN", use tag "to-snatch".
+- When I say "client domain", "client-owned", or "others", use tag "others".
 - Confirm before deleting, changing ownership/tag, or doing broad rechecks.
 - Never expose the API token in WhatsApp messages.
 - Summarize API results briefly: created, skipped, failed, status, and expiry date if present.

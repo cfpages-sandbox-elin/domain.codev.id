@@ -1,4 +1,4 @@
-export type DomainTag = 'mine' | 'to-snatch';
+export type DomainTag = 'mine' | 'to-snatch' | 'others';
 
 export type DomainStatus = 'available' | 'registered' | 'expired' | 'dropped' | 'unknown';
 

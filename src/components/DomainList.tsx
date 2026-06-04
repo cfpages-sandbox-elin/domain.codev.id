@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Domain, WhoisData } from '../types';
 import DomainItem from './DomainItem';
-import { ChevronUpDownIcon, ArrowUpOnSquareIcon, ArrowDownOnSquareIcon, RefreshIcon, HomeIcon, TargetIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, DomainCodevIcon } from './icons';
+import { ChevronUpDownIcon, ArrowUpOnSquareIcon, ArrowDownOnSquareIcon, RefreshIcon, HomeIcon, TargetIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, DomainCodevIcon, UsersIcon } from './icons';
 import Tooltip from './Tooltip';
 import { categorizeDomains, DomainCategory } from '../utils/domainCategorization';
 
@@ -19,7 +19,7 @@ interface DomainListProps {
   isProcessing: boolean;
 }
 
-type FilterType = 'all' | 'mine' | 'to-snatch' | 'expiring' | 'expired' | 'available';
+type FilterType = 'all' | 'mine' | 'to-snatch' | 'others' | 'expiring' | 'expired' | 'available';
 type SortOption = 'added-desc' | 'added-asc' | 'name-asc' | 'name-desc' | 'expiry-asc' | 'expiry-desc' | 'checked-desc' | 'checked-asc' | 'category-asc' | 'category-desc' | 'tld-asc' | 'tld-desc';
 
 const FILTER_STORAGE_KEY = 'domain-codev-filter';
@@ -27,7 +27,8 @@ const SORT_STORAGE_KEY = 'domain-codev-sort';
 const CATEGORY_FILTER_STORAGE_KEY = 'domain-codev-category-filter';
 const TLD_FILTER_STORAGE_KEY = 'domain-codev-tld-filter';
 const CATEGORY_NAMES_STORAGE_KEY = 'domain-codev-category-names';
-const FILTER_OPTIONS: FilterType[] = ['all', 'mine', 'to-snatch', 'expiring', 'expired', 'available'];
+const HIDE_REGISTERED_TARGETS_STORAGE_KEY = 'domain-codev-hide-registered-targets';
+const FILTER_OPTIONS: FilterType[] = ['all', 'mine', 'to-snatch', 'others', 'expiring', 'expired', 'available'];
 const SORT_OPTIONS: SortOption[] = ['added-desc', 'added-asc', 'name-asc', 'name-desc', 'expiry-asc', 'expiry-desc', 'checked-desc', 'checked-asc', 'category-asc', 'category-desc', 'tld-asc', 'tld-desc'];
 
 const readStoredFilter = (): FilterType => {
@@ -45,6 +46,11 @@ const readStoredSort = (): SortOption => {
 const readStoredString = (key: string) => {
   if (typeof window === 'undefined') return 'all';
   return window.localStorage.getItem(key) || 'all';
+};
+
+const readStoredBoolean = (key: string) => {
+  if (typeof window === 'undefined') return false;
+  return window.localStorage.getItem(key) === 'true';
 };
 
 const readStoredCategoryNames = (): Record<string, string> => {
@@ -156,6 +162,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
   const [sortOption, setSortOption] = useState<SortOption>(readStoredSort);
   const [categoryFilter, setCategoryFilter] = useState(readStoredString(CATEGORY_FILTER_STORAGE_KEY));
   const [tldFilter, setTldFilter] = useState(readStoredString(TLD_FILTER_STORAGE_KEY));
+  const [hideRegisteredTargets, setHideRegisteredTargets] = useState(() => readStoredBoolean(HIDE_REGISTERED_TARGETS_STORAGE_KEY));
   const [categoryNameOverrides, setCategoryNameOverrides] = useState<Record<string, string>>(readStoredCategoryNames);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isRecheckMenuOpen, setIsRecheckMenuOpen] = useState(false);
@@ -191,6 +198,10 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
   useEffect(() => {
     window.localStorage.setItem(TLD_FILTER_STORAGE_KEY, tldFilter);
   }, [tldFilter]);
+
+  useEffect(() => {
+    window.localStorage.setItem(HIDE_REGISTERED_TARGETS_STORAGE_KEY, String(hideRegisteredTargets));
+  }, [hideRegisteredTargets]);
 
   useEffect(() => {
     window.localStorage.setItem(CATEGORY_NAMES_STORAGE_KEY, JSON.stringify(categoryNameOverrides));
@@ -240,12 +251,15 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
     const meta = categorizedDomainById.get(domain.id);
     if (categoryFilter !== 'all' && !meta?.categoryIds.includes(categoryFilter)) return false;
     if (tldFilter !== 'all' && meta?.parts.tld !== tldFilter) return false;
+    if (hideRegisteredTargets && domain.tag === 'to-snatch' && domain.status === 'registered') return false;
 
     switch (filter) {
       case 'mine':
         return domain.tag === 'mine' && domain.status !== 'available' && domain.status !== 'dropped';
       case 'to-snatch':
         return domain.tag === 'to-snatch' || domain.status === 'available' || domain.status === 'dropped';
+      case 'others':
+        return domain.tag === 'others' && domain.status !== 'available' && domain.status !== 'dropped';
       case 'available':
         return domain.status === 'available' || domain.status === 'dropped';
       case 'expiring':
@@ -258,7 +272,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
       default:
         return true;
     }
-  }), [categorizedDomainById, categoryFilter, domains, filter, tldFilter]);
+  }), [categorizedDomainById, categoryFilter, domains, filter, hideRegisteredTargets, tldFilter]);
 
   const sortedDomains = useMemo(() => {
     const sortable = [...filteredDomains];
@@ -328,6 +342,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
     all: <DomainCodevIcon className="h-4 w-4" />,
     mine: <HomeIcon className="h-4 w-4" />,
     'to-snatch': <TargetIcon className="h-4 w-4" />,
+    others: <UsersIcon className="h-4 w-4" />,
     available: <CheckCircleIcon className="h-4 w-4" />,
     expiring: <ExclamationTriangleIcon className="h-4 w-4" />,
     expired: <XCircleIcon className="h-4 w-4" />,
@@ -356,6 +371,10 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
   const missingDataDomains = useMemo(
     () => sortedDomains.filter(hasMissingData),
     [sortedDomains],
+  );
+  const registeredTargetCount = useMemo(
+    () => domains.filter(domain => domain.tag === 'to-snatch' && domain.status === 'registered').length,
+    [domains],
   );
 
   const renderDomainItem = (domain: Domain) => {
@@ -417,6 +436,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
             <FilterButton filterType="all">All</FilterButton>
             <FilterButton filterType="mine">Mine</FilterButton>
             <FilterButton filterType="to-snatch">To Snatch</FilterButton>
+            <FilterButton filterType="others">Others</FilterButton>
             <FilterButton filterType="available">Available</FilterButton>
             <FilterButton filterType="expiring">Expiring Soon</FilterButton>
             <FilterButton filterType="expired">Expired</FilterButton>
@@ -530,6 +550,23 @@ const DomainList: React.FC<DomainListProps> = ({ domains, whoisDetailsByDomainId
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
+        <Tooltip content="Registered target domains are mostly useful for their expiry date. Hide them when you want to focus on owned, client, available, expired, or failed rows.">
+          <button
+            type="button"
+            onClick={() => setHideRegisteredTargets(current => !current)}
+            disabled={isProcessing || registeredTargetCount === 0}
+            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+              hideRegisteredTargets
+                ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900'
+                : 'bg-slate-200 text-slate-600 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600'
+            }`}
+          >
+            <TargetIcon className="h-4 w-4" />
+            <span>{hideRegisteredTargets ? 'Registered targets hidden' : 'Hide registered targets'}</span>
+            {registeredTargetCount > 0 && <span className="rounded-full bg-white/30 px-1.5 text-xs">{registeredTargetCount}</span>}
+          </button>
+        </Tooltip>
+
         <div className="relative">
           <label htmlFor="category-filter-select" className="sr-only">Filter by category</label>
           <select

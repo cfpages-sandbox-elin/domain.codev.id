@@ -28,4 +28,5 @@ export {
   Tag as TagIcon,
   Trash2 as TrashIcon,
   TriangleAlert as ExclamationTriangleIcon,
+  UsersRound as UsersIcon,
 } from 'lucide-react';

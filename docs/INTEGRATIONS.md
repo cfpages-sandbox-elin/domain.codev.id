@@ -133,7 +133,8 @@ POST /api/v1/domains
 {
   "domains": [
     { "domainName": "filtrasi.com", "tag": "mine" },
-    { "domainName": "precast.id", "tag": "to-snatch" }
+    { "domainName": "precast.id", "tag": "to-snatch" },
+    { "domainName": "clientbrand.id", "tag": "others" }
   ],
   "source": "hermes-whatsapp",
   "checkWhois": true
@@ -178,6 +179,7 @@ Useful filters:
 - `all`
 - `mine`
 - `to-snatch`
+- `others`
 - `available`
 - `missing-data`
 - `expiring-soon`
@@ -315,6 +317,7 @@ Examples:
 | --- | --- |
 | `add filtrasi.com as mine` | `POST /api/v1/domains` with one `mine` domain. |
 | `track precast.id to snatch` | `POST /api/v1/domains` with one `to-snatch` domain. |
+| `track clientbrand.id as client domain` | `POST /api/v1/domains` with one `others` domain. |
 | `add these as mine: a.com b.id c.co.id` | `POST /api/v1/domains` bulk request. |
 | `what expires this month?` | `GET /api/v1/domains?filter=expiring-soon`. |
 | `recheck missing data` | `POST /api/v1/domains/recheck` with `mode: missing-data`. |
