@@ -40,7 +40,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
-    const providers = await getWhoisProviderStatuses(supabaseAdmin);
+    const providers = await getWhoisProviderStatuses(supabaseAdmin, user.id);
 
     return new Response(JSON.stringify({ providers }), {
       status: 200,

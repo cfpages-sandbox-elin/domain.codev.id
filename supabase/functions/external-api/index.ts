@@ -335,7 +335,7 @@ const addDomains = async (req: Request, client: IntegrationClient, supabaseAdmin
     }
 
     const whoisData = checkWhois
-      ? await getWhoisData(item.domainName, { telemetryClient: supabaseAdmin })
+      ? await getWhoisData(item.domainName, { telemetryClient: supabaseAdmin, userId: client.user_id })
       : {
         status: 'unknown' as DomainStatus,
         expirationDate: null,
@@ -424,7 +424,7 @@ const recheckDomains = async (req: Request, client: IntegrationClient, supabaseA
   const failed = [];
 
   for (const domain of targets) {
-    const whoisData = await getWhoisData(domain.domain_name, { telemetryClient: supabaseAdmin });
+    const whoisData = await getWhoisData(domain.domain_name, { telemetryClient: supabaseAdmin, userId: client.user_id });
     if (whoisData.status === 'unknown') {
       failed.push({
         domainName: domain.domain_name,

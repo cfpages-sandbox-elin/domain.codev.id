@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Domain, DomainTag, WhoisData, WhoisProviderStatus } from './types';
 import { getWhoisData, getWhoisProviderStatuses } from './services/whoisService';
-import { supabase, supabaseConfigError } from './services/supabaseService';
+import { saveWhoisProviderCredential, removeWhoisProviderCredential, supabase, supabaseConfigError } from './services/supabaseService';
 import { Session } from '@supabase/supabase-js';
 import * as SupabaseService from './services/supabaseService';
 import type { DomainInsert, DomainUpdate } from './services/supabaseService';
@@ -141,6 +141,22 @@ const App: React.FC = () => {
       };
     }));
   }, []);
+
+  const handleSaveWhoisProviderCredential = useCallback(async (providerId: string, apiKey: string) => {
+    const saved = await saveWhoisProviderCredential({ providerId, apiKey });
+    if (saved) {
+      addLog(`✅ Saved WHOIS provider key for ${providerId}.`);
+    }
+    return saved;
+  }, [addLog]);
+
+  const handleRemoveWhoisProviderCredential = useCallback(async (providerId: string) => {
+    const removed = await removeWhoisProviderCredential(providerId);
+    if (removed) {
+      addLog(`✅ Removed WHOIS provider key for ${providerId}.`);
+    }
+    return removed;
+  }, [addLog]);
 
   useEffect(() => {
     addLog('ℹ️ Application initializing...');
@@ -621,6 +637,8 @@ const App: React.FC = () => {
             providers={whoisProviders}
             isLoading={isWhoisProviderLoading}
             onRefresh={refreshWhoisProviders}
+            onSaveCredential={handleSaveWhoisProviderCredential}
+            onRemoveCredential={handleRemoveWhoisProviderCredential}
         />
         <AutoMinePanel
             domains={domains}

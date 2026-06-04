@@ -96,6 +96,7 @@ const CategoryControls: React.FC<{
   onSelectCategory: (categoryId: string) => void;
   onRenameCategory: (categoryId: string, name: string) => void;
 }> = ({ categories, categoryNames, selectedCategoryId, onSelectCategory, onRenameCategory }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
   if (categories.length === 0) return null;
 
   return (
@@ -107,40 +108,61 @@ const CategoryControls: React.FC<{
         </div>
         <button
           type="button"
-          onClick={() => onSelectCategory('all')}
-          className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${selectedCategoryId === 'all' ? 'bg-brand-blue text-white' : 'bg-white text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'}`}
+          onClick={() => setIsExpanded(current => !current)}
+          className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
         >
-          Show all
+          {isExpanded ? 'Collapse' : `Show ${categories.length} categories`}
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {categories.map((category, index) => {
-          const label = categoryNames[category.id] || category.suggestedName;
-          const isSelected = selectedCategoryId === category.id;
-          return (
-            <div
-              key={category.id}
-              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 ${CATEGORY_GROUP_STYLES[index % CATEGORY_GROUP_STYLES.length]} ${isSelected ? 'ring-2 ring-brand-blue ring-offset-2 dark:ring-offset-slate-950' : ''}`}
-            >
-              <input
-                value={label}
-                onChange={(event) => onRenameCategory(category.id, event.target.value)}
-                onFocus={() => onSelectCategory(category.id)}
-                className="w-28 rounded bg-white/70 px-1.5 py-0.5 text-xs font-bold text-slate-700 outline-none focus:ring-1 focus:ring-brand-blue dark:bg-black/20 dark:text-slate-100"
-                aria-label={`Rename category ${category.suggestedName}`}
-              />
-              <button
-                type="button"
-                onClick={() => onSelectCategory(category.id)}
-                className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-slate-600 hover:bg-white dark:bg-slate-900/60 dark:text-slate-300 dark:hover:bg-slate-900"
+      {selectedCategoryId !== 'all' && (
+        <div className="mb-3 flex justify-center">
+          <button
+            type="button"
+            onClick={() => onSelectCategory('all')}
+            className="rounded-full bg-brand-blue px-3 py-1.5 text-xs font-semibold text-white"
+          >
+            Clear category filter
+          </button>
+        </div>
+      )}
+
+      {isExpanded && (
+        <div className="flex flex-wrap justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => onSelectCategory('all')}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${selectedCategoryId === 'all' ? 'bg-brand-blue text-white' : 'bg-white text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'}`}
+          >
+            All
+          </button>
+          {categories.map((category, index) => {
+            const label = categoryNames[category.id] || category.suggestedName;
+            const isSelected = selectedCategoryId === category.id;
+            return (
+              <div
+                key={category.id}
+                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 ${CATEGORY_GROUP_STYLES[index % CATEGORY_GROUP_STYLES.length]} ${isSelected ? 'ring-2 ring-brand-blue ring-offset-2 dark:ring-offset-slate-950' : ''}`}
               >
-                {category.members.length}
-              </button>
-            </div>
-          );
-        })}
-      </div>
+                <button
+                  type="button"
+                  onClick={() => onSelectCategory(category.id)}
+                  className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-slate-600 hover:bg-white dark:bg-slate-900/60 dark:text-slate-300 dark:hover:bg-slate-900"
+                >
+                  {category.members.length}
+                </button>
+                <input
+                  value={label}
+                  onChange={(event) => onRenameCategory(category.id, event.target.value)}
+                  onFocus={() => onSelectCategory(category.id)}
+                  className="w-28 rounded bg-white/70 px-1.5 py-0.5 text-center text-xs font-bold text-slate-700 outline-none focus:ring-1 focus:ring-brand-blue dark:bg-black/20 dark:text-slate-100"
+                  aria-label={`Rename category ${category.suggestedName}`}
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

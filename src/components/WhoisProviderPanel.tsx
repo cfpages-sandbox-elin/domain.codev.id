@@ -7,6 +7,8 @@ interface WhoisProviderPanelProps {
   providers: WhoisProviderStatus[];
   isLoading: boolean;
   onRefresh: () => void;
+  onSaveCredential: (providerId: string, apiKey: string) => Promise<boolean>;
+  onRemoveCredential: (providerId: string) => Promise<boolean>;
 }
 
 const statusStyles: Record<WhoisProviderStatus['status'], string> = {
@@ -37,12 +39,41 @@ const formatMonthlyQuota = (provider: WhoisProviderStatus) => {
   return formatQuotaPair(provider.quota?.remainingMonth, provider.quota?.limitMonth, 'month');
 };
 
-const WhoisProviderPanel: React.FC<WhoisProviderPanelProps> = ({ providers, isLoading, onRefresh }) => {
+const CREDENTIAL_PROVIDER_IDS = new Set(['oti-labs', 'domainduck', 'rdap-api']);
+
+const WhoisProviderPanel: React.FC<WhoisProviderPanelProps> = ({ providers, isLoading, onRefresh, onSaveCredential, onRemoveCredential }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [apiKeysByProviderId, setApiKeysByProviderId] = useState<Record<string, string>>({});
+  const [savingProviderId, setSavingProviderId] = useState<string | null>(null);
   const activeCount = providers.filter(provider => provider.status === 'active').length;
   const implementedCount = providers.filter(provider => provider.implemented).length;
   const missingCount = providers.filter(provider => provider.status === 'missing-key').length;
   const latestProvider = providers.find(provider => provider.lastResultAt);
+
+  const saveCredential = async (providerId: string) => {
+    const apiKey = apiKeysByProviderId[providerId]?.trim();
+    if (!apiKey) return;
+    setSavingProviderId(providerId);
+    try {
+      const saved = await onSaveCredential(providerId, apiKey);
+      if (saved) {
+        setApiKeysByProviderId(current => ({ ...current, [providerId]: '' }));
+        onRefresh();
+      }
+    } finally {
+      setSavingProviderId(null);
+    }
+  };
+
+  const removeCredential = async (providerId: string) => {
+    setSavingProviderId(providerId);
+    try {
+      const removed = await onRemoveCredential(providerId);
+      if (removed) onRefresh();
+    } finally {
+      setSavingProviderId(null);
+    }
+  };
 
   return (
     <section className="mb-6 border-y border-slate-200 py-4 dark:border-slate-700">
@@ -131,6 +162,35 @@ const WhoisProviderPanel: React.FC<WhoisProviderPanelProps> = ({ providers, isLo
                         </td>
                         <td className="min-w-[180px] py-2 text-xs text-slate-500 dark:text-slate-400">
                           {provider.lastErrorMessage || provider.notes}
+                          {CREDENTIAL_PROVIDER_IDS.has(provider.id) && (
+                            <div className="mt-2 flex min-w-[260px] flex-wrap items-center gap-2">
+                              <input
+                                type="password"
+                                value={apiKeysByProviderId[provider.id] || ''}
+                                onChange={(event) => setApiKeysByProviderId(current => ({ ...current, [provider.id]: event.target.value }))}
+                                placeholder={provider.configured ? 'Replace saved key' : 'Paste API key'}
+                                className="min-w-[160px] flex-1 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-brand-blue focus:ring-1 focus:ring-brand-blue dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => saveCredential(provider.id)}
+                                disabled={savingProviderId === provider.id || !apiKeysByProviderId[provider.id]?.trim()}
+                                className="rounded-md bg-brand-blue px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {provider.configured ? 'Replace' : 'Save'}
+                              </button>
+                              {provider.configured && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeCredential(provider.id)}
+                                  disabled={savingProviderId === provider.id}
+                                  className="rounded-md bg-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-300 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}

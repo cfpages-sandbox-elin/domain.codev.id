@@ -63,6 +63,11 @@ export interface WhoisProviderStatus {
   lastErrorMessage?: string;
 }
 
+export interface WhoisProviderCredentialInput {
+  providerId: string;
+  apiKey: string;
+}
+
 export type IntegrationScope = 'domains:read' | 'domains:write' | 'whois:check' | 'alerts:read' | 'webhooks:write';
 
 export interface IntegrationClient {

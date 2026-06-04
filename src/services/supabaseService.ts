@@ -1,6 +1,6 @@
 
 import { createClient, Session, SupabaseClient } from '@supabase/supabase-js';
-import { Domain, DomainTag, DomainStatus, IntegrationClient, IntegrationScope } from '../types';
+import { Domain, DomainTag, DomainStatus, IntegrationClient, IntegrationScope, WhoisProviderCredentialInput } from '../types';
 
 // The type for inserting a new row. DB handles id, user_id, and created_at.
 export type DomainInsert = Omit<Domain, 'id' | 'user_id' | 'created_at'>;
@@ -26,6 +26,29 @@ export interface Database {
           revoked_at?: string | null;
         };
         Update: Partial<Omit<IntegrationClient, 'id' | 'user_id' | 'created_at' | 'token_hash'>>;
+        Relationships: [];
+      };
+      whois_provider_credentials: {
+        Row: {
+          id: string;
+          user_id: string;
+          provider_id: string;
+          api_key: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          provider_id: string;
+          api_key: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          api_key?: string;
+          updated_at?: string;
+        };
         Relationships: [];
       };
     };
@@ -244,4 +267,46 @@ export const revokeIntegrationClient = async (id: string): Promise<IntegrationCl
     }
 
     return data as IntegrationClient;
+};
+
+// --- WHOIS Provider Credential Functions ---
+
+export const saveWhoisProviderCredential = async (input: WhoisProviderCredentialInput): Promise<boolean> => {
+    if (!supabase) return false;
+    const session = await getSession();
+    if (!session) return false;
+
+    const { error } = await supabase
+        .from('whois_provider_credentials')
+        .upsert([{
+            user_id: session.user.id,
+            provider_id: input.providerId,
+            api_key: input.apiKey.trim(),
+            updated_at: new Date().toISOString(),
+        }] as never, { onConflict: 'user_id,provider_id' });
+
+    if (error) {
+        console.error("Error saving WHOIS provider credential:", error);
+        alert('Could not save the WHOIS provider key. Make sure the provider credential migration has been applied.');
+        return false;
+    }
+
+    return true;
+};
+
+export const removeWhoisProviderCredential = async (providerId: string): Promise<boolean> => {
+    if (!supabase) return false;
+
+    const { error } = await supabase
+        .from('whois_provider_credentials')
+        .delete()
+        .eq('provider_id', providerId);
+
+    if (error) {
+        console.error("Error removing WHOIS provider credential:", error);
+        alert('Could not remove the WHOIS provider key.');
+        return false;
+    }
+
+    return true;
 };

@@ -11,7 +11,7 @@ Current WHOIS checks are server-side through Supabase Edge Functions.
 | Client call | `src/services/whoisService.ts` | Calls `supabase.functions.invoke('get-whois', { body: { domainName } })`, logs progress, and returns `unknown` on failure. |
 | Authenticated lookup function | `supabase/functions/get-whois/index.ts` | Handles CORS, verifies the Supabase user from the Authorization header, validates `domainName`, calls shared logic, and returns normalized JSON. |
 | Scheduled lookup function | `supabase/functions/check-domains/index.ts` | Requires `CRON_SECRET`, uses Supabase service role, scans domain metadata, checks only domains due under the targeted expiry/drop schedule, and updates status. |
-| Provider selection | `supabase/functions/_shared/whois-logic.ts` | Tries configured providers with runtime quota pre-skipping and in-flight balancing across `who-dat`, WhoisXMLAPI, APILayer, WhoisFreaks, WhoAPI, RapidAPI, WhoisJSON, and IP2WHOIS. |
+| Provider selection | `supabase/functions/_shared/whois-logic.ts` | Tries configured providers with runtime quota pre-skipping and in-flight balancing across `who-dat`, WhoisXMLAPI, APILayer, WhoisFreaks, WhoAPI, RapidAPI, WhoisJSON, IP2WHOIS, direct IANA RDAP, RDAP.org, OTI Labs, Domainduck, and RDAP API. |
 
 Normalized return shape:
 
@@ -38,6 +38,13 @@ Normalized return shape:
 | RapidAPI marketplace API | `RAPIDAPI_KEY` |
 | WhoisJSON | `WHOISJSON_API_KEY` |
 | IP2WHOIS | `IP2WHOIS_API_KEY` |
+| Direct IANA RDAP | No key. Uses `https://data.iana.org/rdap/dns.json` bootstrap. |
+| RDAP.org | No key. Uses `https://rdap.org/domain/{domain}`. |
+| OTI Labs | Stored per user in `whois_provider_credentials` as provider id `oti-labs`, or Supabase secret `OTI_LABS_API_KEY` / legacy `VITE_OTI_LABS_API_KEY`. |
+| Domainduck | Stored per user in `whois_provider_credentials` as provider id `domainduck`, or Supabase secret `DOMAINDUCK_API_KEY` / legacy `VITE_DOMAINDUCK_API_KEY`. |
+| RDAP API | Stored per user in `whois_provider_credentials` as provider id `rdap-api`, or Supabase secret `RDAP_API_KEY` / legacy `VITE_RDAP_API_KEY`. |
+
+User-entered provider keys are stored in Supabase table `whois_provider_credentials`. The browser can insert/update/delete the current user's keys, but there is intentionally no browser-readable `SELECT` policy for raw key values. Edge Functions read the keys with service-role access and return only configured/missing status to the dashboard. If both a user-stored key and Supabase secret exist, the user-stored key wins for that user's checks.
 
 ## Runtime Quota And Bulk Behavior
 

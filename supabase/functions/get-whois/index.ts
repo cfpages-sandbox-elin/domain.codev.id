@@ -59,7 +59,7 @@ serve(async (req) => {
     console.log(`➡️ Processing request for domain: ${domainName}`);
     
     // 3. Perform the WHOIS lookup using shared logic
-    const whoisData = await getWhoisData(domainName, { telemetryClient: supabaseAdmin });
+    const whoisData = await getWhoisData(domainName, { telemetryClient: supabaseAdmin, userId: user.id });
     console.log(`✅ WHOIS lookup complete for ${domainName}. Status: ${whoisData.status}`);
 
     // 4. Return the result

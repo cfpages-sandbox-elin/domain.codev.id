@@ -14,6 +14,7 @@ type DomainStatus = 'available' | 'registered' | 'expired' | 'dropped' | 'unknow
 
 interface Domain {
   id: number;
+  user_id: string;
   domain_name: string;
   status: DomainStatus;
   tag: DomainTag;
@@ -210,7 +211,7 @@ serve(async (req) => {
     const now = new Date();
     const { data: domains, error: fetchError } = await supabaseAdmin
       .from('domains')
-      .select('id, domain_name, status, tag, expiration_date, last_checked');
+      .select('id, user_id, domain_name, status, tag, expiration_date, last_checked');
     
     if (fetchError) throw fetchError;
 
@@ -257,7 +258,7 @@ serve(async (req) => {
 
     const checkDomain = async (domain: Domain): Promise<(DomainUpdate & { id: number }) | null> => {
       console.log(`➡️ Checking ${domain.domain_name}...`);
-      const whoisData = await getWhoisData(domain.domain_name, { telemetryClient: supabaseAdmin });
+      const whoisData = await getWhoisData(domain.domain_name, { telemetryClient: supabaseAdmin, userId: domain.user_id });
 
       if (whoisData.status === 'unknown') {
         console.log(`⚠️ WHOIS check failed for ${domain.domain_name}. Skipping update.`);

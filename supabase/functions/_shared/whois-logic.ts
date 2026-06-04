@@ -13,7 +13,12 @@ export type WhoisProviderId =
   | 'whoapi'
   | 'rapidapi'
   | 'whoisjson'
-  | 'ip2whois';
+  | 'ip2whois'
+  | 'rdap-iana'
+  | 'rdap-org'
+  | 'oti-labs'
+  | 'domainduck'
+  | 'rdap-api';
 
 export interface WhoisQuota {
   limitMonth: number | null;
@@ -70,7 +75,7 @@ interface WhoisProviderConfig {
   monthlyFreeLimit: number | null;
   perMinuteLimit: number | null;
   notes: string;
-  isConfigured: () => boolean;
+  isConfigured: (credentials?: WhoisProviderCredentials) => boolean;
 }
 
 interface WhoisProviderRuntimeState {
@@ -86,7 +91,10 @@ interface WhoisProviderRuntimeState {
 
 interface WhoisRuntimeOptions {
   telemetryClient?: any;
+  userId?: string;
 }
+
+type WhoisProviderCredentials = Partial<Record<WhoisProviderId, string>>;
 
 //-------------------------------------------------
 // Environment Variable Access
@@ -109,6 +117,12 @@ const RAPIDAPI_KEY = Deno.env.get('RAPIDAPI_KEY') || Deno.env.get('VITE_RAPIDAPI
 const WHOISJSON_API_KEY = Deno.env.get('WHOISJSON_API_KEY') || Deno.env.get('VITE_WHOISJSON_API_KEY');
 // @ts-ignore
 const IP2WHOIS_API_KEY = Deno.env.get('IP2WHOIS_API_KEY') || Deno.env.get('VITE_IP2WHOIS_API_KEY');
+// @ts-ignore
+const OTI_LABS_API_KEY = Deno.env.get('OTI_LABS_API_KEY') || Deno.env.get('VITE_OTI_LABS_API_KEY');
+// @ts-ignore
+const DOMAINDUCK_API_KEY = Deno.env.get('DOMAINDUCK_API_KEY') || Deno.env.get('VITE_DOMAINDUCK_API_KEY');
+// @ts-ignore
+const RDAP_API_KEY = Deno.env.get('RDAP_API_KEY') || Deno.env.get('VITE_RDAP_API_KEY');
 
 //-------------------------------------------------
 // Provider Registry
@@ -226,11 +240,83 @@ const WHOIS_PROVIDER_REGISTRY: WhoisProviderConfig[] = [
     notes: 'New backup provider. Response mapping may need adjustment after live testing.',
     isConfigured: () => Boolean(IP2WHOIS_API_KEY),
   },
+  {
+    id: 'rdap-iana',
+    label: 'Direct RDAP via IANA bootstrap',
+    implemented: true,
+    enabled: true,
+    priority: 9,
+    envKeys: [],
+    freeTierLabel: 'No key; registry rate limits vary',
+    supportsQuotaHeaders: false,
+    monthlyFreeLimit: null,
+    perMinuteLimit: 10,
+    notes: 'No-key structured RDAP fallback. Uses IANA bootstrap and caches it per warm runtime.',
+    isConfigured: () => true,
+  },
+  {
+    id: 'rdap-org',
+    label: 'RDAP.org bootstrap',
+    implemented: true,
+    enabled: true,
+    priority: 10,
+    envKeys: [],
+    freeTierLabel: 'No key; 10 requests / 10 seconds documented',
+    supportsQuotaHeaders: false,
+    monthlyFreeLimit: null,
+    perMinuteLimit: 10,
+    notes: 'No-key RDAP fallback. Kept after direct IANA because RDAP.org has a public Cloudflare limit.',
+    isConfigured: () => true,
+  },
+  {
+    id: 'oti-labs',
+    label: 'OTI Labs WHOIS API',
+    implemented: true,
+    enabled: true,
+    priority: 11,
+    envKeys: ['OTI_LABS_API_KEY'],
+    freeTierLabel: '1,000 requests/month through RapidAPI',
+    supportsQuotaHeaders: false,
+    monthlyFreeLimit: 1000,
+    perMinuteLimit: 10,
+    notes: 'RDAP-first RapidAPI provider with port-43 fallback.',
+    isConfigured: credentials => Boolean(credentials?.['oti-labs'] || OTI_LABS_API_KEY),
+  },
+  {
+    id: 'domainduck',
+    label: 'Domainduck',
+    implemented: true,
+    enabled: true,
+    priority: 12,
+    envKeys: ['DOMAINDUCK_API_KEY'],
+    freeTierLabel: '2,500 requests, 500/hour with cache rules',
+    supportsQuotaHeaders: false,
+    monthlyFreeLimit: 2500,
+    perMinuteLimit: 8,
+    notes: 'Availability and WHOIS provider. Uses WHOIS mode for expiry/name-server data.',
+    isConfigured: credentials => Boolean(credentials?.domainduck || DOMAINDUCK_API_KEY),
+  },
+  {
+    id: 'rdap-api',
+    label: 'RDAP API',
+    implemented: true,
+    enabled: true,
+    priority: 13,
+    envKeys: ['RDAP_API_KEY'],
+    freeTierLabel: '7-day trial, then paid plans',
+    supportsQuotaHeaders: false,
+    monthlyFreeLimit: null,
+    perMinuteLimit: 30,
+    notes: 'Commercial normalized RDAP fallback.',
+    isConfigured: credentials => Boolean(credentials?.['rdap-api'] || RDAP_API_KEY),
+  },
 ];
 
 const providerRuntimeState = new Map<WhoisProviderId, WhoisProviderRuntimeState>();
 const WHOIS_PROVIDER_TELEMETRY_TABLE = 'whois_provider_telemetry';
+const WHOIS_PROVIDER_CREDENTIALS_TABLE = 'whois_provider_credentials';
 let telemetryWarningLogged = false;
+let credentialsWarningLogged = false;
 
 const monthKey = (date = new Date()) => `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
 
@@ -282,6 +368,40 @@ const warnTelemetryUnavailable = (error: any) => {
   if (telemetryWarningLogged) return;
   telemetryWarningLogged = true;
   console.warn(`WHOIS provider telemetry persistence is unavailable; using runtime-only quota state. ${error?.message || error}`);
+};
+
+const warnCredentialsUnavailable = (error: any) => {
+  if (credentialsWarningLogged) return;
+  credentialsWarningLogged = true;
+  console.warn(`WHOIS provider credential persistence is unavailable; using environment-only provider keys. ${error?.message || error}`);
+};
+
+const loadUserProviderCredentials = async (
+  telemetryClient?: any,
+  userId?: string,
+): Promise<WhoisProviderCredentials> => {
+  if (!telemetryClient || !userId) return {};
+
+  const { data, error } = await telemetryClient
+    .from(WHOIS_PROVIDER_CREDENTIALS_TABLE)
+    .select('provider_id, api_key')
+    .eq('user_id', userId);
+
+  if (error) {
+    if (isTelemetrySchemaError(error) || /whois_provider_credentials|schema cache|does not exist/i.test(error.message || '')) {
+      warnCredentialsUnavailable(error);
+      return {};
+    }
+    console.warn(`Could not load user WHOIS provider credentials: ${error.message || error}`);
+    return {};
+  }
+
+  return (data || []).reduce((credentials: WhoisProviderCredentials, row: any) => {
+    if (row.provider_id && row.api_key) {
+      credentials[row.provider_id as WhoisProviderId] = row.api_key;
+    }
+    return credentials;
+  }, {});
 };
 
 const hydrateRuntimeFromTelemetryRow = (row: any) => {
@@ -499,14 +619,15 @@ const getProviderExecutionOrder = () => {
     });
 };
 
-export const getWhoisProviderStatuses = async (telemetryClient?: any): Promise<WhoisProviderStatus[]> => {
+export const getWhoisProviderStatuses = async (telemetryClient?: any, userId?: string): Promise<WhoisProviderStatus[]> => {
   await loadPersistentTelemetry(telemetryClient);
+  const credentials = await loadUserProviderCredentials(telemetryClient, userId);
 
   return WHOIS_PROVIDER_REGISTRY
     .slice()
     .sort((a, b) => a.priority - b.priority)
     .map((provider) => {
-      const configured = provider.isConfigured();
+      const configured = provider.isConfigured(credentials);
       const runtime = getRuntimeState(provider.id);
       const skipReason = getRuntimeSkipReason(provider);
       const status = !provider.implemented
@@ -605,6 +726,107 @@ const getUnusableWhoisReason = (data: WhoisData): string | null => {
 
 const getErrorMessage = (error: unknown): string => {
   return error instanceof Error ? error.message : String(error);
+};
+
+let ianaRdapBootstrapCache: { loadedAt: number; services: Array<[string[], string[]]> } | null = null;
+
+const getDomainTld = (domainName: string) => domainName.toLowerCase().split('.').filter(Boolean).pop() || '';
+
+const getIanaRdapServices = async () => {
+  const now = Date.now();
+  if (ianaRdapBootstrapCache && now - ianaRdapBootstrapCache.loadedAt < 24 * 60 * 60 * 1000) {
+    return ianaRdapBootstrapCache.services;
+  }
+
+  const response = await fetch('https://data.iana.org/rdap/dns.json');
+  if (!response.ok) throw new Error(`IANA RDAP bootstrap failed: ${response.status}`);
+  const data = await response.json();
+  const services = Array.isArray(data.services) ? data.services : [];
+  ianaRdapBootstrapCache = { loadedAt: now, services };
+  return services;
+};
+
+const findIanaRdapBaseUrl = async (domainName: string): Promise<string | null> => {
+  const tld = getDomainTld(domainName);
+  const services = await getIanaRdapServices();
+  for (const service of services) {
+    const tlds = service[0] || [];
+    const urls = service[1] || [];
+    if (tlds.includes(tld) && urls.length > 0) {
+      return urls[0].replace(/\/$/, '');
+    }
+  }
+  return null;
+};
+
+const readRdapEventDate = (events: any[] | undefined, actions: string[]) => {
+  if (!Array.isArray(events)) return null;
+  const normalizedActions = actions.map(action => action.toLowerCase());
+  return events.find(event => normalizedActions.includes(String(event.eventAction || '').toLowerCase()))?.eventDate || null;
+};
+
+const readRdapRegistrar = (entities: any[] | undefined) => {
+  if (!Array.isArray(entities)) return null;
+  const registrar = entities.find(entity => Array.isArray(entity.roles) && entity.roles.includes('registrar'));
+  const vcard = registrar?.vcardArray?.[1];
+  if (Array.isArray(vcard)) {
+    const fn = vcard.find((item: any[]) => item?.[0] === 'fn');
+    if (fn?.[3]) return fn[3];
+  }
+  return registrar?.handle || null;
+};
+
+const normalizeRdapData = (_domainName: string, data: any): WhoisData => {
+  const expiryDateStr = readRdapEventDate(data.events, ['expiration']);
+  const registeredDateStr = readRdapEventDate(data.events, ['registration']);
+  const status = expiryDateStr && new Date(expiryDateStr) < new Date() ? 'expired' : 'registered';
+
+  return {
+    status,
+    expirationDate: expiryDateStr,
+    registeredDate: registeredDateStr,
+    registrar: readRdapRegistrar(data.entities),
+    domainStatuses: readDomainStatuses(data.status),
+    nameServers: readNameServers(
+      Array.isArray(data.nameservers)
+        ? data.nameservers.map((server: any) => server.ldhName || server.unicodeName || server.name)
+        : [],
+    ),
+  };
+};
+
+const parseFlexibleProviderData = (rawData: any): WhoisData => {
+  const data = rawData?.whois || rawData?.result || rawData?.data || rawData;
+  const expiryDateStr = data.expires
+    || data.expiry
+    || data.expire_date
+    || data.expiry_date
+    || data.expiration_date
+    || data.RegistryExpiryDate
+    || data.registryExpiryDate
+    || data.expiresDate
+    || null;
+  const registeredDateStr = data.created
+    || data.create_date
+    || data.creation_date
+    || data.CreationDate
+    || data.createdDate
+    || null;
+  const isAvailable = data.available === true
+    || data.isAvailable === true
+    || data.domain_available === true
+    || data.domain_registered === false
+    || data.registered === false;
+  const status = isAvailable ? 'available' : (expiryDateStr && new Date(expiryDateStr) < new Date() ? 'expired' : 'registered');
+
+  return {
+    status,
+    expirationDate: expiryDateStr,
+    registeredDate: registeredDateStr,
+    registrar: data.registrar || data.Registrar || data.registrar_name || data.registrarName || null,
+    domainStatuses: readDomainStatuses(data.status, data.Status, data.statuses, data.domain_status),
+    nameServers: readNameServers(data.nameservers, data.name_servers, data.nameServers, data.NameServers),
+  };
 };
 
 //-------------------------------------------------
@@ -816,9 +1038,122 @@ const getWhoisDataFromIp2Whois = async (domainName: string): Promise<WhoisData> 
 };
 
 //-------------------------------------------------
+// Provider 8: Direct RDAP via IANA bootstrap
+//-------------------------------------------------
+const getWhoisDataFromIanaRdap = async (domainName: string): Promise<WhoisData> => {
+  const baseUrl = await findIanaRdapBaseUrl(domainName);
+  if (!baseUrl) throw new Error(`No IANA RDAP server found for ${domainName}`);
+
+  const response = await fetch(`${baseUrl}/domain/${encodeURIComponent(domainName)}`, {
+    headers: { Accept: 'application/rdap+json, application/json' },
+  });
+  if (response.status === 404) {
+    return {
+      status: 'available',
+      expirationDate: null,
+      registeredDate: null,
+      registrar: null,
+    };
+  }
+  if (!response.ok) throw new Error(`IANA RDAP lookup failed: ${response.status}`);
+
+  const data = await response.json();
+  return normalizeRdapData(domainName, data);
+};
+
+//-------------------------------------------------
+// Provider 9: RDAP.org bootstrap
+//-------------------------------------------------
+const getWhoisDataFromRdapOrg = async (domainName: string): Promise<WhoisData> => {
+  const response = await fetch(`https://rdap.org/domain/${encodeURIComponent(domainName)}`, {
+    headers: { Accept: 'application/rdap+json, application/json' },
+  });
+  if (response.status === 404) {
+    return {
+      status: 'available',
+      expirationDate: null,
+      registeredDate: null,
+      registrar: null,
+    };
+  }
+  if (!response.ok) throw new Error(`RDAP.org lookup failed: ${response.status}`);
+
+  const data = await response.json();
+  return normalizeRdapData(domainName, data);
+};
+
+//-------------------------------------------------
+// Provider 10: OTI Labs
+//-------------------------------------------------
+const getWhoisDataFromOtiLabs = async (domainName: string, credentials: WhoisProviderCredentials): Promise<WhoisData> => {
+  const apiKey = credentials['oti-labs'] || OTI_LABS_API_KEY;
+  if (!apiKey) throw new Error('OTI Labs API key not provided.');
+
+  const response = await fetch(`https://domain-intelligence-api.p.rapidapi.com/domain/${encodeURIComponent(domainName)}/whois`, {
+    headers: {
+      'X-RapidAPI-Host': 'domain-intelligence-api.p.rapidapi.com',
+      'X-RapidAPI-Key': apiKey,
+    },
+  });
+  if (response.status === 404) {
+    return {
+      status: 'available',
+      expirationDate: null,
+      registeredDate: null,
+      registrar: null,
+    };
+  }
+  if (!response.ok) throw new Error(`OTI Labs failed: ${response.status}`);
+
+  const data = await response.json();
+  return parseFlexibleProviderData(data);
+};
+
+//-------------------------------------------------
+// Provider 11: Domainduck
+//-------------------------------------------------
+const getWhoisDataFromDomainduck = async (domainName: string, credentials: WhoisProviderCredentials): Promise<WhoisData> => {
+  const apiKey = credentials.domainduck || DOMAINDUCK_API_KEY;
+  if (!apiKey) throw new Error('Domainduck API key not provided.');
+
+  const response = await fetch(`https://v1.api.domainduck.io/api/get/?domain=${encodeURIComponent(domainName)}&apikey=${encodeURIComponent(apiKey)}&whois=1`);
+  if (!response.ok) throw new Error(`Domainduck failed: ${response.status}`);
+  const data = await response.json();
+  if (data.error || data.message === 'rate limit exceeded') throw new Error(`Domainduck Error: ${data.error || data.message}`);
+  return parseFlexibleProviderData(data);
+};
+
+//-------------------------------------------------
+// Provider 12: RDAP API
+//-------------------------------------------------
+const getWhoisDataFromRdapApi = async (domainName: string, credentials: WhoisProviderCredentials): Promise<WhoisData> => {
+  const apiKey = credentials['rdap-api'] || RDAP_API_KEY;
+  if (!apiKey) throw new Error('RDAP API key not provided.');
+
+  const response = await fetch(`https://rdapapi.io/api/v1/domain/${encodeURIComponent(domainName)}`, {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      Accept: 'application/json',
+    },
+  });
+  if (response.status === 404) {
+    return {
+      status: 'available',
+      expirationDate: null,
+      registeredDate: null,
+      registrar: null,
+    };
+  }
+  if (!response.ok) throw new Error(`RDAP API failed: ${response.status}`);
+
+  const data = await response.json();
+  return normalizeRdapData(domainName, data.object || data.rdap || data);
+};
+
+//-------------------------------------------------
 // Main Service Function (Waterfall)
 //-------------------------------------------------
-const providerHandlers: Array<[WhoisProviderId, (domainName: string) => Promise<WhoisData>]> = [
+const providerHandlers: Array<[WhoisProviderId, (domainName: string, credentials: WhoisProviderCredentials) => Promise<WhoisData>]> = [
   ['who-dat', getWhoisDataFromWhoDat],
   ['whoisxmlapi', getWhoisDataFromWhoisXmlApi],
   ['apilayer', getWhoisDataFromApiLayer],
@@ -827,16 +1162,22 @@ const providerHandlers: Array<[WhoisProviderId, (domainName: string) => Promise<
   ['rapidapi', getWhoisDataFromRapidApi],
   ['whoisjson', getWhoisDataFromWhoisJson],
   ['ip2whois', getWhoisDataFromIp2Whois],
+  ['rdap-iana', getWhoisDataFromIanaRdap],
+  ['rdap-org', getWhoisDataFromRdapOrg],
+  ['oti-labs', getWhoisDataFromOtiLabs],
+  ['domainduck', getWhoisDataFromDomainduck],
+  ['rdap-api', getWhoisDataFromRdapApi],
 ];
 
 export const getWhoisData = async (domainName: string, options: WhoisRuntimeOptions = {}): Promise<WhoisData> => {
   const attempts: WhoisProviderAttempt[] = [];
   await loadPersistentTelemetry(options.telemetryClient);
+  const credentials = await loadUserProviderCredentials(options.telemetryClient, options.userId);
 
   for (const [providerId, handler] of getProviderExecutionOrder()) {
     const provider = providerById(providerId);
 
-    if (!provider.enabled || !provider.implemented || !provider.isConfigured()) {
+    if (!provider.enabled || !provider.implemented || !provider.isConfigured(credentials)) {
       attempts.push({
         provider: provider.id,
         providerLabel: provider.label,
@@ -874,7 +1215,7 @@ export const getWhoisData = async (domainName: string, options: WhoisRuntimeOpti
 
     markProviderStart(provider, !persistentClaim.claimed);
     try {
-      const data = await handler(domainName);
+      const data = await handler(domainName, credentials);
       updateRuntimeQuota(provider.id, data.quota);
       await persistPersistentTelemetry(provider.id, options.telemetryClient);
       const unusableReason = getUnusableWhoisReason(data);
