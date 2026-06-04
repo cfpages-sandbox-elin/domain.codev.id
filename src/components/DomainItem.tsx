@@ -1,7 +1,7 @@
 import React, { memo, useMemo, useState, useEffect } from 'react';
 import { Domain, DomainStatus, DomainTag, WhoisData } from '../types';
 import { useCompactMode } from '../contexts/CompactModeContext';
-import { TrashIcon, InfoIcon, ShoppingCartIcon, RefreshIcon, HomeIcon, TargetIcon, UsersIcon } from './icons';
+import { TrashIcon, InfoIcon, ShoppingCartIcon, RefreshIcon, HomeIcon, TargetIcon, UsersIcon, ExternalLinkIcon } from './icons';
 import Spinner from './Spinner';
 import Tooltip from './Tooltip';
 
@@ -257,6 +257,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
   const isWhoisFailed = domain.status === 'unknown' && Boolean(domain.last_checked);
   const isWhoisProcessing = isRechecking || isAutoRefreshing || isPending;
   const whoisUrl = `https://www.whois.com/whois/${encodeURIComponent(domain.domain_name)}`;
+  const siteUrl = `https://${domain.domain_name}`;
   const TagIconComponent = getTagIcon(effectiveTag);
   const tagLabel = getTagLabel(effectiveTag);
   const tagColorClass = getTagColorClass(effectiveTag);
@@ -352,14 +353,29 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
             <span className="flex min-w-0 items-start gap-2">
               <TagIconComponent className={leadingTagIconClass} />
               <span className="min-w-0">
-                <a
-                  href={whoisUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`min-w-0 font-semibold underline-offset-2 hover:underline break-all leading-snug ${getDomainTextStyles(domain.status)} ${isCompact ? 'text-sm' : 'text-base'}`}
-                >
-                  {domain.domain_name}
-                </a>
+                <span className="inline-flex max-w-full items-center gap-1.5 align-top">
+                  <a
+                    href={whoisUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`min-w-0 font-semibold underline-offset-2 hover:underline break-all leading-snug ${getDomainTextStyles(domain.status)} ${isCompact ? 'text-sm' : 'text-base'}`}
+                  >
+                    {domain.domain_name}
+                  </a>
+                  {effectiveTag === 'mine' && (
+                    <Tooltip content={<PlainTooltipText title="Open site" body={`Open ${domain.domain_name} in a new tab.`} />}>
+                      <a
+                        href={siteUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-white/70 hover:text-brand-blue dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                        aria-label={`Open ${domain.domain_name} site in a new tab`}
+                      >
+                        <ExternalLinkIcon className="h-3.5 w-3.5" />
+                      </a>
+                    </Tooltip>
+                  )}
+                </span>
                 {(categoryLabels.length > 0 || tld) && (
                   <span className="mt-1 flex flex-wrap items-center gap-1">
                     {categoryLabels.slice(0, 3).map(label => (

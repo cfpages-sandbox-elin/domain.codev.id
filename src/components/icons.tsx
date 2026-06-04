@@ -13,6 +13,7 @@ export {
   Copy as CopyIcon,
   Crosshair as TargetIcon,
   Download as ArrowsPointingInIcon,
+  ExternalLink as ExternalLinkIcon,
   Globe2 as DomainCodevIcon,
   Home as HomeIcon,
   Info as InfoIcon,
