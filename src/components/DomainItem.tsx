@@ -14,6 +14,8 @@ interface DomainItemProps {
   onRecheck: (id: number) => Promise<void>;
   isAutoRefreshing?: boolean;
   isPending?: boolean;
+  categoryLabels?: string[];
+  tld?: string;
 }
 
 const formatDate = (dateString: string | null) => {
@@ -166,7 +168,7 @@ const PlainTooltipText: React.FC<{ title: string; body?: string }> = ({ title, b
   </span>
 );
 
-const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove, onShowInfo, onToggleTag, onRecheck, isAutoRefreshing = false, isPending = false }) => {
+const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove, onShowInfo, onToggleTag, onRecheck, isAutoRefreshing = false, isPending = false, categoryLabels = [], tld }) => {
   const [selectedRegistrar, setSelectedRegistrar] = useState<string>('');
   const [isRechecking, setIsRechecking] = useState(false);
   const { isCompact } = useCompactMode();
@@ -271,6 +273,8 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
         <DetailRow label="Domain" value={domain.domain_name} />
         <DetailRow label="Status" value={domain.status === 'dropped' ? 'available' : domain.status} />
         <DetailRow label="Tag" value={tagLabel} />
+        <DetailRow label="TLD" value={tld || 'N/A'} />
+        {categoryLabels.length > 0 && <DetailRow label="Category" value={categoryLabels.join(', ')} />}
         <DetailRow label="Expires" value={formatDate(domain.expiration_date)} />
         <DetailRow label="Registered" value={formatDate(domain.registered_date)} />
         <DetailRow label="Registrar" value={domain.registrar || 'N/A'} />
@@ -321,14 +325,35 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
           <Tooltip content={tooltipContent}>
             <span className="flex min-w-0 items-start gap-2">
               <TagIconComponent className={leadingTagIconClass} />
-              <a
-                href={whoisUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`min-w-0 font-semibold underline-offset-2 hover:underline break-all leading-snug ${getDomainTextStyles(domain.status)} ${isCompact ? 'text-sm' : 'text-base'}`}
-              >
-                {domain.domain_name}
-              </a>
+              <span className="min-w-0">
+                <a
+                  href={whoisUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`min-w-0 font-semibold underline-offset-2 hover:underline break-all leading-snug ${getDomainTextStyles(domain.status)} ${isCompact ? 'text-sm' : 'text-base'}`}
+                >
+                  {domain.domain_name}
+                </a>
+                {(categoryLabels.length > 0 || tld) && (
+                  <span className="mt-1 flex flex-wrap items-center gap-1">
+                    {categoryLabels.slice(0, 3).map(label => (
+                      <span key={label} className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-900/70 dark:text-slate-300">
+                        {label}
+                      </span>
+                    ))}
+                    {categoryLabels.length > 3 && (
+                      <span className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-900/70 dark:text-slate-300">
+                        +{categoryLabels.length - 3}
+                      </span>
+                    )}
+                    {tld && (
+                      <span className="rounded-full bg-slate-900/10 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-white/10 dark:text-slate-300">
+                        {tld}
+                      </span>
+                    )}
+                  </span>
+                )}
+              </span>
             </span>
           </Tooltip>
         </div>

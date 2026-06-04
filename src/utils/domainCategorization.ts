@@ -1,0 +1,227 @@
+import { Domain } from '../types';
+
+export interface DomainParts {
+  base: string;
+  tld: string;
+}
+
+export interface DomainCategoryMember {
+  domainId: number;
+  score: number;
+  reason: 'exact' | 'contains' | 'similar';
+}
+
+export interface DomainCategory {
+  id: string;
+  suggestedName: string;
+  anchorBase: string;
+  members: DomainCategoryMember[];
+}
+
+export interface CategorizedDomain {
+  domain: Domain;
+  parts: DomainParts;
+  categoryIds: string[];
+  primaryCategoryId: string | null;
+}
+
+export interface DomainCategorizationResult {
+  categories: DomainCategory[];
+  categorizedDomains: CategorizedDomain[];
+  categoryIdsByDomainId: Record<number, string[]>;
+}
+
+const INDONESIAN_SECOND_LEVEL_TLDS = new Set([
+  'ac',
+  'biz',
+  'co',
+  'desa',
+  'go',
+  'mil',
+  'my',
+  'net',
+  'or',
+  'ponpes',
+  'sch',
+  'web',
+]);
+
+const VOWELS = new Set(['a', 'e', 'i', 'o', 'u']);
+
+export const getDomainParts = (domainName: string): DomainParts => {
+  const labels = domainName.toLowerCase().split('.').filter(Boolean);
+  if (labels.length === 0) return { base: domainName.toLowerCase(), tld: '' };
+
+  const usesIndonesianSecondLevel = labels.length >= 3
+    && labels[labels.length - 1] === 'id'
+    && INDONESIAN_SECOND_LEVEL_TLDS.has(labels[labels.length - 2]);
+  const tldLabelCount = usesIndonesianSecondLevel ? 2 : 1;
+  const baseLabels = labels.slice(0, -tldLabelCount);
+  const tld = `.${labels.slice(-tldLabelCount).join('.')}`;
+
+  return {
+    base: (baseLabels[baseLabels.length - 1] || labels[0] || domainName).replace(/[^a-z0-9]/g, ''),
+    tld,
+  };
+};
+
+const levenshteinDistance = (left: string, right: string) => {
+  if (left === right) return 0;
+  if (left.length === 0) return right.length;
+  if (right.length === 0) return left.length;
+
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  const current = Array(right.length + 1).fill(0);
+
+  for (let i = 1; i <= left.length; i += 1) {
+    current[0] = i;
+    for (let j = 1; j <= right.length; j += 1) {
+      const substitutionCost = left[i - 1] === right[j - 1] ? 0 : 1;
+      current[j] = Math.min(
+        current[j - 1] + 1,
+        previous[j] + 1,
+        previous[j - 1] + substitutionCost,
+      );
+    }
+    for (let j = 0; j <= right.length; j += 1) {
+      previous[j] = current[j];
+    }
+  }
+
+  return previous[right.length];
+};
+
+const normalizedSimilarity = (left: string, right: string) => {
+  const longest = Math.max(left.length, right.length);
+  if (longest === 0) return 1;
+  return 1 - (levenshteinDistance(left, right) / longest);
+};
+
+const splitLetters = (value: string) => {
+  const letters = value.replace(/[^a-z]/g, '');
+  let vowels = '';
+  let consonants = '';
+
+  for (const char of letters) {
+    if (VOWELS.has(char)) {
+      vowels += char;
+    } else {
+      consonants += char;
+    }
+  }
+
+  return { vowels, consonants };
+};
+
+const phoneticKey = (value: string) => value
+  .replace(/[^a-z0-9]/g, '')
+  .replace(/c/g, 'k')
+  .replace(/q/g, 'k')
+  .replace(/x/g, 'ks')
+  .replace(/y/g, 'i')
+  .replace(/ph/g, 'f');
+
+const scoreBaseSimilarity = (left: string, right: string) => {
+  const leftLetters = splitLetters(left);
+  const rightLetters = splitLetters(right);
+  const consonantScore = normalizedSimilarity(leftLetters.consonants, rightLetters.consonants);
+  const vowelScore = normalizedSimilarity(leftLetters.vowels, rightLetters.vowels);
+  const fullScore = normalizedSimilarity(left, right);
+  const phoneticScore = normalizedSimilarity(phoneticKey(left), phoneticKey(right));
+  let score = (consonantScore * 0.42) + (vowelScore * 0.38) + (fullScore * 0.20);
+
+  if (vowelScore < 0.35) {
+    score *= 0.78;
+  }
+
+  return Math.max(score, phoneticScore * 0.9);
+};
+
+const getMembership = (anchor: string, base: string): DomainCategoryMember['reason'] | null => {
+  if (anchor === base) return 'exact';
+  if (anchor.length >= 4 && base.length >= 4 && (anchor.includes(base) || base.includes(anchor))) return 'contains';
+
+  const score = scoreBaseSimilarity(anchor, base);
+  return score >= 0.68 ? 'similar' : null;
+};
+
+const getMembershipScore = (anchor: string, base: string, reason: DomainCategoryMember['reason']) => {
+  if (reason === 'exact') return 1;
+  if (reason === 'contains') {
+    const shorterLength = Math.min(anchor.length, base.length);
+    const longerLength = Math.max(anchor.length, base.length);
+    return Math.max(0.78, shorterLength / longerLength);
+  }
+  return scoreBaseSimilarity(anchor, base);
+};
+
+const getCategoryId = (base: string) => `category:${base}`;
+
+export const categorizeDomains = (domains: Domain[]): DomainCategorizationResult => {
+  const domainsWithParts = domains.map(domain => ({
+    domain,
+    parts: getDomainParts(domain.domain_name),
+  }));
+  const anchors = Array.from(new Set(domainsWithParts.map(item => item.parts.base)))
+    .filter(base => base.length >= 3)
+    .sort((a, b) => a.length - b.length || a.localeCompare(b));
+  const rawCategories = anchors.map(anchor => {
+    const members = domainsWithParts
+      .map(item => {
+        const reason = getMembership(anchor, item.parts.base);
+        if (!reason) return null;
+        return {
+          domainId: item.domain.id,
+          score: getMembershipScore(anchor, item.parts.base, reason),
+          reason,
+        };
+      })
+      .filter((member): member is DomainCategoryMember => Boolean(member))
+      .sort((a, b) => b.score - a.score);
+
+    return {
+      id: getCategoryId(anchor),
+      suggestedName: anchor,
+      anchorBase: anchor,
+      members,
+    };
+  }).filter(category => category.members.length >= 2);
+
+  const seenMemberSets = new Set<string>();
+  const categories = rawCategories.filter(category => {
+    const memberKey = category.members.map(member => member.domainId).sort((a, b) => a - b).join(',');
+    if (seenMemberSets.has(memberKey)) return false;
+    seenMemberSets.add(memberKey);
+    return true;
+  });
+  const categoryIdsByDomainId: Record<number, string[]> = {};
+
+  for (const category of categories) {
+    for (const member of category.members) {
+      categoryIdsByDomainId[member.domainId] = [
+        ...(categoryIdsByDomainId[member.domainId] || []),
+        category.id,
+      ];
+    }
+  }
+
+  const categorizedDomains = domainsWithParts.map(item => {
+    const categoryIds = categoryIdsByDomainId[item.domain.id] || [];
+    const primaryCategoryId = categoryIds
+      .map(categoryId => categories.find(category => category.id === categoryId))
+      .filter((category): category is DomainCategory => Boolean(category))
+      .sort((a, b) => a.suggestedName.length - b.suggestedName.length || a.suggestedName.localeCompare(b.suggestedName))[0]?.id || null;
+
+    return {
+      ...item,
+      categoryIds,
+      primaryCategoryId,
+    };
+  });
+
+  return {
+    categories,
+    categorizedDomains,
+    categoryIdsByDomainId,
+  };
+};
