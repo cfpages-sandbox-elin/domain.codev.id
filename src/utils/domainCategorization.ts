@@ -48,6 +48,10 @@ const INDONESIAN_SECOND_LEVEL_TLDS = new Set([
 ]);
 
 const VOWELS = new Set(['a', 'e', 'i', 'o', 'u']);
+const MEANINGFUL_SHORT_PREFIXES = new Set([
+  'law',
+  'pre',
+]);
 
 export const getDomainParts = (domainName: string): DomainParts => {
   const labels = domainName.toLowerCase().split('.').filter(Boolean);
@@ -161,6 +165,12 @@ const phoneticKey = (value: string) => value
   .replace(/y/g, 'i')
   .replace(/ph/g, 'f');
 
+const onlyDiffersByLeadingLetter = (left: string, right: string) => {
+  if (left.length !== right.length || left.length < 5) return false;
+  if (commonSuffixLength(left, right) !== left.length - 1) return false;
+  return phoneticKey(left[0]) !== phoneticKey(right[0]);
+};
+
 const scoreBaseSimilarity = (left: string, right: string) => {
   const leftLetters = splitLetters(left);
   const rightLetters = splitLetters(right);
@@ -177,12 +187,19 @@ const scoreBaseSimilarity = (left: string, right: string) => {
   return Math.max(score, phoneticScore * 0.9);
 };
 
-const hasKnownRemainder = (shorter: string, longer: string, knownBases: Set<string>) => {
-  const remainders: string[] = [];
-  if (longer.startsWith(shorter)) remainders.push(longer.slice(shorter.length));
-  if (longer.endsWith(shorter)) remainders.push(longer.slice(0, -shorter.length));
+const hasMeaningfulRemainder = (
+  remainder: string,
+  position: 'prefix' | 'suffix',
+  knownBases: Set<string>,
+) => {
+  if (remainder.length >= 4 && knownBases.has(remainder)) return true;
+  return position === 'prefix' && MEANINGFUL_SHORT_PREFIXES.has(remainder);
+};
 
-  return remainders.some(remainder => remainder.length >= 4 && knownBases.has(remainder));
+const hasMinorTrailingSuffix = (shorter: string, longer: string) => {
+  if (!longer.startsWith(shorter)) return false;
+  if (longer.length !== shorter.length + 1) return false;
+  return shorter.length >= 4 && normalizedSimilarity(shorter, longer) >= 0.80;
 };
 
 const hasStrongContainment = (anchor: string, base: string, knownBases: Set<string>) => {
@@ -196,7 +213,16 @@ const hasStrongContainment = (anchor: string, base: string, knownBases: Set<stri
   const coverage = shorter.length / longer.length;
 
   if (shorter.length <= 5) {
-    return startsOrEnds && coverage >= 0.22 && hasKnownRemainder(shorter, longer, knownBases);
+    if (!startsOrEnds || coverage < 0.22) return false;
+
+    if (longer.startsWith(shorter)) {
+      const suffix = longer.slice(shorter.length);
+      return hasMinorTrailingSuffix(shorter, longer)
+        || hasMeaningfulRemainder(suffix, 'suffix', knownBases);
+    }
+
+    const prefix = longer.slice(0, -shorter.length);
+    return hasMeaningfulRemainder(prefix, 'prefix', knownBases);
   }
 
   return coverage >= 0.30 || startsOrEnds;
@@ -207,6 +233,7 @@ const hasStrongSimilarityEvidence = (left: string, right: string) => {
   const longest = Math.max(left.length, right.length);
   if (shortest < 5) return false;
   if (longest / shortest > 1.55) return false;
+  if (onlyDiffersByLeadingLetter(left, right)) return false;
 
   const fullScore = normalizedSimilarity(left, right);
   const phoneticScore = normalizedSimilarity(phoneticKey(left), phoneticKey(right));
@@ -302,7 +329,7 @@ export const categorizeDomains = (domains: Domain[]): DomainCategorizationResult
   const membershipCache = new Map<string, DomainCategoryMember['reason'] | null>();
   const scoreCache = new Map<string, number>();
   const getCachedMembership = (anchor: string, base: string) => {
-    const key = makePairKey(anchor, base);
+    const key = `${anchor}\u0000${base}`;
     if (membershipCache.has(key)) return membershipCache.get(key) || null;
     const membership = getMembership(anchor, base, knownBases);
     membershipCache.set(key, membership);

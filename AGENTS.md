@@ -44,6 +44,7 @@ Use WIB time format: `YYYY-MM-DD HH:mm WIB`.
 
 ## Engineering Preferences
 
+- Use `pnpm` for package scripts and dependency operations. Do not use `npm run`, `npm install`, or npm-generated lockfiles in this repository; the project is pnpm-managed to avoid extra storage use.
 - Prefer Cloudflare-native services for the next backend iteration: D1 for relational data, Workers/Pages Functions for API routes and cron, Workers Secrets for API keys.
 - Keep WHOIS provider keys server-side only.
 - Build domain checks as queued/batched work; avoid firing unbounded API calls from the browser.
