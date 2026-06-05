@@ -11,7 +11,7 @@ import Spinner from './components/Spinner';
 import ConfigErrorScreen from './components/ConfigErrorScreen';
 import StatusLog from './components/StatusLog';
 import Tooltip from './components/Tooltip';
-import { PlusIcon } from './components/icons';
+import { CheckCircleIcon, PlusIcon } from './components/icons';
 import DashboardView from './components/app/DashboardView';
 import { useDomainActions } from './hooks/useDomainActions';
 import { useStatusLog } from './hooks/useStatusLog';
@@ -34,6 +34,7 @@ type SettingsTab = 'whois' | 'auto-mine';
 
 type BulkDomain = { domainName: string; tag?: DomainTag };
 type DomainEntryTab = 'single' | 'bulk';
+type SuccessModalContent = { title: string; body: string } | null;
 
 const LazyChunkFallback = () => (
   <div className="flex min-h-[16rem] items-center justify-center">
@@ -50,6 +51,7 @@ const App: React.FC = () => {
   const [isIntegrationSettingsOpen, setIsIntegrationSettingsOpen] = useState(false);
   const [domainEntryInitialTab, setDomainEntryInitialTab] = useState<DomainEntryTab>('single');
   const [modalContent, setModalContent] = useState({ title: '', body: '' });
+  const [successModalContent, setSuccessModalContent] = useState<SuccessModalContent>(null);
   const { logs, addLog } = useStatusLog();
   const [view, setView] = useState<View>('dashboard');
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('whois');
@@ -124,6 +126,12 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
   }, [session]);
 
+  useEffect(() => {
+    if (!successModalContent) return;
+    const timeoutId = window.setTimeout(() => setSuccessModalContent(null), 2600);
+    return () => window.clearTimeout(timeoutId);
+  }, [successModalContent]);
+
   const addNotification = useCallback((message: string) => {
     setNotifications(prev => [message, ...prev.filter(m => m !== message)]);
   }, []);
@@ -169,12 +177,24 @@ const App: React.FC = () => {
 
   const handleBulkAdd = async (bulkDomains: BulkDomain[], defaultTag: DomainTag) => {
     setIsDomainEntryModalOpen(false);
-    await bulkAddDomains(bulkDomains, defaultTag);
+    const result = await bulkAddDomains(bulkDomains, defaultTag);
+    if (result.addedCount > 0) {
+      setSuccessModalContent({
+        title: 'Domains added',
+        body: `${result.addedCount} domain${result.addedCount === 1 ? '' : 's'} added successfully.${result.skippedCount > 0 ? ` ${result.skippedCount} duplicate ${result.skippedCount === 1 ? 'domain was' : 'domains were'} skipped.` : ''}`,
+      });
+    }
   };
 
   const handleAddDomainFromModal = (domainName: string, tag: DomainTag) => {
     setIsDomainEntryModalOpen(false);
-    void addDomain(domainName, tag, { optimistic: true });
+    void addDomain(domainName, tag, { optimistic: true }).then((addedDomain) => {
+      if (!addedDomain) return;
+      setSuccessModalContent({
+        title: 'Domain added',
+        body: `${addedDomain.domain_name} was added successfully.`,
+      });
+    });
     return true;
   };
 
@@ -313,6 +333,14 @@ const App: React.FC = () => {
         <>
             <Modal isOpen={isInfoModalOpen} onClose={() => setIsInfoModalOpen(false)} title={modalContent.title}>
                 <div className="prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: modalContent.body }}></div>
+            </Modal>
+            <Modal isOpen={Boolean(successModalContent)} onClose={() => setSuccessModalContent(null)} title={successModalContent?.title || ''}>
+                <div className="flex items-start gap-3">
+                    <div className="mt-0.5 flex h-8 w-8 flex-none items-center justify-center rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
+                        <CheckCircleIcon className="h-5 w-5" />
+                    </div>
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{successModalContent?.body}</p>
+                </div>
             </Modal>
             <Suspense fallback={null}>
               {isDomainEntryModalOpen && (

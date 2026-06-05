@@ -1,7 +1,7 @@
 import React, { useCallback, useState, useMemo, useRef, useEffect } from 'react';
 import { CategoryManualOverrides, CategoryWordGroup, Domain, WhoisData } from '../types';
 import DomainItem from './DomainItem';
-import { ChevronUpDownIcon, ArrowUpOnSquareIcon, ArrowDownOnSquareIcon, RefreshIcon, HomeIcon, TargetIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, DomainCodevIcon, UsersIcon } from './icons';
+import { ChevronUpDownIcon, ArrowUpOnSquareIcon, ArrowDownOnSquareIcon, RefreshIcon, HomeIcon, TargetIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, DomainCodevIcon, UsersIcon, SearchIcon } from './icons';
 import Tooltip from './Tooltip';
 import { applyCategoryManualOverrides, applyCategoryWordGroups, categorizeDomains } from '../utils/domainCategorization';
 import DomainFilterButton from './domain-list/DomainFilterButton';
@@ -64,6 +64,15 @@ const CATEGORY_GROUP_STYLES = [
   'border-violet-300 bg-violet-50/70 dark:border-violet-700 dark:bg-violet-950/30',
 ];
 
+const CATEGORY_ROW_STRIPE_STYLES = [
+  'bg-indigo-500 dark:bg-indigo-400',
+  'bg-teal-500 dark:bg-teal-400',
+  'bg-amber-500 dark:bg-amber-400',
+  'bg-rose-500 dark:bg-rose-400',
+  'bg-sky-500 dark:bg-sky-400',
+  'bg-violet-500 dark:bg-violet-400',
+];
+
 const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = false, categoryNameOverrides, categoryManualOverrides, categoryWordGroups, whoisDetailsByDomainId, onRemove, onShowInfo, onToggleTag, onSetTag, onRecheck, autoRepairingDomainIds, pendingDomainIds, onImportRequest, onExportRequest, isProcessing }) => {
   const [filter, setFilter] = useState<FilterType>(readStoredFilter);
   const [sortOption, setSortOption] = useState<SortOption>(readStoredSort);
@@ -77,9 +86,11 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
   const [isKeywordSuggestionsOpen, setIsKeywordSuggestionsOpen] = useState(false);
   const [recheckProgress, setRecheckProgress] = useState<RecheckProgress | null>(null);
   const [visibleDomainLimit, setVisibleDomainLimit] = useState(INITIAL_RENDERED_DOMAINS);
+  const [isFloatingFilterVisible, setIsFloatingFilterVisible] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const recheckMenuRef = useRef<HTMLDivElement>(null);
   const keywordFilterRef = useRef<HTMLDivElement>(null);
+  const floatingFilterRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const recheckProgressTimeoutRef = useRef<number | null>(null);
 
@@ -91,7 +102,11 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
       if (recheckMenuRef.current && !recheckMenuRef.current.contains(event.target as Node)) {
         setIsRecheckMenuOpen(false);
       }
-      if (keywordFilterRef.current && !keywordFilterRef.current.contains(event.target as Node)) {
+      if (
+        keywordFilterRef.current
+        && !keywordFilterRef.current.contains(event.target as Node)
+        && (!floatingFilterRef.current || !floatingFilterRef.current.contains(event.target as Node))
+      ) {
         setIsKeywordSuggestionsOpen(false);
       }
     };
@@ -103,6 +118,16 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
     if (recheckProgressTimeoutRef.current !== null) {
       window.clearTimeout(recheckProgressTimeoutRef.current);
     }
+  }, []);
+
+  useEffect(() => {
+    const updateFloatingFilterVisibility = () => {
+      setIsFloatingFilterVisible(window.scrollY > 220);
+    };
+
+    updateFloatingFilterVisibility();
+    window.addEventListener('scroll', updateFloatingFilterVisibility, { passive: true });
+    return () => window.removeEventListener('scroll', updateFloatingFilterVisibility);
   }, []);
 
   useEffect(() => {
@@ -148,6 +173,9 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
     }
     return names;
   }, [categorization.categories, categoryNameOverrides]);
+  const categoryStyleIndexById = useMemo(() => {
+    return Object.fromEntries(categorization.categories.map((category, index) => [category.id, index])) as Record<string, number>;
+  }, [categorization.categories]);
   const categorizedDomainById = useMemo(
     () => new Map(categorization.categorizedDomains.map(item => [item.domain.id, item])),
     [categorization.categorizedDomains],
@@ -362,6 +390,24 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
     </DomainFilterButton>
   );
 
+  const renderFloatingFilterButton = (filterType: FilterType, label: string) => (
+    <Tooltip key={filterType} content={`${label}: ${filterCounts[filterType]} domain${filterCounts[filterType] === 1 ? '' : 's'}`}>
+      <button
+        type="button"
+        onClick={() => setFilter(filterType)}
+        disabled={isProcessing}
+        className={`relative inline-flex h-9 w-9 flex-none items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+          filter === filterType
+            ? 'bg-brand-blue text-white shadow-sm'
+            : 'text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-700'
+        }`}
+        aria-label={`Filter ${label}`}
+      >
+        {filterIcons[filterType]}
+      </button>
+    </Tooltip>
+  );
+
   const handleExportClick = (format: 'json' | 'csv') => {
     onExportRequest(format);
     setIsExportMenuOpen(false);
@@ -379,6 +425,14 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
   const renderDomainItem = (domain: Domain) => {
     const meta = categorizedDomainById.get(domain.id);
     const labels = meta?.categoryIds.map(categoryId => categoryNames[categoryId] || categoryId) || [];
+    const primaryCategoryId = meta?.primaryCategoryId || meta?.categoryIds[0] || null;
+    const overlapCategoryIds = meta?.categoryIds.filter(categoryId => categoryId !== primaryCategoryId) || [];
+    const categoryAccentClass = primaryCategoryId
+      ? CATEGORY_ROW_STRIPE_STYLES[(categoryStyleIndexById[primaryCategoryId] ?? 0) % CATEGORY_ROW_STRIPE_STYLES.length]
+      : undefined;
+    const overlappingCategoryAccentClasses = overlapCategoryIds.map(categoryId => (
+      CATEGORY_ROW_STRIPE_STYLES[(categoryStyleIndexById[categoryId] ?? 0) % CATEGORY_ROW_STRIPE_STYLES.length]
+    ));
     return (
       <DomainItem
         key={domain.id}
@@ -392,6 +446,8 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
         isAutoRefreshing={autoRepairingDomainIds?.has(domain.id)}
         isPending={pendingDomainIds?.has(domain.id)}
         categoryLabels={labels}
+        categoryAccentClass={categoryAccentClass}
+        overlappingCategoryAccentClasses={overlappingCategoryAccentClasses}
         tld={meta?.parts.tld}
       />
     );
@@ -454,6 +510,60 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
 
   return (
     <div>
+      <div
+        ref={floatingFilterRef}
+        className={`fixed left-1/2 top-20 z-40 w-[calc(100%-1.5rem)] max-w-3xl -translate-x-1/2 transition-all duration-200 ${
+          isFloatingFilterVisible
+            ? 'translate-y-0 opacity-100'
+            : 'pointer-events-none -translate-y-3 opacity-0'
+        }`}
+      >
+        <div className="mx-auto flex items-center gap-1 overflow-x-auto rounded-full border border-slate-200 bg-white/95 p-1.5 shadow-xl backdrop-blur dark:border-slate-700 dark:bg-slate-900/95">
+          {renderFloatingFilterButton('all', 'All')}
+          {renderFloatingFilterButton('mine', 'Mine')}
+          {renderFloatingFilterButton('to-snatch', 'To Snatch')}
+          {renderFloatingFilterButton('others', 'Others')}
+          {filterCounts.missing > 0 && renderFloatingFilterButton('missing', 'Missing Data')}
+          {renderFloatingFilterButton('available', 'Available')}
+          {renderFloatingFilterButton('expiring', 'Expiring Soon')}
+          {renderFloatingFilterButton('expired', 'Expired')}
+          <div className="relative ml-1 min-w-[10rem] flex-1">
+            <label htmlFor="domain-keyword-filter-floating" className="sr-only">Filter domains by keyword</label>
+            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
+            <input
+              id="domain-keyword-filter-floating"
+              type="search"
+              value={keywordFilter}
+              onChange={(event) => {
+                setKeywordFilter(event.target.value);
+                setIsKeywordSuggestionsOpen(false);
+              }}
+              onFocus={() => setIsKeywordSuggestionsOpen(false)}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  setIsKeywordSuggestionsOpen(false);
+                }
+              }}
+              disabled={isProcessing}
+              placeholder="Keyword"
+              className="h-9 w-full rounded-full bg-slate-100 py-1.5 pl-9 pr-9 text-sm font-medium text-slate-700 outline-none transition-colors placeholder:text-slate-500 focus:bg-white focus:ring-2 focus:ring-brand-blue disabled:opacity-50 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:bg-slate-950"
+            />
+            {keywordFilter && (
+              <button
+                type="button"
+                onClick={() => {
+                  setKeywordFilter('');
+                  setIsKeywordSuggestionsOpen(false);
+                }}
+                className="absolute right-1.5 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-white hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-slate-200"
+                aria-label="Clear keyword filter"
+              >
+                <XCircleIcon className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
       <div className="mb-6 flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-center gap-3">
             {renderFilterButton('all', 'All')}

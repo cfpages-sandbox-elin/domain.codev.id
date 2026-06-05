@@ -30,10 +30,12 @@ interface DomainItemProps {
   isAutoRefreshing?: boolean;
   isPending?: boolean;
   categoryLabels?: string[];
+  categoryAccentClass?: string;
+  overlappingCategoryAccentClasses?: string[];
   tld?: string;
 }
 
-const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove, onShowInfo, onToggleTag, onSetTag, onRecheck, isAutoRefreshing = false, isPending = false, categoryLabels = [], tld }) => {
+const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove, onShowInfo, onToggleTag, onSetTag, onRecheck, isAutoRefreshing = false, isPending = false, categoryLabels = [], categoryAccentClass, overlappingCategoryAccentClasses = [], tld }) => {
   const [selectedRegistrar, setSelectedRegistrar] = useState<string>('');
   const [isRechecking, setIsRechecking] = useState(false);
   const { isCompact } = useCompactMode();
@@ -134,9 +136,21 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
       nameServers={nameServers}
     />
   ), [categoryLabels, domain, nameServers, registryStatuses, tagLabel, tld, whoisDetails?.providerLabel]);
+  const visibleOverlapAccentClasses = overlappingCategoryAccentClasses.slice(0, 4);
 
   return (
     <div className={`relative overflow-hidden rounded-md border transition-all ${rowStyles} ${isRegisteredTarget ? 'saturate-50 opacity-[0.55] grayscale-[35%]' : ''} ${isWhoisIncomplete ? 'grayscale opacity-75' : ''} ${isCompact ? 'px-3 py-2' : 'px-4 py-3'}`}>
+      {categoryAccentClass && (
+        <div className={`pointer-events-none absolute inset-y-0 right-0 w-1.5 ${categoryAccentClass}`} aria-hidden="true" />
+      )}
+      {visibleOverlapAccentClasses.map((accentClass, index) => (
+        <div
+          key={`${accentClass}-${index}`}
+          className={`pointer-events-none absolute inset-y-0 w-1 ${accentClass}`}
+          style={{ right: `${6 + (index * 4)}px` }}
+          aria-hidden="true"
+        />
+      ))}
       {(isWhoisIncomplete || isWhoisProcessing) && (
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center">
           <span className="rounded-b-md bg-slate-800/90 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white dark:bg-slate-100/90 dark:text-slate-900">
@@ -345,4 +359,6 @@ export default memo(DomainItem, (prev, next) => (
   && prev.isPending === next.isPending
   && prev.tld === next.tld
   && areStringArraysEqual(prev.categoryLabels, next.categoryLabels)
+  && prev.categoryAccentClass === next.categoryAccentClass
+  && areStringArraysEqual(prev.overlappingCategoryAccentClasses, next.overlappingCategoryAccentClasses)
 ));

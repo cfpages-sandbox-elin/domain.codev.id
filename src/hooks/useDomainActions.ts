@@ -13,6 +13,12 @@ import {
 type BulkDomain = { domainName: string; tag?: DomainTag };
 type ViewName = 'dashboard' | 'docs' | 'categories' | 'settings';
 type AddDomainOptions = { optimistic?: boolean };
+export interface BulkAddResult {
+  requestedCount: number;
+  acceptedCount: number;
+  addedCount: number;
+  skippedCount: number;
+}
 
 const WHOIS_AUTO_REPAIR_CONCURRENCY = 6;
 const BULK_ADD_CONCURRENCY = 6;
@@ -175,7 +181,7 @@ export const useDomainActions = ({
     return null;
   }, [addLog, checkAndNotify, domains, session?.user.id, updateProviderFromWhoisData]);
 
-  const bulkAddDomains = useCallback(async (bulkDomains: BulkDomain[], defaultTag: DomainTag) => {
+  const bulkAddDomains = useCallback(async (bulkDomains: BulkDomain[], defaultTag: DomainTag): Promise<BulkAddResult> => {
     const seenDomains = new Set(domains.map(domain => domain.domain_name.toLowerCase()));
     const domainsToAdd: BulkDomain[] = [];
 
@@ -193,7 +199,12 @@ export const useDomainActions = ({
 
     if (domainsToAdd.length === 0) {
       addLog('ℹ️ No new domains to add from bulk list.');
-      return;
+      return {
+        requestedCount: bulkDomains.length,
+        acceptedCount: 0,
+        addedCount: 0,
+        skippedCount: bulkDomains.length,
+      };
     }
 
     setIsBulkProcessing(true);
@@ -202,6 +213,7 @@ export const useDomainActions = ({
     const workerCount = Math.min(BULK_ADD_CONCURRENCY, domainsToAdd.length);
     let nextIndex = 0;
     let completedCount = 0;
+    let addedCount = 0;
 
     const runWorker = async (workerIndex: number) => {
       while (nextIndex < domainsToAdd.length) {
@@ -209,7 +221,8 @@ export const useDomainActions = ({
         nextIndex += 1;
         const item = domainsToAdd[currentIndex];
         addLog(`🔄 Worker ${workerIndex + 1}: checking ${item.domainName} (${currentIndex + 1}/${domainsToAdd.length})...`);
-        await addDomain(item.domainName, item.tag || defaultTag, { optimistic: true });
+        const addedDomain = await addDomain(item.domainName, item.tag || defaultTag, { optimistic: true });
+        if (addedDomain) addedCount += 1;
         completedCount += 1;
         if (completedCount % BULK_ADD_CONCURRENCY === 0 || completedCount === domainsToAdd.length) {
           addLog(`ℹ️ Bulk add progress: ${completedCount}/${domainsToAdd.length} processed.`);
@@ -223,6 +236,13 @@ export const useDomainActions = ({
     } finally {
       setIsBulkProcessing(false);
     }
+
+    return {
+      requestedCount: bulkDomains.length,
+      acceptedCount: domainsToAdd.length,
+      addedCount,
+      skippedCount: bulkDomains.length - domainsToAdd.length,
+    };
   }, [addDomain, addLog, domains]);
 
   const removeDomain = useCallback(async (id: number) => {
