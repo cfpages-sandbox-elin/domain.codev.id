@@ -1,6 +1,12 @@
 import { Domain, DomainTag } from '../../types';
 
 export type BulkDomain = { domainName: string; tag?: DomainTag };
+export interface BulkAddResult {
+  requestedCount: number;
+  acceptedCount: number;
+  addedCount: number;
+  skippedCount: number;
+}
 export type ActiveTab = 'single' | 'bulk';
 export type BulkEntryMode = 'paste' | 'file';
 

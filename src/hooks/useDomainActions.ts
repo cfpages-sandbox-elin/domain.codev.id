@@ -9,16 +9,10 @@ import {
   getWhoisFailureReason,
   isDomainMissingWhoisData,
 } from '../utils/appDomainLogic';
+import type { BulkAddResult, BulkDomain } from '../components/bulk-add/bulkAddLogic';
 
-type BulkDomain = { domainName: string; tag?: DomainTag };
 type ViewName = 'dashboard' | 'docs' | 'categories' | 'settings';
 type AddDomainOptions = { optimistic?: boolean };
-export interface BulkAddResult {
-  requestedCount: number;
-  acceptedCount: number;
-  addedCount: number;
-  skippedCount: number;
-}
 
 const WHOIS_AUTO_REPAIR_CONCURRENCY = 6;
 const BULK_ADD_CONCURRENCY = 6;
@@ -29,6 +23,7 @@ interface UseDomainActionsOptions {
   addLog: (message: string) => void;
   checkAndNotify: (domain: Domain) => void;
   updateProviderFromWhoisData: (whoisData: WhoisData) => void;
+  onWhoisCheckFinished?: (domain: Domain, whoisData: WhoisData) => void;
 }
 
 export const useDomainActions = ({
@@ -37,6 +32,7 @@ export const useDomainActions = ({
   addLog,
   checkAndNotify,
   updateProviderFromWhoisData,
+  onWhoisCheckFinished,
 }: UseDomainActionsOptions) => {
   const [isDomainListLoading, setIsDomainListLoading] = useState(true);
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
@@ -138,48 +134,75 @@ export const useDomainActions = ({
       clearPendingDomain();
     };
 
-    const whoisData = await getWhoisData(normalizedDomainName, addLog);
-    updateProviderFromWhoisData(whoisData);
-
-    const failureReason = whoisData.status === 'unknown'
-      ? 'WHOIS check failed or no provider could confirm the domain status.'
-      : getWhoisFailureReason(whoisData);
-    const shouldStoreAsFailed = Boolean(failureReason);
-    const savedTag = whoisData.status === 'available' || whoisData.status === 'dropped' ? 'to-snatch' : tag;
-
-    const newDomainData: DomainInsert = {
+    const initialDomainData: DomainInsert = {
       domain_name: normalizedDomainName,
-      tag: savedTag,
-      status: shouldStoreAsFailed ? 'unknown' : whoisData.status,
-      expiration_date: shouldStoreAsFailed ? null : whoisData.expirationDate,
-      registered_date: shouldStoreAsFailed ? null : whoisData.registeredDate,
-      registrar: shouldStoreAsFailed ? null : whoisData.registrar,
-      domain_statuses: shouldStoreAsFailed ? null : whoisData.domainStatuses || null,
-      name_servers: shouldStoreAsFailed ? null : whoisData.nameServers || null,
-      last_checked: new Date().toISOString(),
+      tag,
+      status: 'unknown',
+      expiration_date: null,
+      registered_date: null,
+      registrar: null,
+      domain_statuses: null,
+      name_servers: null,
+      last_checked: null,
     };
-    const newDomain = await SupabaseService.addDomain(newDomainData);
-    if (newDomain) {
-      setDomains(prevDomains => pendingDomain
-        ? prevDomains.map(domain => domain.id === pendingDomain.id ? newDomain : domain)
-        : [...prevDomains, newDomain]);
-      clearPendingDomain();
-      setWhoisDetailsByDomainId(prev => ({ ...prev, [newDomain.id]: whoisData }));
-      if (shouldStoreAsFailed) {
-        autoRepairAttemptedIdsRef.current.add(newDomain.id);
-        const advice = getWhoisFailureAdvice(whoisData);
-        addLog(`⚠️ Added ${normalizedDomainName} as WHOIS failed. ${failureReason} ${advice}`);
-      } else {
-        checkAndNotify(newDomain);
-        addLog(`✅ Successfully added ${normalizedDomainName}.`);
-      }
-      return newDomain;
+
+    const newDomain = await SupabaseService.addDomain(initialDomainData);
+    if (!newDomain) {
+      removePendingDomain();
+      addLog(`❌ Failed to add ${normalizedDomainName}.`);
+      return null;
     }
 
-    removePendingDomain();
-    addLog(`❌ Failed to add ${normalizedDomainName}.`);
-    return null;
-  }, [addLog, checkAndNotify, domains, session?.user.id, updateProviderFromWhoisData]);
+    setDomains(prevDomains => pendingDomain
+      ? prevDomains.map(domain => domain.id === pendingDomain.id ? newDomain : domain)
+      : [newDomain, ...prevDomains]);
+    clearPendingDomain();
+    autoRepairAttemptedIdsRef.current.add(newDomain.id);
+    addLog(`✅ Added ${normalizedDomainName}. Checking WHOIS status in the background.`);
+
+    void (async () => {
+      const whoisData = await getWhoisData(normalizedDomainName, addLog);
+      updateProviderFromWhoisData(whoisData);
+
+      const failureReason = whoisData.status === 'unknown'
+        ? 'WHOIS check failed or no provider could confirm the domain status.'
+        : getWhoisFailureReason(whoisData);
+      const shouldStoreAsFailed = Boolean(failureReason);
+      const savedTag = whoisData.status === 'available' || whoisData.status === 'dropped' ? 'to-snatch' : tag;
+
+      const updates: DomainUpdate = {
+        tag: savedTag,
+        status: shouldStoreAsFailed ? 'unknown' : whoisData.status,
+        expiration_date: shouldStoreAsFailed ? null : whoisData.expirationDate,
+        registered_date: shouldStoreAsFailed ? null : whoisData.registeredDate,
+        registrar: shouldStoreAsFailed ? null : whoisData.registrar,
+        domain_statuses: shouldStoreAsFailed ? null : whoisData.domainStatuses || null,
+        name_servers: shouldStoreAsFailed ? null : whoisData.nameServers || null,
+        last_checked: new Date().toISOString(),
+      };
+
+      const updatedDomain = await SupabaseService.updateDomain(newDomain.id, updates);
+      if (!updatedDomain) {
+        addLog(`❌ WHOIS check finished but failed to update ${normalizedDomainName}.`);
+        return;
+      }
+
+      setDomains(prevDomains => prevDomains.map(domain => domain.id === newDomain.id ? updatedDomain : domain));
+      setWhoisDetailsByDomainId(prev => ({ ...prev, [updatedDomain.id]: whoisData }));
+      onWhoisCheckFinished?.(updatedDomain, whoisData);
+
+      if (shouldStoreAsFailed) {
+        autoRepairAttemptedIdsRef.current.add(updatedDomain.id);
+        const advice = getWhoisFailureAdvice(whoisData);
+        addLog(`⚠️ WHOIS failed for ${normalizedDomainName}. ${failureReason} ${advice}`);
+      } else {
+        checkAndNotify(updatedDomain);
+        addLog(`✅ WHOIS check finished for ${normalizedDomainName}. Status is ${updatedDomain.status}.`);
+      }
+    })();
+
+    return newDomain;
+  }, [addLog, checkAndNotify, domains, onWhoisCheckFinished, session?.user.id, updateProviderFromWhoisData]);
 
   const bulkAddDomains = useCallback(async (bulkDomains: BulkDomain[], defaultTag: DomainTag): Promise<BulkAddResult> => {
     const seenDomains = new Set(domains.map(domain => domain.domain_name.toLowerCase()));

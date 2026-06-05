@@ -7,6 +7,7 @@ import { ArrowUpOnSquareIcon, ExclamationTriangleIcon, HomeIcon } from './icons'
 import TagChoice, { getTagIcon, getTagIconClass } from './bulk-add/TagChoice';
 import {
     ActiveTab,
+    BulkAddResult,
     BulkDomain,
     BulkEntryMode,
     findExistingDomainMatches,
@@ -24,8 +25,8 @@ interface BulkAddModalProps {
     onClose: () => void;
     initialTab?: ActiveTab;
     existingDomains: Domain[];
-    onAddDomain: (domainName: string, tag: DomainTag) => unknown;
-    onBulkAdd: (domains: BulkDomain[], defaultTag: DomainTag) => Promise<void>;
+    onAddDomain: (domainName: string, tag: DomainTag) => Promise<Domain | null>;
+    onBulkAdd: (domains: BulkDomain[], defaultTag: DomainTag) => Promise<BulkAddResult>;
     isLoading: boolean;
     addLog: (message: string) => void;
 }
@@ -37,10 +38,12 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
     const [textValue, setTextValue] = useState('');
     const [defaultTag, setDefaultTag] = useState<DomainTag>('mine');
     const [bulkEntryMode, setBulkEntryMode] = useState<BulkEntryMode>('paste');
+    const [isSingleSubmitting, setIsSingleSubmitting] = useState(false);
+    const [addFeedback, setAddFeedback] = useState<{ title: string; body: string } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const singleInputRef = useRef<HTMLInputElement>(null);
     const bulkInputRef = useRef<HTMLTextAreaElement>(null);
-    const isBusy = isLoading;
+    const isBusy = isLoading || isSingleSubmitting;
     const existingDomainNames = useMemo(
         () => new Set(existingDomains.map(domain => domain.domain_name.toLowerCase())),
         [existingDomains]
@@ -56,6 +59,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
     useEffect(() => {
         if (!isOpen) return;
         setActiveTab(initialTab);
+        setAddFeedback(null);
     }, [isOpen, initialTab]);
 
     useEffect(() => {
@@ -95,9 +99,15 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
             return;
         }
 
-        const result = onAddDomain(normalizedDomain, tag);
-        if (result) {
+        setIsSingleSubmitting(true);
+        const addedDomain = await onAddDomain(normalizedDomain, tag);
+        setIsSingleSubmitting(false);
+        if (addedDomain) {
             setSingleDomain('');
+            setAddFeedback({
+                title: 'Domain added',
+                body: `${addedDomain.domain_name} is now in your tracker. Checking WHOIS status in the background.`,
+            });
         }
     };
 
@@ -108,7 +118,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
         }
     };
 
-    const handlePasteSubmit = (tagOverride?: DomainTag) => {
+    const handlePasteSubmit = async (tagOverride?: DomainTag) => {
         if (isBusy) return;
         if (parsedPaste.domains.length === 0) {
             alert(parsedPaste.invalid.length > 0 ? 'No valid domain names found in the pasted list.' : 'Please enter at least one domain name.');
@@ -121,7 +131,13 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
 
         const domainsToAdd = parsedPaste.domains;
         setTextValue('');
-        onBulkAdd(domainsToAdd, tagOverride || defaultTag);
+        const result = await onBulkAdd(domainsToAdd, tagOverride || defaultTag);
+        if (result.addedCount > 0) {
+            setAddFeedback({
+                title: 'Domains added',
+                body: `${result.addedCount} domain${result.addedCount === 1 ? '' : 's'} added to your tracker. WHOIS checks are running in the background.${result.skippedCount > 0 ? ` ${result.skippedCount} duplicate ${result.skippedCount === 1 ? 'domain was' : 'domains were'} skipped.` : ''}`,
+            });
+        }
     };
 
     const handleBulkPasteKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -194,7 +210,13 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                     throw new Error('No valid domain names found in the file.');
                 }
 
-                onBulkAdd(bulkDomains, defaultTag);
+                const result = await onBulkAdd(bulkDomains, defaultTag);
+                if (result.addedCount > 0) {
+                    setAddFeedback({
+                        title: 'Domains added',
+                        body: `${result.addedCount} domain${result.addedCount === 1 ? '' : 's'} added to your tracker from ${file.name}. WHOIS checks are running in the background.`,
+                    });
+                }
 
             } catch (error) {
                 const message = error instanceof Error ? error.message : String(error);
@@ -211,6 +233,12 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
     return (
         <Modal isOpen={isOpen} onClose={isBusy ? () => {} : onClose} title="Add Domains">
             <div className="flex flex-col gap-5" onKeyDown={handleModalKeyDown}>
+                {addFeedback && (
+                    <div className="rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-900 dark:border-green-800 dark:bg-green-950/50 dark:text-green-100">
+                        <p className="font-semibold">{addFeedback.title}</p>
+                        <p className="mt-1">{addFeedback.body}</p>
+                    </div>
+                )}
                 <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1 dark:bg-slate-900" role="tablist" aria-label="Domain add mode">
                     <button
                         type="button"
@@ -295,7 +323,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                                     disabled={isBusy || !singleDomain.trim() || Boolean(exactExistingDomain)}
                                     className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-blue px-6 py-3 font-semibold text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-blue-300 dark:disabled:bg-blue-800"
                                 >
-                                    Check and Save
+                                    {isSingleSubmitting ? <><Spinner /> Adding...</> : 'Add and Check WHOIS'}
                                 </button>
                             </Tooltip>
                         </div>
@@ -383,7 +411,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                             disabled={isBusy || !textValue.trim() || parsedPaste.domains.length === 0}
                             className="flex items-center justify-center rounded-lg bg-brand-blue px-6 py-3 font-semibold text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-blue-300 dark:disabled:bg-blue-800"
                         >
-                            {isLoading ? <><Spinner /> Processing...</> : 'Check and Add Valid Domains'}
+                            {isLoading ? <><Spinner /> Processing...</> : 'Add Valid Domains'}
                         </button>
                         </Tooltip>
                     </div>

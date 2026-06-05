@@ -1,5 +1,5 @@
 import React, { Suspense, useState, useEffect, useCallback } from 'react';
-import { Domain, DomainTag } from './types';
+import { Domain, DomainTag, WhoisData } from './types';
 import { supabase, supabaseConfigError } from './services/supabaseService';
 import { Session } from '@supabase/supabase-js';
 import * as SupabaseService from './services/supabaseService';
@@ -11,7 +11,7 @@ import Spinner from './components/Spinner';
 import ConfigErrorScreen from './components/ConfigErrorScreen';
 import StatusLog from './components/StatusLog';
 import Tooltip from './components/Tooltip';
-import { CheckCircleIcon, PlusIcon } from './components/icons';
+import { CheckCircleIcon, ExclamationTriangleIcon, PlusIcon } from './components/icons';
 import DashboardView from './components/app/DashboardView';
 import { useDomainActions } from './hooks/useDomainActions';
 import { useStatusLog } from './hooks/useStatusLog';
@@ -34,7 +34,7 @@ type SettingsTab = 'whois' | 'auto-mine';
 
 type BulkDomain = { domainName: string; tag?: DomainTag };
 type DomainEntryTab = 'single' | 'bulk';
-type SuccessModalContent = { title: string; body: string } | null;
+type Toast = { id: number; kind: 'success' | 'warning'; title: string; body: string };
 
 const LazyChunkFallback = () => (
   <div className="flex min-h-[16rem] items-center justify-center">
@@ -51,7 +51,7 @@ const App: React.FC = () => {
   const [isIntegrationSettingsOpen, setIsIntegrationSettingsOpen] = useState(false);
   const [domainEntryInitialTab, setDomainEntryInitialTab] = useState<DomainEntryTab>('single');
   const [modalContent, setModalContent] = useState({ title: '', body: '' });
-  const [successModalContent, setSuccessModalContent] = useState<SuccessModalContent>(null);
+  const [toasts, setToasts] = useState<Toast[]>([]);
   const { logs, addLog } = useStatusLog();
   const [view, setView] = useState<View>('dashboard');
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('whois');
@@ -126,11 +126,13 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
   }, [session]);
 
-  useEffect(() => {
-    if (!successModalContent) return;
-    const timeoutId = window.setTimeout(() => setSuccessModalContent(null), 2600);
-    return () => window.clearTimeout(timeoutId);
-  }, [successModalContent]);
+  const addToast = useCallback((toast: Omit<Toast, 'id'>) => {
+    const id = Date.now() + Math.floor(Math.random() * 1000);
+    setToasts(current => [{ id, ...toast }, ...current].slice(0, 3));
+    window.setTimeout(() => {
+      setToasts(current => current.filter(item => item.id !== id));
+    }, 4200);
+  }, []);
 
   const addNotification = useCallback((message: string) => {
     setNotifications(prev => [message, ...prev.filter(m => m !== message)]);
@@ -140,6 +142,16 @@ const App: React.FC = () => {
     const message = getDomainNotificationMessage(domain);
     if (message) addNotification(message);
   }, [addNotification]);
+  const handleWhoisCheckFinished = useCallback((domain: Domain, whoisData: WhoisData) => {
+    const isFailed = whoisData.status === 'unknown' || domain.status === 'unknown';
+    addToast({
+      kind: isFailed ? 'warning' : 'success',
+      title: isFailed ? 'WHOIS check needs retry' : 'WHOIS check finished',
+      body: isFailed
+        ? `${domain.domain_name} was added, but WHOIS status is still unknown.`
+        : `${domain.domain_name} is ${domain.status}.`,
+    });
+  }, [addToast]);
   const {
     domains,
     isDomainListLoading,
@@ -160,6 +172,7 @@ const App: React.FC = () => {
     addLog,
     checkAndNotify,
     updateProviderFromWhoisData,
+    onWhoisCheckFinished: handleWhoisCheckFinished,
   });
 
   useEffect(() => {
@@ -176,26 +189,11 @@ const App: React.FC = () => {
   }, [domains, session, addLog, checkAndNotify]);
 
   const handleBulkAdd = async (bulkDomains: BulkDomain[], defaultTag: DomainTag) => {
-    setIsDomainEntryModalOpen(false);
-    const result = await bulkAddDomains(bulkDomains, defaultTag);
-    if (result.addedCount > 0) {
-      setSuccessModalContent({
-        title: 'Domains added',
-        body: `${result.addedCount} domain${result.addedCount === 1 ? '' : 's'} added successfully.${result.skippedCount > 0 ? ` ${result.skippedCount} duplicate ${result.skippedCount === 1 ? 'domain was' : 'domains were'} skipped.` : ''}`,
-      });
-    }
+    return bulkAddDomains(bulkDomains, defaultTag);
   };
 
   const handleAddDomainFromModal = (domainName: string, tag: DomainTag) => {
-    setIsDomainEntryModalOpen(false);
-    void addDomain(domainName, tag, { optimistic: true }).then((addedDomain) => {
-      if (!addedDomain) return;
-      setSuccessModalContent({
-        title: 'Domain added',
-        body: `${addedDomain.domain_name} was added successfully.`,
-      });
-    });
-    return true;
+    return addDomain(domainName, tag, { optimistic: true });
   };
 
   const handleShowInfo = useCallback((domain: Domain) => {
@@ -328,19 +326,36 @@ const App: React.FC = () => {
       )}
 
       {!loading && <StatusLog logs={logs} />}
+      {toasts.length > 0 && (
+        <div className="fixed right-4 top-20 z-50 flex w-[calc(100%-2rem)] max-w-sm flex-col gap-2">
+          {toasts.map(toast => {
+            const Icon = toast.kind === 'warning' ? ExclamationTriangleIcon : CheckCircleIcon;
+            return (
+              <div
+                key={toast.id}
+                className={`rounded-lg border px-4 py-3 shadow-xl backdrop-blur ${
+                  toast.kind === 'warning'
+                    ? 'border-amber-300 bg-amber-50/95 text-amber-950 dark:border-amber-700 dark:bg-amber-950/95 dark:text-amber-100'
+                    : 'border-green-300 bg-green-50/95 text-green-950 dark:border-green-700 dark:bg-green-950/95 dark:text-green-100'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <Icon className="mt-0.5 h-5 w-5 flex-none" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">{toast.title}</p>
+                    <p className="mt-0.5 text-sm opacity-90">{toast.body}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {!loading && session && (
         <>
             <Modal isOpen={isInfoModalOpen} onClose={() => setIsInfoModalOpen(false)} title={modalContent.title}>
                 <div className="prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: modalContent.body }}></div>
-            </Modal>
-            <Modal isOpen={Boolean(successModalContent)} onClose={() => setSuccessModalContent(null)} title={successModalContent?.title || ''}>
-                <div className="flex items-start gap-3">
-                    <div className="mt-0.5 flex h-8 w-8 flex-none items-center justify-center rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
-                        <CheckCircleIcon className="h-5 w-5" />
-                    </div>
-                    <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{successModalContent?.body}</p>
-                </div>
             </Modal>
             <Suspense fallback={null}>
               {isDomainEntryModalOpen && (
