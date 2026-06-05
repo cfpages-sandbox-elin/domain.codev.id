@@ -8,6 +8,7 @@ Guidance for AI coding agents working in this repository.
 - `docs/SUGGESTION.md` is for agent-originated suggestions based on codebase analysis. Do not use it as a changelog for user-requested changes or as a place to restate the user's own product suggestions.
 - Keep `docs/CODEBASE.md` current when changing file responsibilities, runtime flow, database schema, Edge Function behavior, or major UI/data logic. Treat it as the quick project map for future context.
 - Keep user-facing progress reports short. Prefer finishing the task, verifying it, then reporting the result.
+- Focus on finishing the requested task end-to-end before reporting back. Avoid frequent progress narration unless work is long-running, blocked, or needs authorization/user input.
 - Save tokens where practical: read targeted files, summarize long docs instead of pasting them, use `rg` for search, and avoid repeating unchanged context.
 - Do not sacrifice implementation quality for brevity. Token saving must not reduce code correctness, verification, or maintainability.
 - Before editing, inspect the relevant existing patterns and keep changes scoped.
@@ -46,6 +47,7 @@ Use WIB time format: `YYYY-MM-DD HH:mm WIB`.
 ## Engineering Preferences
 
 - Use `pnpm` for package scripts and dependency operations. Do not use `npm run`, `npm install`, or npm-generated lockfiles in this repository; the project is pnpm-managed to avoid extra storage use.
+- For Supabase Edge Function deploys or bundling verification, use the newer Dockerless CLI path: `npx supabase@latest functions deploy ... --use-api`. Do not rely on the local `pnpm exec supabase` CLI for deploys because it may require Docker Desktop.
 - Prefer Cloudflare-native services for the next backend iteration: D1 for relational data, Workers/Pages Functions for API routes and cron, Workers Secrets for API keys.
 - Keep WHOIS provider keys server-side only.
 - Build domain checks as queued/batched work; avoid firing unbounded API calls from the browser.

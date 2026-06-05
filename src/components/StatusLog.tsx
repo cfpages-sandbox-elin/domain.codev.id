@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronDownIcon, ChevronUpIcon, CommandLineIcon, CheckCircleIcon, XCircleIcon, ExclamationTriangleIcon, InformationCircleIcon } from './icons';
+import { ChevronDownIcon, CommandLineIcon, CheckCircleIcon, XCircleIcon, ExclamationTriangleIcon, InformationCircleIcon } from './icons';
 
 interface StatusLogProps {
   logs: string[];

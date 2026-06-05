@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { IntegrationClient, IntegrationScope } from '../types';
 import * as SupabaseService from '../services/supabaseService';
 import Modal from './Modal';
@@ -69,7 +69,7 @@ const IntegrationSettingsModal: React.FC<IntegrationSettingsModalProps> = ({ isO
   const activeClients = clients.filter(client => !client.revoked_at);
   const revokedClients = clients.filter(client => client.revoked_at);
 
-  const refreshClients = async () => {
+  const refreshClients = useCallback(async () => {
     setIsLoading(true);
     const data = await SupabaseService.getIntegrationClients();
     if (data) {
@@ -77,13 +77,13 @@ const IntegrationSettingsModal: React.FC<IntegrationSettingsModalProps> = ({ isO
       addLog(`✅ Loaded ${data.length} integration client(s).`);
     }
     setIsLoading(false);
-  };
+  }, [addLog]);
 
   useEffect(() => {
     if (isOpen) {
       void refreshClients();
     }
-  }, [isOpen]);
+  }, [isOpen, refreshClients]);
 
   const toggleScope = (scope: IntegrationScope) => {
     setSelectedScopes(current => current.includes(scope)
@@ -144,10 +144,15 @@ const IntegrationSettingsModal: React.FC<IntegrationSettingsModalProps> = ({ isO
     }
   };
 
+  const curlPayload = JSON.stringify({
+    domains: [{ domainName: 'example.com', tag: 'mine' }],
+    source: 'hermes-whatsapp',
+  });
+
   const curlExample = `curl -X POST "${apiBaseUrl}/domains" \\
   -H "Authorization: Bearer ${newToken || 'dcv_live_...'}" \\
   -H "Content-Type: application/json" \\
-  -d "{\"domains\":[{\"domainName\":\"example.com\",\"tag\":\"mine\"}],\"source\":\"hermes-whatsapp\"}"`;
+  -d '${curlPayload}'`;
 
   const hermesPrompt = `You are connected to my Domain Codev domain tracker.
 

@@ -80,8 +80,9 @@ const Tooltip: React.FC<TooltipProps> = ({ children, content, className = '', pl
   };
 
   useEffect(() => {
+    const tooltipId = tooltipIdRef.current;
     const handleActiveTooltipChange = (id: string | null) => {
-      if (id !== tooltipIdRef.current) {
+      if (id !== tooltipId) {
         setIsVisible(false);
       }
     };
@@ -89,7 +90,7 @@ const Tooltip: React.FC<TooltipProps> = ({ children, content, className = '', pl
     activeTooltipListeners.add(handleActiveTooltipChange);
     return () => {
       activeTooltipListeners.delete(handleActiveTooltipChange);
-      if (activeTooltipId === tooltipIdRef.current) {
+      if (activeTooltipId === tooltipId) {
         setActiveTooltip(null);
       }
     };

@@ -1,4 +1,4 @@
-import { AutoMineRule, CategoryManualOverride, CategoryManualOverrides, CategoryWordGroup } from '../types';
+import { AutoMineRule, CategoryManualOverrides, CategoryWordGroup } from '../types';
 
 export const CATEGORY_NAMES_STORAGE_KEY = 'domain-codev-category-names';
 export const CATEGORY_MANUAL_OVERRIDES_STORAGE_KEY = 'domain-codev-category-manual-overrides';

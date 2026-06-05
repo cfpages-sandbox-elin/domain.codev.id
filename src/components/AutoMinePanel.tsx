@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AutoMineRule, Domain } from '../types';
 import { ChevronDownIcon, ChevronUpIcon, HomeIcon, PlusIcon, TrashIcon } from './icons';
 import Tooltip from './Tooltip';
@@ -51,7 +51,7 @@ const AutoMinePanel: React.FC<AutoMinePanelProps> = ({ domains, rules, onRulesCh
     [domains, matchesByDomainId],
   );
 
-  const applyMatches = async (mode: 'auto' | 'manual') => {
+  const applyMatches = useCallback(async (mode: 'auto' | 'manual') => {
     if (isApplying || matchedDomainIds.length === 0) return;
     setIsApplying(true);
     try {
@@ -59,7 +59,7 @@ const AutoMinePanel: React.FC<AutoMinePanelProps> = ({ domains, rules, onRulesCh
     } finally {
       setIsApplying(false);
     }
-  };
+  }, [isApplying, matchedDomainIds, onApplyMatches]);
 
   useEffect(() => {
     if (matchedDomainIds.length === 0 || isApplying) return;
@@ -67,7 +67,7 @@ const AutoMinePanel: React.FC<AutoMinePanelProps> = ({ domains, rules, onRulesCh
     if (lastAutoApplyKeyRef.current === key) return;
     lastAutoApplyKeyRef.current = key;
     void applyMatches('auto');
-  }, [matchedDomainIds, isApplying]);
+  }, [applyMatches, matchedDomainIds, isApplying]);
 
   const addRule = () => {
     const nameServers = Array.from(new Set(splitNameServers(nameServerInput)));

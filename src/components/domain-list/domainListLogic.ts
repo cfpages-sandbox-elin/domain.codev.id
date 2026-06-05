@@ -61,10 +61,11 @@ export const getFilterMatch = (domain: Domain, filterType: FilterType) => {
       return hasMissingData(domain);
     case 'available':
       return domain.status === 'available' || domain.status === 'dropped';
-    case 'expiring':
+    case 'expiring': {
       if (!domain.expiration_date) return false;
       const daysLeft = (new Date(domain.expiration_date).getTime() - Date.now()) / (1000 * 3600 * 24);
       return daysLeft > 0 && daysLeft <= 90;
+    }
     case 'expired':
       return domain.status === 'expired';
     case 'all':

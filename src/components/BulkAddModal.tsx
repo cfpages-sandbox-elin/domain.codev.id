@@ -3,11 +3,21 @@ import { Domain, DomainTag } from '../types';
 import Modal from './Modal';
 import Spinner from './Spinner';
 import Tooltip from './Tooltip';
-import { ArrowUpOnSquareIcon, ExclamationTriangleIcon, HomeIcon, TargetIcon, UsersIcon } from './icons';
-
-type BulkDomain = { domainName: string; tag?: DomainTag };
-type ActiveTab = 'single' | 'bulk';
-type BulkEntryMode = 'paste' | 'file';
+import { ArrowUpOnSquareIcon, ExclamationTriangleIcon, HomeIcon } from './icons';
+import TagChoice, { getTagIcon, getTagIconClass } from './bulk-add/TagChoice';
+import {
+    ActiveTab,
+    BulkDomain,
+    BulkEntryMode,
+    findExistingDomainMatches,
+    formatSkippedImportLog,
+    getTagLabel,
+    isDomainTag,
+    isValidDomainName,
+    normalizeDomainInput,
+    parseBulkDomains,
+    splitBulkInput,
+} from './bulk-add/bulkAddLogic';
 
 interface BulkAddModalProps {
     isOpen: boolean;
@@ -19,128 +29,6 @@ interface BulkAddModalProps {
     isLoading: boolean;
     addLog: (message: string) => void;
 }
-
-const splitBulkInput = (value: string) => value
-    .split(/[\s,;]+/)
-    .map(item => item.trim())
-    .filter(Boolean);
-
-const normalizeDomainInput = (value: string): string | null => {
-    let normalized = value.trim().toLowerCase();
-    normalized = normalized.replace(/^https?:\/\//, '').replace(/^www\./, '');
-    normalized = normalized.split(/[/?#]/)[0];
-    normalized = normalized.replace(/\.$/, '');
-    return normalized || null;
-};
-
-const isValidDomainName = (value: string) => {
-    if (value.length < 3 || value.length > 253) return false;
-    if (value.includes('@') || value.includes('*') || value.includes('_')) return false;
-    if (!value.includes('.')) return false;
-    const labels = value.split('.');
-    if (labels.length < 2) return false;
-    return labels.every(label => (
-        label.length > 0
-        && label.length <= 63
-        && /^[a-z0-9-]+$/.test(label)
-        && !label.startsWith('-')
-        && !label.endsWith('-')
-    ));
-};
-
-const parseBulkDomains = (values: string[], existingDomainNames: Set<string> = new Set()) => {
-    const seen = new Set<string>();
-    const domains: BulkDomain[] = [];
-    const invalid: string[] = [];
-    const duplicates: string[] = [];
-    const existing: string[] = [];
-
-    for (const rawValue of values) {
-        const domainName = normalizeDomainInput(rawValue);
-        if (!domainName || !isValidDomainName(domainName)) {
-            invalid.push(rawValue);
-            continue;
-        }
-
-        if (seen.has(domainName)) {
-            duplicates.push(domainName);
-            continue;
-        }
-
-        if (existingDomainNames.has(domainName)) {
-            existing.push(domainName);
-            continue;
-        }
-
-        seen.add(domainName);
-        domains.push({ domainName });
-    }
-
-    return { domains, invalid, duplicates, existing };
-};
-
-type ParsedBulkDomains = ReturnType<typeof parseBulkDomains>;
-
-const formatSkippedImportLog = (source: string, parsed: ParsedBulkDomains) => {
-    const parts: string[] = [];
-    if (parsed.invalid.length > 0) parts.push(`${parsed.invalid.length} invalid`);
-    if (parsed.duplicates.length > 0) parts.push(`${parsed.duplicates.length} duplicate`);
-    if (parsed.existing.length > 0) parts.push(`${parsed.existing.length} already tracked`);
-    if (parts.length === 0) return null;
-    return `⚠️ ${source} skipped ${parts.join(', ')} entr${parts.length === 1 && (parsed.invalid.length + parsed.duplicates.length + parsed.existing.length) === 1 ? 'y' : 'ies'}.`;
-};
-
-const TagChoice: React.FC<{
-    id: string;
-    name: string;
-    tag: DomainTag;
-    checked: boolean;
-    disabled: boolean;
-    onChange: () => void;
-}> = ({ id, name, tag, checked, disabled, onChange }) => {
-    const isMine = tag === 'mine';
-    const isOthers = tag === 'others';
-    const Icon = isMine ? HomeIcon : isOthers ? UsersIcon : TargetIcon;
-    const label = isMine ? 'Mine' : isOthers ? 'Others' : 'To Snatch';
-    return (
-        <div>
-            <input type="radio" id={id} name={name} value={tag} checked={checked} onChange={onChange} disabled={disabled} className="sr-only peer" />
-            <label
-                htmlFor={id}
-                className={`inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-2 px-4 py-3 text-sm font-semibold transition-all peer-disabled:cursor-not-allowed peer-disabled:opacity-60 ${
-                    isMine
-                        ? 'border-slate-300 text-indigo-700 peer-checked:border-brand-blue peer-checked:ring-2 peer-checked:ring-brand-blue dark:border-slate-600 dark:text-indigo-200'
-                        : isOthers
-                            ? 'border-slate-300 text-violet-700 peer-checked:border-violet-500 peer-checked:ring-2 peer-checked:ring-violet-500 dark:border-slate-600 dark:text-violet-200'
-                            : 'border-slate-300 text-teal-700 peer-checked:border-brand-green peer-checked:ring-2 peer-checked:ring-brand-green dark:border-slate-600 dark:text-teal-200'
-                }`}
-            >
-                <Icon className="h-4 w-4" />
-                {label}
-            </label>
-        </div>
-    );
-};
-
-const isDomainTag = (value: unknown): value is DomainTag => value === 'mine' || value === 'to-snatch' || value === 'others';
-
-const getTagLabel = (tag: DomainTag) => {
-    if (tag === 'mine') return 'Mine';
-    if (tag === 'others') return 'Others';
-    return 'To Snatch';
-};
-
-const getTagIcon = (tag: DomainTag) => {
-    if (tag === 'mine') return HomeIcon;
-    if (tag === 'others') return UsersIcon;
-    return TargetIcon;
-};
-
-const getTagIconClass = (tag: DomainTag) => {
-    if (tag === 'mine') return 'text-indigo-500';
-    if (tag === 'others') return 'text-violet-500';
-    return 'text-teal-500';
-};
 
 const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab = 'single', existingDomains, onAddDomain, onBulkAdd, isLoading, addLog }) => {
     const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
@@ -162,10 +50,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
         ? existingDomains.find(domain => domain.domain_name.toLowerCase() === normalizedSingleDomain)
         : undefined;
     const existingDomainMatches = useMemo(() => {
-        if (!normalizedSingleDomain || normalizedSingleDomain.length < 2) return [];
-        return existingDomains
-            .filter(domain => domain.domain_name.toLowerCase().includes(normalizedSingleDomain))
-            .slice(0, 5);
+        return findExistingDomainMatches(existingDomains, normalizedSingleDomain);
     }, [existingDomains, normalizedSingleDomain]);
 
     useEffect(() => {
