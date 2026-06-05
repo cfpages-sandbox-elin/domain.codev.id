@@ -64,15 +64,6 @@ const CATEGORY_GROUP_STYLES = [
   'border-violet-300 bg-violet-50/70 dark:border-violet-700 dark:bg-violet-950/30',
 ];
 
-const CATEGORY_ROW_STRIPE_STYLES = [
-  'bg-indigo-500 dark:bg-indigo-400',
-  'bg-teal-500 dark:bg-teal-400',
-  'bg-amber-500 dark:bg-amber-400',
-  'bg-rose-500 dark:bg-rose-400',
-  'bg-sky-500 dark:bg-sky-400',
-  'bg-violet-500 dark:bg-violet-400',
-];
-
 const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = false, categoryNameOverrides, categoryManualOverrides, categoryWordGroups, whoisDetailsByDomainId, onRemove, onShowInfo, onToggleTag, onSetTag, onRecheck, autoRepairingDomainIds, pendingDomainIds, onImportRequest, onExportRequest, isProcessing }) => {
   const [filter, setFilter] = useState<FilterType>(readStoredFilter);
   const [sortOption, setSortOption] = useState<SortOption>(readStoredSort);
@@ -173,9 +164,6 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
     }
     return names;
   }, [categorization.categories, categoryNameOverrides]);
-  const categoryStyleIndexById = useMemo(() => {
-    return Object.fromEntries(categorization.categories.map((category, index) => [category.id, index])) as Record<string, number>;
-  }, [categorization.categories]);
   const categorizedDomainById = useMemo(
     () => new Map(categorization.categorizedDomains.map(item => [item.domain.id, item])),
     [categorization.categorizedDomains],
@@ -348,6 +336,57 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
 
     return groups;
   }, [categoryGroups, renderedDomainLimit]);
+  const renderedCategoryBlocks = useMemo(() => {
+    if (renderedCategoryGroups.length === 0) return [];
+
+    const groupsById = new Map(renderedCategoryGroups.map(group => [group.id, group]));
+    const adjacency = new Map<string, Set<string>>();
+
+    for (const group of renderedCategoryGroups) {
+      if (!adjacency.has(group.id)) adjacency.set(group.id, new Set());
+      for (const relatedId of group.overlapCategoryIds) {
+        if (!groupsById.has(relatedId)) continue;
+        adjacency.get(group.id)!.add(relatedId);
+        if (!adjacency.has(relatedId)) adjacency.set(relatedId, new Set());
+        adjacency.get(relatedId)!.add(group.id);
+      }
+    }
+
+    const visited = new Set<string>();
+    return renderedCategoryGroups.map(group => {
+      if (visited.has(group.id)) return null;
+
+      const queue = [group.id];
+      const blockGroups = [];
+      visited.add(group.id);
+
+      while (queue.length > 0) {
+        const currentId = queue.shift()!;
+        const currentGroup = groupsById.get(currentId);
+        if (currentGroup) blockGroups.push(currentGroup);
+
+        for (const relatedId of adjacency.get(currentId) || []) {
+          if (visited.has(relatedId)) continue;
+          visited.add(relatedId);
+          queue.push(relatedId);
+        }
+      }
+
+      const orderedBlockGroups = blockGroups.sort((a, b) => (
+        renderedCategoryGroups.indexOf(a) - renderedCategoryGroups.indexOf(b)
+      ));
+
+      return {
+        id: orderedBlockGroups.map(item => item.id).join('__'),
+        isOverlapBlock: orderedBlockGroups.length > 1,
+        groups: orderedBlockGroups,
+      };
+    }).filter((block): block is {
+      id: string;
+      isOverlapBlock: boolean;
+      groups: typeof renderedCategoryGroups;
+    } => Boolean(block));
+  }, [renderedCategoryGroups]);
   const renderedCount = Math.min(renderedDomainLimit, sortedDomains.length);
   const hasMoreDomainsToRender = renderedCount < sortedDomains.length;
 
@@ -425,14 +464,6 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
   const renderDomainItem = (domain: Domain) => {
     const meta = categorizedDomainById.get(domain.id);
     const labels = meta?.categoryIds.map(categoryId => categoryNames[categoryId] || categoryId) || [];
-    const primaryCategoryId = meta?.primaryCategoryId || meta?.categoryIds[0] || null;
-    const overlapCategoryIds = meta?.categoryIds.filter(categoryId => categoryId !== primaryCategoryId) || [];
-    const categoryAccentClass = primaryCategoryId
-      ? CATEGORY_ROW_STRIPE_STYLES[(categoryStyleIndexById[primaryCategoryId] ?? 0) % CATEGORY_ROW_STRIPE_STYLES.length]
-      : undefined;
-    const overlappingCategoryAccentClasses = overlapCategoryIds.map(categoryId => (
-      CATEGORY_ROW_STRIPE_STYLES[(categoryStyleIndexById[categoryId] ?? 0) % CATEGORY_ROW_STRIPE_STYLES.length]
-    ));
     return (
       <DomainItem
         key={domain.id}
@@ -446,12 +477,30 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
         isAutoRefreshing={autoRepairingDomainIds?.has(domain.id)}
         isPending={pendingDomainIds?.has(domain.id)}
         categoryLabels={labels}
-        categoryAccentClass={categoryAccentClass}
-        overlappingCategoryAccentClasses={overlappingCategoryAccentClasses}
         tld={meta?.parts.tld}
       />
     );
   };
+
+  const renderCategorySection = (group: (typeof renderedCategoryGroups)[number]) => (
+    <section key={group.id} className={`rounded-lg border-2 p-2 shadow-sm ${group.style}`}>
+      <div className="mb-2 flex flex-wrap items-center gap-2 px-1">
+        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">{group.label}</h3>
+        <span className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-900/70 dark:text-slate-300">
+          {group.renderedCount === group.totalCount ? group.totalCount : `${group.renderedCount}/${group.totalCount}`}
+        </span>
+        {group.overlapLabels.length > 0 && (
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            overlaps {group.overlapLabels.slice(0, 3).join(' + ')}
+            {group.overlapLabels.length > 3 ? ` +${group.overlapLabels.length - 3}` : ''}
+          </span>
+        )}
+      </div>
+      <div className="space-y-2">
+        {group.domains.map(renderDomainItem)}
+      </div>
+    </section>
+  );
 
   const runRecheck = async (targetDomains: Domain[], label: string) => {
     if (isRecheckingVisible || targetDomains.length === 0) return;
@@ -512,10 +561,10 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
     <div>
       <div
         ref={floatingFilterRef}
-        className={`fixed left-1/2 top-20 z-40 w-[calc(100%-1.5rem)] max-w-3xl -translate-x-1/2 transition-all duration-200 ${
+        className={`fixed bottom-5 left-1/2 z-40 w-[calc(100%-1.5rem)] max-w-3xl -translate-x-1/2 transition-all duration-200 md:bottom-6 ${
           isFloatingFilterVisible
             ? 'translate-y-0 opacity-100'
-            : 'pointer-events-none -translate-y-3 opacity-0'
+            : 'pointer-events-none translate-y-3 opacity-0'
         }`}
       >
         <div className="mx-auto flex items-center gap-1 overflow-x-auto rounded-full border border-slate-200 bg-white/95 p-1.5 shadow-xl backdrop-blur dark:border-slate-700 dark:bg-slate-900/95">
@@ -742,24 +791,16 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
       <div className={`space-y-3 transition-opacity ${isProcessing ? 'opacity-50' : 'opacity-100'}`}>
         {sortedDomains.length > 0 ? (
           categoryGroups.length > 0 ? (
-            renderedCategoryGroups.map(group => (
-              <section key={group.id} className={`rounded-lg border-2 p-2 shadow-sm ${group.style}`}>
-                <div className="mb-2 flex flex-wrap items-center gap-2 px-1">
-                  <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">{group.label}</h3>
-                  <span className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-900/70 dark:text-slate-300">
-                    {group.renderedCount === group.totalCount ? group.totalCount : `${group.renderedCount}/${group.totalCount}`}
-                  </span>
-                  {group.overlapLabels.length > 0 && (
-                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                      overlaps {group.overlapLabels.slice(0, 3).join(' + ')}
-                      {group.overlapLabels.length > 3 ? ` +${group.overlapLabels.length - 3}` : ''}
-                    </span>
-                  )}
+            renderedCategoryBlocks.map(block => (
+              block.isOverlapBlock ? (
+                <div key={block.id} className="rounded-xl border-2 border-dashed border-brand-blue/70 bg-white/45 p-2 shadow-sm dark:border-blue-400/70 dark:bg-slate-900/35">
+                  <div className="space-y-2">
+                    {block.groups.map(renderCategorySection)}
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  {group.domains.map(renderDomainItem)}
-                </div>
-              </section>
+              ) : (
+                renderCategorySection(block.groups[0])
+              )
             ))
           ) : (
             renderedDomains.map(renderDomainItem)
