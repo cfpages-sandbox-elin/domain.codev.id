@@ -21,6 +21,7 @@ export {
   LogOut as LogOutIcon,
   Maximize2 as ArrowsPointingOutIcon,
   Moon as MoonIcon,
+  Pencil as PencilIcon,
   Plus as PlusIcon,
   RefreshCw as RefreshIcon,
   Search as SearchIcon,

@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { CategoryManualOverride, CategoryManualOverrides, CategoryWordGroup, Domain } from '../types';
-import { applyCategoryManualOverrides, applyCategoryWordGroups, categorizeDomains } from '../utils/domainCategorization';
+import { DomainCategorizationResult, applyCategoryManualOverrides, applyCategoryWordGroups, categorizeDomains } from '../utils/domainCategorization';
 import { splitCategoryWords } from '../utils/userSettingsStorage';
-import { PlusIcon, RefreshIcon, TagIcon, TrashIcon, XCircleIcon } from './icons';
+import { ChevronDownIcon, ChevronUpIcon, PencilIcon, PlusIcon, RefreshIcon, TagIcon, TrashIcon, XCircleIcon } from './icons';
 import Tooltip from './Tooltip';
 
 interface CategoriesPageProps {
@@ -24,6 +24,12 @@ const hasManualOverride = (override?: CategoryManualOverride) => Boolean(
   override && (override.includeDomainIds.length > 0 || override.excludeDomainIds.length > 0),
 );
 
+const EMPTY_CATEGORIZATION: DomainCategorizationResult = {
+  categories: [],
+  categorizedDomains: [],
+  categoryIdsByDomainId: {},
+};
+
 const CategoriesPage: React.FC<CategoriesPageProps> = ({
   domains,
   categoryNameOverrides,
@@ -34,16 +40,25 @@ const CategoriesPage: React.FC<CategoriesPageProps> = ({
   onCategoryWordGroupsChange,
 }) => {
   const [selectedDomainByCategoryId, setSelectedDomainByCategoryId] = useState<Record<string, string>>({});
+  const [isAutoCategoriesOpen, setIsAutoCategoriesOpen] = useState(false);
+  const [editingWordGroupId, setEditingWordGroupId] = useState<string | null>(null);
   const [wordGroupLabel, setWordGroupLabel] = useState('');
   const [wordGroupWords, setWordGroupWords] = useState('');
-  const autoCategorization = useMemo(() => categorizeDomains(domains), [domains]);
+  const autoCategorization = useMemo(
+    () => (isAutoCategoriesOpen ? categorizeDomains(domains) : EMPTY_CATEGORIZATION),
+    [domains, isAutoCategoriesOpen],
+  );
   const rawCategorization = useMemo(
-    () => applyCategoryWordGroups(autoCategorization, domains, categoryWordGroups),
-    [autoCategorization, categoryWordGroups, domains],
+    () => (isAutoCategoriesOpen
+      ? applyCategoryWordGroups(autoCategorization, domains, categoryWordGroups)
+      : EMPTY_CATEGORIZATION),
+    [autoCategorization, categoryWordGroups, domains, isAutoCategoriesOpen],
   );
   const categorization = useMemo(
-    () => applyCategoryManualOverrides(rawCategorization, domains, categoryManualOverrides),
-    [categoryManualOverrides, domains, rawCategorization],
+    () => (isAutoCategoriesOpen
+      ? applyCategoryManualOverrides(rawCategorization, domains, categoryManualOverrides)
+      : EMPTY_CATEGORIZATION),
+    [categoryManualOverrides, domains, isAutoCategoriesOpen, rawCategorization],
   );
   const rawCategoryById = useMemo(
     () => new Map(rawCategorization.categories.map(category => [category.id, category])),
@@ -108,17 +123,23 @@ const CategoriesPage: React.FC<CategoriesPageProps> = ({
     setSelectedDomainByCategoryId(current => ({ ...current, [categoryId]: '' }));
   };
 
-  const addWordGroup = () => {
+  const resetWordGroupForm = () => {
+    setEditingWordGroupId(null);
+    setWordGroupLabel('');
+    setWordGroupWords('');
+  };
+
+  const submitWordGroup = () => {
     const words = splitCategoryWords(wordGroupWords);
     if (words.length < 2) {
       alert('Add at least two words, for example: steel, besi, baja.');
       return;
     }
 
+    const nextSignature = words.slice().sort().join(',');
     const duplicate = categoryWordGroups.some(group => {
       const existing = group.words.slice().sort().join(',');
-      const next = words.slice().sort().join(',');
-      return existing === next;
+      return group.id !== editingWordGroupId && existing === nextSignature;
     });
     if (duplicate) {
       alert('This category word group already exists.');
@@ -126,17 +147,36 @@ const CategoriesPage: React.FC<CategoriesPageProps> = ({
     }
 
     const label = wordGroupLabel.trim() || words.join(' ');
-    onCategoryWordGroupsChange(current => [
-      {
-        id: crypto.randomUUID(),
-        label,
-        words,
-        enabled: true,
-      },
-      ...current,
-    ]);
-    setWordGroupLabel('');
-    setWordGroupWords('');
+    if (editingWordGroupId) {
+      onCategoryWordGroupsChange(current => current.map(group => (
+        group.id === editingWordGroupId ? { ...group, label, words } : group
+      )));
+    } else {
+      onCategoryWordGroupsChange(current => [
+        {
+          id: crypto.randomUUID(),
+          label,
+          words,
+          enabled: true,
+        },
+        ...current,
+      ]);
+    }
+    resetWordGroupForm();
+  };
+
+  const handleWordGroupFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    submitWordGroup();
+  };
+
+  const editWordGroup = (group: CategoryWordGroup) => {
+    setEditingWordGroupId(group.id);
+    setWordGroupLabel(group.label);
+    setWordGroupWords(group.words.join(', '));
+    window.setTimeout(() => {
+      document.getElementById('category-word-group-label')?.focus();
+    }, 0);
   };
 
   const toggleWordGroup = (id: string) => {
@@ -148,6 +188,9 @@ const CategoriesPage: React.FC<CategoriesPageProps> = ({
   const removeWordGroup = (id: string) => {
     const categoryId = `word-group:${id}`;
     onCategoryWordGroupsChange(current => current.filter(group => group.id !== id));
+    if (editingWordGroupId === id) {
+      resetWordGroupForm();
+    }
     onCategoryNameOverridesChange(current => {
       const next = { ...current };
       delete next[categoryId];
@@ -160,7 +203,10 @@ const CategoriesPage: React.FC<CategoriesPageProps> = ({
     });
   };
 
-  const categoryGroups = useMemo(() => categorization.categories.map(category => {
+  const categoryGroups = useMemo(() => {
+    if (!isAutoCategoriesOpen) return [];
+
+    return categorization.categories.map(category => {
     const domainsInCategory = category.members
       .map(member => {
         const domain = domainsById.get(member.domainId);
@@ -183,8 +229,8 @@ const CategoriesPage: React.FC<CategoriesPageProps> = ({
       overlapLabels: Array.from(overlapCategoryIds).map(categoryId => categoryNames[categoryId] || categoryId),
       override: categoryManualOverrides[category.id],
     };
-  }).sort((a, b) => b.overlapLabels.length - a.overlapLabels.length || a.label.localeCompare(b.label)),
-  [categorizedDomainById, categorization.categories, categoryManualOverrides, categoryNames, domainsById]);
+  }).sort((a, b) => b.overlapLabels.length - a.overlapLabels.length || a.label.localeCompare(b.label));
+  }, [categorizedDomainById, categorization.categories, categoryManualOverrides, categoryNames, domainsById, isAutoCategoriesOpen]);
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -195,7 +241,7 @@ const CategoriesPage: React.FC<CategoriesPageProps> = ({
         <div>
           <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Categories</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            {categoryGroups.length} auto category group{categoryGroups.length === 1 ? '' : 's'} from {domains.length} domains.
+            Manage word groups for {domains.length} domains. Auto categories stay collapsed until opened.
           </p>
         </div>
       </div>
@@ -208,8 +254,9 @@ const CategoriesPage: React.FC<CategoriesPageProps> = ({
           </p>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-[1fr_1.5fr_auto]">
+        <form className="grid gap-3 md:grid-cols-[1fr_1.5fr_auto]" onSubmit={handleWordGroupFormSubmit}>
           <input
+            id="category-word-group-label"
             value={wordGroupLabel}
             onChange={(event) => setWordGroupLabel(event.target.value)}
             placeholder="Category name, e.g. besi baja steel"
@@ -221,17 +268,28 @@ const CategoriesPage: React.FC<CategoriesPageProps> = ({
             placeholder="steel, besi, baja"
             className="rounded-lg border-2 border-slate-200 bg-slate-100 px-3 py-2 text-sm focus:border-brand-blue focus:ring-0 dark:border-slate-700 dark:bg-slate-800"
           />
-          <Tooltip content="Create an auto category from the listed words.">
+          <Tooltip content={editingWordGroupId ? 'Save changes to this word group.' : 'Create an auto category from the listed words.'}>
             <button
-              type="button"
-              onClick={addWordGroup}
+              type="submit"
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-blue px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-600"
             >
-              <PlusIcon className="h-4 w-4" />
-              Add
+              {editingWordGroupId ? <PencilIcon className="h-4 w-4" /> : <PlusIcon className="h-4 w-4" />}
+              {editingWordGroupId ? 'Edit' : 'Add'}
             </button>
           </Tooltip>
-        </div>
+        </form>
+        {editingWordGroupId && (
+          <div className="mt-2 flex justify-end">
+            <button
+              type="button"
+              onClick={resetWordGroupForm}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 transition-colors hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
+            >
+              <XCircleIcon className="h-3.5 w-3.5" />
+              Cancel edit
+            </button>
+          </div>
+        )}
 
         {categoryWordGroups.length > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
@@ -246,6 +304,16 @@ const CategoriesPage: React.FC<CategoriesPageProps> = ({
                   {group.enabled ? group.label : `${group.label} off`}
                 </button>
                 <span className="font-mono text-[10px] opacity-80">{group.words.join(' + ')}</span>
+                <Tooltip content="Edit this word group">
+                  <button
+                    type="button"
+                    onClick={() => editWordGroup(group)}
+                    className="text-slate-400 transition-colors hover:text-brand-blue dark:text-slate-500 dark:hover:text-blue-300"
+                    aria-label={`Edit ${group.label}`}
+                  >
+                    <PencilIcon className="h-3.5 w-3.5" />
+                  </button>
+                </Tooltip>
                 <Tooltip content="Remove this word group">
                   <button
                     type="button"
@@ -262,14 +330,36 @@ const CategoriesPage: React.FC<CategoriesPageProps> = ({
         )}
       </section>
 
-      {categoryGroups.length === 0 ? (
-        <div className="rounded-lg border border-slate-200 bg-white p-8 text-center dark:border-slate-700 dark:bg-slate-900">
-          <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200">No categories yet</h3>
-          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Add related domains and the auto categorizer will group them here.</p>
-        </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {categoryGroups.map(({ category, label, domains: categoryDomains, overlapLabels, override }) => {
+      <section className="rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <button
+          type="button"
+          onClick={() => setIsAutoCategoriesOpen(current => !current)}
+          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/70"
+          aria-expanded={isAutoCategoriesOpen}
+        >
+          <span>
+            <span className="block text-sm font-semibold text-slate-800 dark:text-slate-100">Auto categories</span>
+            <span className="block text-xs text-slate-500 dark:text-slate-400">
+              {isAutoCategoriesOpen
+                ? `${categoryGroups.length} auto category group${categoryGroups.length === 1 ? '' : 's'} loaded from ${domains.length} domains.`
+                : 'Collapsed by default to keep this page light.'}
+            </span>
+          </span>
+          <span className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-md bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+            {isAutoCategoriesOpen ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
+          </span>
+        </button>
+
+        {isAutoCategoriesOpen && (
+          <div className="border-t border-slate-200 p-4 dark:border-slate-700">
+            {categoryGroups.length === 0 ? (
+              <div className="p-6 text-center">
+                <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200">No categories yet</h3>
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Add related domains and the auto categorizer will group them here.</p>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {categoryGroups.map(({ category, label, domains: categoryDomains, overlapLabels, override }) => {
             const selectedDomainId = Number(selectedDomainByCategoryId[category.id] || 0);
             const categoryDomainIds = new Set(categoryDomains.map(({ domain }) => domain.id));
             const addableDomains = domains
@@ -358,9 +448,12 @@ const CategoriesPage: React.FC<CategoriesPageProps> = ({
               </div>
             </section>
             );
-          })}
-        </div>
-      )}
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </section>
     </div>
   );
 };

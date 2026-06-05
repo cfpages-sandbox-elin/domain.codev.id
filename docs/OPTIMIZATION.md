@@ -1,6 +1,6 @@
 # UI Performance Optimization
 
-Last updated: 2026-06-05 18:47 WIB.
+Last updated: 2026-06-05 19:22 WIB.
 
 This tracker exists because the dashboard now has around 675 domains and is starting to feel sluggish.
 
@@ -22,12 +22,14 @@ This tracker exists because the dashboard now has around 675 domains and is star
 | Tune render budget for the observed viewport | Done | Uses 30 initial rows and 30-row increments so the dashboard mounts around three visible screens at a time instead of 180 rows. |
 | Add row/group render containment | Done | Applies `content-visibility: auto` plus intrinsic size hints to domain rows, category sections, and overlap blocks so offscreen layout/paint work is skipped where supported. |
 | Defer keyword filtering | Done | Uses React deferred keyword state so typing stays responsive while 685 rows are searched/sorted. |
+| Defer Categories page auto-group work | Done | Categories now defaults to word groups only; the 195 auto-category calculation and list render are behind a collapsed accordion and only run when opened. |
 | Verify with project checks | Done | `pnpm run lint`, `pnpm exec tsc --noEmit --pretty false`, and `pnpm run build` passed. |
 
 ## Progress Log
 
 | Date/Time (WIB) | Status | Change | Notes |
 | --- | --- | --- | --- |
+| 2026-06-05 19:22 WIB | Done | Collapsed heavy Categories page auto-category work. | Word groups are now the default view. Auto categories compute/render only after opening the accordion. |
 | 2026-06-05 18:47 WIB | Done | Completed second dashboard list performance pass. | Tuned the render budget for a 10-row visible viewport, added offscreen render containment, deferred keyword filtering, and verified with lint/type/build checks. |
 | 2026-06-05 06:27 WIB | Done | Split route-only views and heavy modals into lazy chunks. | `DocsPage`, `CategoriesPage`, settings panels, Add Domains, and Integration API now load on demand. `pnpm run build` no longer emits the 500 kB Vite chunk warning; largest JS chunks are 239.44 kB and 219.79 kB. |
 | 2026-06-04 22:48 WIB | Done | Moved secondary panels out of the dashboard. | Categories now live in their own navbar view; WHOIS Providers and Auto Mine live in Settings tabs, reducing dashboard first-render and visual clutter. |
