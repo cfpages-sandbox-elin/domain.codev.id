@@ -23,8 +23,10 @@ import {
   getDomainNotificationMessage,
 } from './utils/appDomainLogic';
 
+const loadBulkAddModal = () => import('./components/BulkAddModal');
+
 const DocsPage = React.lazy(() => import('./components/DocsPage'));
-const BulkAddModal = React.lazy(() => import('./components/BulkAddModal'));
+const BulkAddModal = React.lazy(loadBulkAddModal);
 const IntegrationSettingsModal = React.lazy(() => import('./components/IntegrationSettingsModal'));
 const CategoriesPage = React.lazy(() => import('./components/CategoriesPage'));
 const SettingsView = React.lazy(() => import('./components/app/SettingsView'));
@@ -42,6 +44,15 @@ const LazyChunkFallback = () => (
   </div>
 );
 
+const DomainEntryModalFallback = ({ onClose }: { onClose: () => void }) => (
+  <Modal isOpen onClose={onClose} title="Add Domains">
+    <div className="flex min-h-[12rem] flex-col items-center justify-center gap-3 text-center">
+      <Spinner size="lg" color="border-brand-blue" />
+      <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Loading add domain form...</p>
+    </div>
+  </Modal>
+);
+
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,6 +66,11 @@ const App: React.FC = () => {
   const { logs, addLog } = useStatusLog();
   const [view, setView] = useState<View>('dashboard');
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('whois');
+  const openDomainEntryModal = useCallback((tab: DomainEntryTab) => {
+    void loadBulkAddModal();
+    setDomainEntryInitialTab(tab);
+    setIsDomainEntryModalOpen(true);
+  }, []);
   const {
     categoryNameOverrides,
     setCategoryNameOverrides,
@@ -117,14 +133,13 @@ const App: React.FC = () => {
             event.stopPropagation();
             event.stopImmediatePropagation();
             if(session) {
-                setDomainEntryInitialTab('single');
-                setIsDomainEntryModalOpen(true);
+                openDomainEntryModal('single');
             }
         }
     };
     window.addEventListener('keydown', handleKeyDown, { capture: true });
     return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
-  }, [session]);
+  }, [openDomainEntryModal, session]);
 
   const addToast = useCallback((toast: Omit<Toast, 'id'>) => {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -174,6 +189,26 @@ const App: React.FC = () => {
     updateProviderFromWhoisData,
     onWhoisCheckFinished: handleWhoisCheckFinished,
   });
+
+  useEffect(() => {
+    if (!session || loading) return;
+
+    const prefetch = () => {
+      void loadBulkAddModal();
+    };
+
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+    if (idleWindow.requestIdleCallback && idleWindow.cancelIdleCallback) {
+      const idleId = idleWindow.requestIdleCallback(prefetch, { timeout: 2500 });
+      return () => idleWindow.cancelIdleCallback?.(idleId);
+    }
+
+    const timeoutId = window.setTimeout(prefetch, 700);
+    return () => window.clearTimeout(timeoutId);
+  }, [loading, session]);
 
   useEffect(() => {
     if (session) {
@@ -274,10 +309,7 @@ const App: React.FC = () => {
             autoRepairingDomainIds={autoRepairingDomainIds}
             pendingDomainIds={pendingDomainIds}
             onExportRequest={handleExport}
-            onImportRequest={() => {
-              setDomainEntryInitialTab('bulk');
-              setIsDomainEntryModalOpen(true);
-            }}
+            onImportRequest={() => openDomainEntryModal('bulk')}
             isBulkProcessing={isBulkProcessing}
           />
         );
@@ -313,10 +345,9 @@ const App: React.FC = () => {
       {!loading && session && (
         <Tooltip content="Add new domain. Shortcut: Ctrl + N; fallback: Alt + N if the browser captures Ctrl + N." className="fixed bottom-8 right-8 z-40" placement="top">
           <button
-            onClick={() => {
-              setDomainEntryInitialTab('single');
-              setIsDomainEntryModalOpen(true);
-            }}
+            onMouseEnter={() => void loadBulkAddModal()}
+            onFocus={() => void loadBulkAddModal()}
+            onClick={() => openDomainEntryModal('single')}
             className="bg-brand-blue hover:bg-blue-600 text-white rounded-full p-4 shadow-lg transition-transform hover:scale-110 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800"
             aria-label="Add new domain"
           >
@@ -357,8 +388,8 @@ const App: React.FC = () => {
             <Modal isOpen={isInfoModalOpen} onClose={() => setIsInfoModalOpen(false)} title={modalContent.title}>
                 <div className="prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: modalContent.body }}></div>
             </Modal>
-            <Suspense fallback={null}>
-              {isDomainEntryModalOpen && (
+            {isDomainEntryModalOpen && (
+              <Suspense fallback={<DomainEntryModalFallback onClose={() => setIsDomainEntryModalOpen(false)} />}>
                 <BulkAddModal
                     isOpen
                     onClose={() => setIsDomainEntryModalOpen(false)}
@@ -369,7 +400,9 @@ const App: React.FC = () => {
                     isLoading={isBulkProcessing}
                     addLog={addLog}
                 />
-              )}
+              </Suspense>
+            )}
+            <Suspense fallback={null}>
               {isIntegrationSettingsOpen && (
                 <IntegrationSettingsModal
                     isOpen

@@ -63,9 +63,6 @@ const CATEGORY_GROUP_STYLES = [
   'border-sky-300 bg-sky-50/70 dark:border-sky-700 dark:bg-sky-950/30',
   'border-violet-300 bg-violet-50/70 dark:border-violet-700 dark:bg-violet-950/30',
 ];
-const CATEGORY_SECTION_CONTAINMENT_CLASS = '[content-visibility:auto] [contain-intrinsic-size:720px]';
-const OVERLAP_BLOCK_CONTAINMENT_CLASS = '[content-visibility:auto] [contain-intrinsic-size:960px]';
-
 const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = false, categoryNameOverrides, categoryManualOverrides, categoryWordGroups, whoisDetailsByDomainId, onRemove, onShowInfo, onToggleTag, onSetTag, onRecheck, autoRepairingDomainIds, pendingDomainIds, onImportRequest, onExportRequest, isProcessing }) => {
   const [filter, setFilter] = useState<FilterType>(readStoredFilter);
   const [sortOption, setSortOption] = useState<SortOption>(readStoredSort);
@@ -407,7 +404,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
       if (entries.some(entry => entry.isIntersecting)) {
         loadMoreDomains();
       }
-    }, { rootMargin: '600px 0px' });
+    }, { rootMargin: '1800px 0px' });
     observer.observe(loadMoreRef.current);
     return () => observer.disconnect();
   }, [hasMoreDomainsToRender, loadMoreDomains]);
@@ -490,7 +487,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
   };
 
   const renderCategorySection = (group: (typeof renderedCategoryGroups)[number]) => (
-    <section key={group.id} className={`rounded-lg border-2 p-2 shadow-sm ${CATEGORY_SECTION_CONTAINMENT_CLASS} ${group.style}`}>
+    <section key={group.id} className={`rounded-lg border-2 p-2 shadow-sm ${group.style}`}>
       <div className="mb-2 flex flex-wrap items-center gap-2 px-1">
         <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">{group.label}</h3>
         <span className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-900/70 dark:text-slate-300">
@@ -800,7 +797,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
           categoryGroups.length > 0 ? (
             renderedCategoryBlocks.map(block => (
               block.isOverlapBlock ? (
-                <div key={block.id} className={`rounded-xl border-2 border-dashed border-brand-blue/70 bg-white/45 p-2 shadow-sm dark:border-blue-400/70 dark:bg-slate-900/35 ${OVERLAP_BLOCK_CONTAINMENT_CLASS}`}>
+                <div key={block.id} className="rounded-xl border-2 border-dashed border-brand-blue/70 bg-white/45 p-2 shadow-sm dark:border-blue-400/70 dark:bg-slate-900/35">
                   <div className="space-y-2">
                     {block.groups.map(renderCategorySection)}
                   </div>

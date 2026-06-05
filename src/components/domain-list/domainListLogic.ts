@@ -11,8 +11,8 @@ export const TLD_FILTER_STORAGE_KEY = 'domain-codev-tld-filter';
 export const HIDE_REGISTERED_TARGETS_STORAGE_KEY = 'domain-codev-hide-registered-targets';
 export const FILTER_OPTIONS: FilterType[] = ['all', 'mine', 'to-snatch', 'others', 'missing', 'expiring', 'expired', 'available'];
 export const SORT_OPTIONS: SortOption[] = ['added-desc', 'added-asc', 'name-asc', 'name-desc', 'expiry-asc', 'expiry-desc', 'checked-desc', 'checked-asc', 'category-asc', 'category-desc', 'tld-asc', 'tld-desc'];
-export const INITIAL_RENDERED_DOMAINS = 30;
-export const RENDER_INCREMENT = 30;
+export const INITIAL_RENDERED_DOMAINS = 60;
+export const RENDER_INCREMENT = 60;
 
 export const readStoredFilter = (): FilterType => {
   if (typeof window === 'undefined') return 'all';
