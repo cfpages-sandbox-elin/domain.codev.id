@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useMemo, useRef, useEffect } from 'react';
+import React, { useCallback, useState, useMemo, useRef, useEffect, useDeferredValue } from 'react';
 import { CategoryManualOverrides, CategoryWordGroup, Domain, WhoisData } from '../types';
 import DomainItem from './DomainItem';
 import { ChevronUpDownIcon, ArrowUpOnSquareIcon, ArrowDownOnSquareIcon, RefreshIcon, HomeIcon, TargetIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, DomainCodevIcon, UsersIcon, SearchIcon } from './icons';
@@ -63,6 +63,8 @@ const CATEGORY_GROUP_STYLES = [
   'border-sky-300 bg-sky-50/70 dark:border-sky-700 dark:bg-sky-950/30',
   'border-violet-300 bg-violet-50/70 dark:border-violet-700 dark:bg-violet-950/30',
 ];
+const CATEGORY_SECTION_CONTAINMENT_CLASS = '[content-visibility:auto] [contain-intrinsic-size:720px]';
+const OVERLAP_BLOCK_CONTAINMENT_CLASS = '[content-visibility:auto] [contain-intrinsic-size:960px]';
 
 const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = false, categoryNameOverrides, categoryManualOverrides, categoryWordGroups, whoisDetailsByDomainId, onRemove, onShowInfo, onToggleTag, onSetTag, onRecheck, autoRepairingDomainIds, pendingDomainIds, onImportRequest, onExportRequest, isProcessing }) => {
   const [filter, setFilter] = useState<FilterType>(readStoredFilter);
@@ -74,6 +76,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
   const [isRecheckMenuOpen, setIsRecheckMenuOpen] = useState(false);
   const [isRecheckingVisible, setIsRecheckingVisible] = useState(false);
   const [keywordFilter, setKeywordFilter] = useState('');
+  const deferredKeywordFilter = useDeferredValue(keywordFilter);
   const [isKeywordSuggestionsOpen, setIsKeywordSuggestionsOpen] = useState(false);
   const [recheckProgress, setRecheckProgress] = useState<RecheckProgress | null>(null);
   const [visibleDomainLimit, setVisibleDomainLimit] = useState(INITIAL_RENDERED_DOMAINS);
@@ -84,6 +87,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
   const floatingFilterRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const recheckProgressTimeoutRef = useRef<number | null>(null);
+  const isFloatingFilterVisibleRef = useRef(false);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -113,7 +117,10 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
 
   useEffect(() => {
     const updateFloatingFilterVisibility = () => {
-      setIsFloatingFilterVisible(window.scrollY > 220);
+      const nextIsVisible = window.scrollY > 220;
+      if (isFloatingFilterVisibleRef.current === nextIsVisible) return;
+      isFloatingFilterVisibleRef.current = nextIsVisible;
+      setIsFloatingFilterVisible(nextIsVisible);
     };
 
     updateFloatingFilterVisibility();
@@ -143,7 +150,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
 
   useEffect(() => {
     setVisibleDomainLimit(INITIAL_RENDERED_DOMAINS);
-  }, [categoryFilter, filter, hideRegisteredTargets, keywordFilter, sortOption, tldFilter]);
+  }, [categoryFilter, deferredKeywordFilter, filter, hideRegisteredTargets, sortOption, tldFilter]);
 
   const categorization = useMemo(
     () => applyCategoryManualOverrides(
@@ -196,7 +203,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
     return true;
   }), [categorizedDomainById, categoryFilter, domains, hideRegisteredTargets, tldFilter]);
 
-  const normalizedKeywordFilter = keywordFilter.trim().toLowerCase();
+  const normalizedKeywordFilter = deferredKeywordFilter.trim().toLowerCase();
   const keywordFilteredDomains = useMemo(
     () => applyKeywordFilter(contextFilteredDomains, normalizedKeywordFilter, categorizedDomainById, categoryNames),
     [categorizedDomainById, categoryNames, contextFilteredDomains, normalizedKeywordFilter],
@@ -483,7 +490,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
   };
 
   const renderCategorySection = (group: (typeof renderedCategoryGroups)[number]) => (
-    <section key={group.id} className={`rounded-lg border-2 p-2 shadow-sm ${group.style}`}>
+    <section key={group.id} className={`rounded-lg border-2 p-2 shadow-sm ${CATEGORY_SECTION_CONTAINMENT_CLASS} ${group.style}`}>
       <div className="mb-2 flex flex-wrap items-center gap-2 px-1">
         <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">{group.label}</h3>
         <span className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-900/70 dark:text-slate-300">
@@ -793,7 +800,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
           categoryGroups.length > 0 ? (
             renderedCategoryBlocks.map(block => (
               block.isOverlapBlock ? (
-                <div key={block.id} className="rounded-xl border-2 border-dashed border-brand-blue/70 bg-white/45 p-2 shadow-sm dark:border-blue-400/70 dark:bg-slate-900/35">
+                <div key={block.id} className={`rounded-xl border-2 border-dashed border-brand-blue/70 bg-white/45 p-2 shadow-sm dark:border-blue-400/70 dark:bg-slate-900/35 ${OVERLAP_BLOCK_CONTAINMENT_CLASS}`}>
                   <div className="space-y-2">
                     {block.groups.map(renderCategorySection)}
                   </div>
