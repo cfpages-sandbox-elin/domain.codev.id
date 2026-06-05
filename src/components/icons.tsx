@@ -23,6 +23,7 @@ export {
   Moon as MoonIcon,
   Plus as PlusIcon,
   RefreshCw as RefreshIcon,
+  Search as SearchIcon,
   Settings as SettingsIcon,
   ShoppingCart as ShoppingCartIcon,
   SquareTerminal as CommandLineIcon,

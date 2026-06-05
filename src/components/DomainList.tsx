@@ -1,10 +1,33 @@
 import React, { useCallback, useState, useMemo, useRef, useEffect } from 'react';
 import { CategoryManualOverrides, CategoryWordGroup, Domain, WhoisData } from '../types';
 import DomainItem from './DomainItem';
-import Spinner from './Spinner';
 import { ChevronUpDownIcon, ArrowUpOnSquareIcon, ArrowDownOnSquareIcon, RefreshIcon, HomeIcon, TargetIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, DomainCodevIcon, UsersIcon } from './icons';
 import Tooltip from './Tooltip';
 import { applyCategoryManualOverrides, applyCategoryWordGroups, categorizeDomains } from '../utils/domainCategorization';
+import DomainFilterButton from './domain-list/DomainFilterButton';
+import { DomainListLoadingState, EmptyDomainListState, NoDomainMatchesState } from './domain-list/DomainListEmptyStates';
+import KeywordDomainFilter from './domain-list/KeywordDomainFilter';
+import {
+  CATEGORY_FILTER_STORAGE_KEY,
+  FILTER_STORAGE_KEY,
+  FilterType,
+  HIDE_REGISTERED_TARGETS_STORAGE_KEY,
+  INITIAL_RENDERED_DOMAINS,
+  RENDER_INCREMENT,
+  SORT_STORAGE_KEY,
+  SortOption,
+  TLD_FILTER_STORAGE_KEY,
+  applyKeywordFilter,
+  applyStatusFilter,
+  getFilterCounts,
+  getKeywordSuggestions,
+  hasMissingData,
+  readStoredBoolean,
+  readStoredFilter,
+  readStoredSort,
+  readStoredString,
+  sortDomains,
+} from './domain-list/domainListLogic';
 
 interface DomainListProps {
   domains: Domain[];
@@ -24,54 +47,6 @@ interface DomainListProps {
   onExportRequest: (format: 'json' | 'csv') => void;
   isProcessing: boolean;
 }
-
-type FilterType = 'all' | 'mine' | 'to-snatch' | 'others' | 'missing' | 'expiring' | 'expired' | 'available';
-type SortOption = 'added-desc' | 'added-asc' | 'name-asc' | 'name-desc' | 'expiry-asc' | 'expiry-desc' | 'checked-desc' | 'checked-asc' | 'category-asc' | 'category-desc' | 'tld-asc' | 'tld-desc';
-
-const FILTER_STORAGE_KEY = 'domain-codev-filter';
-const SORT_STORAGE_KEY = 'domain-codev-sort';
-const CATEGORY_FILTER_STORAGE_KEY = 'domain-codev-category-filter';
-const TLD_FILTER_STORAGE_KEY = 'domain-codev-tld-filter';
-const HIDE_REGISTERED_TARGETS_STORAGE_KEY = 'domain-codev-hide-registered-targets';
-const FILTER_OPTIONS: FilterType[] = ['all', 'mine', 'to-snatch', 'others', 'missing', 'expiring', 'expired', 'available'];
-const SORT_OPTIONS: SortOption[] = ['added-desc', 'added-asc', 'name-asc', 'name-desc', 'expiry-asc', 'expiry-desc', 'checked-desc', 'checked-asc', 'category-asc', 'category-desc', 'tld-asc', 'tld-desc'];
-const INITIAL_RENDERED_DOMAINS = 180;
-const RENDER_INCREMENT = 120;
-
-const readStoredFilter = (): FilterType => {
-  if (typeof window === 'undefined') return 'all';
-  const stored = window.localStorage.getItem(FILTER_STORAGE_KEY);
-  return FILTER_OPTIONS.includes(stored as FilterType) ? stored as FilterType : 'all';
-};
-
-const readStoredSort = (): SortOption => {
-  if (typeof window === 'undefined') return 'added-desc';
-  const stored = window.localStorage.getItem(SORT_STORAGE_KEY);
-  return SORT_OPTIONS.includes(stored as SortOption) ? stored as SortOption : 'added-desc';
-};
-
-const readStoredString = (key: string) => {
-  if (typeof window === 'undefined') return 'all';
-  return window.localStorage.getItem(key) || 'all';
-};
-
-const readStoredBoolean = (key: string) => {
-  if (typeof window === 'undefined') return false;
-  return window.localStorage.getItem(key) === 'true';
-};
-
-const hasMissingData = (domain: Domain) => {
-  if (!domain.last_checked || domain.status === 'unknown') return true;
-  if (domain.status === 'available' || domain.status === 'dropped' || domain.status === 'reserved') return false;
-
-  const shouldHaveFullWhoisData = domain.status === 'registered' || domain.status === 'expired' || domain.tag === 'mine';
-  if (!shouldHaveFullWhoisData) return false;
-
-  return !domain.expiration_date
-    || !domain.registrar
-    || !domain.domain_statuses
-    || domain.domain_statuses.length === 0;
-};
 
 interface RecheckProgress {
   label: string;
@@ -98,10 +73,13 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isRecheckMenuOpen, setIsRecheckMenuOpen] = useState(false);
   const [isRecheckingVisible, setIsRecheckingVisible] = useState(false);
+  const [keywordFilter, setKeywordFilter] = useState('');
+  const [isKeywordSuggestionsOpen, setIsKeywordSuggestionsOpen] = useState(false);
   const [recheckProgress, setRecheckProgress] = useState<RecheckProgress | null>(null);
   const [visibleDomainLimit, setVisibleDomainLimit] = useState(INITIAL_RENDERED_DOMAINS);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const recheckMenuRef = useRef<HTMLDivElement>(null);
+  const keywordFilterRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const recheckProgressTimeoutRef = useRef<number | null>(null);
 
@@ -112,6 +90,9 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
       }
       if (recheckMenuRef.current && !recheckMenuRef.current.contains(event.target as Node)) {
         setIsRecheckMenuOpen(false);
+      }
+      if (keywordFilterRef.current && !keywordFilterRef.current.contains(event.target as Node)) {
+        setIsKeywordSuggestionsOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -146,7 +127,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
 
   useEffect(() => {
     setVisibleDomainLimit(INITIAL_RENDERED_DOMAINS);
-  }, [categoryFilter, filter, hideRegisteredTargets, sortOption, tldFilter]);
+  }, [categoryFilter, filter, hideRegisteredTargets, keywordFilter, sortOption, tldFilter]);
 
   const categorization = useMemo(
     () => applyCategoryManualOverrides(
@@ -199,55 +180,20 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
     return true;
   }), [categorizedDomainById, categoryFilter, domains, hideRegisteredTargets, tldFilter]);
 
-  const getFilterMatch = (domain: Domain, filterType: FilterType) => {
-    switch (filterType) {
-      case 'mine':
-        return domain.tag === 'mine' && domain.status !== 'available' && domain.status !== 'dropped';
-      case 'to-snatch':
-        return domain.tag === 'to-snatch' || domain.status === 'available' || domain.status === 'dropped';
-      case 'others':
-        return domain.tag === 'others' && domain.status !== 'available' && domain.status !== 'dropped';
-      case 'missing':
-        return hasMissingData(domain);
-      case 'available':
-        return domain.status === 'available' || domain.status === 'dropped';
-      case 'expiring':
-        if (!domain.expiration_date) return false;
-        const daysLeft = (new Date(domain.expiration_date).getTime() - Date.now()) / (1000 * 3600 * 24);
-        return daysLeft > 0 && daysLeft <= 90;
-      case 'expired':
-        return domain.status === 'expired';
-      case 'all':
-      default:
-        return true;
-    }
-  };
+  const normalizedKeywordFilter = keywordFilter.trim().toLowerCase();
+  const keywordFilteredDomains = useMemo(
+    () => applyKeywordFilter(contextFilteredDomains, normalizedKeywordFilter, categorizedDomainById, categoryNames),
+    [categorizedDomainById, categoryNames, contextFilteredDomains, normalizedKeywordFilter],
+  );
+
+  const keywordSuggestions = useMemo(
+    () => getKeywordSuggestions(keywordFilteredDomains, normalizedKeywordFilter),
+    [keywordFilteredDomains, normalizedKeywordFilter],
+  );
 
   const filterCounts = useMemo(() => {
-    const counts: Record<FilterType, number> = {
-      all: 0,
-      mine: 0,
-      'to-snatch': 0,
-      others: 0,
-      expiring: 0,
-      expired: 0,
-      missing: 0,
-      available: 0,
-    };
-
-    for (const domain of contextFilteredDomains) {
-      counts.all += 1;
-      if (getFilterMatch(domain, 'mine')) counts.mine += 1;
-      if (getFilterMatch(domain, 'to-snatch')) counts['to-snatch'] += 1;
-      if (getFilterMatch(domain, 'others')) counts.others += 1;
-      if (getFilterMatch(domain, 'missing')) counts.missing += 1;
-      if (getFilterMatch(domain, 'expiring')) counts.expiring += 1;
-      if (getFilterMatch(domain, 'expired')) counts.expired += 1;
-      if (getFilterMatch(domain, 'available')) counts.available += 1;
-    }
-
-    return counts;
-  }, [contextFilteredDomains]);
+    return getFilterCounts(keywordFilteredDomains);
+  }, [keywordFilteredDomains]);
 
   useEffect(() => {
     if (filter === 'missing' && filterCounts.missing === 0) {
@@ -255,83 +201,13 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
     }
   }, [filter, filterCounts.missing]);
 
-  const filteredDomains = useMemo(() => contextFilteredDomains.filter(domain => {
-    switch (filter) {
-      case 'mine':
-        return domain.tag === 'mine' && domain.status !== 'available' && domain.status !== 'dropped';
-      case 'to-snatch':
-        return domain.tag === 'to-snatch' || domain.status === 'available' || domain.status === 'dropped';
-      case 'others':
-        return domain.tag === 'others' && domain.status !== 'available' && domain.status !== 'dropped';
-      case 'missing':
-        return hasMissingData(domain);
-      case 'available':
-        return domain.status === 'available' || domain.status === 'dropped';
-      case 'expiring':
-        if (!domain.expiration_date) return false;
-        const daysLeft = (new Date(domain.expiration_date).getTime() - Date.now()) / (1000 * 3600 * 24);
-        return daysLeft > 0 && daysLeft <= 90;
-      case 'expired':
-        return domain.status === 'expired';
-      case 'all':
-      default:
-        return true;
-    }
-  }), [contextFilteredDomains, filter]);
+  const filteredDomains = useMemo(
+    () => applyStatusFilter(keywordFilteredDomains, filter),
+    [keywordFilteredDomains, filter],
+  );
 
   const sortedDomains = useMemo(() => {
-    const sortable = [...filteredDomains];
-    const getCategoryLabel = (domain: Domain) => {
-        const meta = categorizedDomainById.get(domain.id);
-        if (!meta?.primaryCategoryId) return 'zzzzzz-uncategorized';
-        return categoryNames[meta.primaryCategoryId] || 'zzzzzz-uncategorized';
-    };
-    const getTld = (domain: Domain) => categorizedDomainById.get(domain.id)?.parts.tld || '';
-
-    sortable.sort((a, b) => {
-        if (filter === 'expiring') {
-            if (!a.expiration_date) return 1;
-            if (!b.expiration_date) return -1;
-            return new Date(a.expiration_date).getTime() - new Date(b.expiration_date).getTime();
-        }
-
-        switch (sortOption) {
-            case 'name-asc':
-                return a.domain_name.localeCompare(b.domain_name);
-            case 'name-desc':
-                return b.domain_name.localeCompare(a.domain_name);
-            case 'expiry-asc':
-                if (!a.expiration_date) return 1;
-                if (!b.expiration_date) return -1;
-                return new Date(a.expiration_date).getTime() - new Date(b.expiration_date).getTime();
-            case 'expiry-desc':
-                if (!a.expiration_date) return 1;
-                if (!b.expiration_date) return -1;
-                return new Date(b.expiration_date).getTime() - new Date(a.expiration_date).getTime();
-            case 'added-asc':
-                return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-            case 'checked-asc':
-                if (!a.last_checked) return 1;
-                if (!b.last_checked) return -1;
-                return new Date(a.last_checked).getTime() - new Date(b.last_checked).getTime();
-            case 'checked-desc':
-                 if (!a.last_checked) return 1;
-                 if (!b.last_checked) return -1;
-                return new Date(b.last_checked).getTime() - new Date(a.last_checked).getTime();
-            case 'category-asc':
-                return getCategoryLabel(a).localeCompare(getCategoryLabel(b)) || a.domain_name.localeCompare(b.domain_name);
-            case 'category-desc':
-                return getCategoryLabel(b).localeCompare(getCategoryLabel(a)) || a.domain_name.localeCompare(b.domain_name);
-            case 'tld-asc':
-                return getTld(a).localeCompare(getTld(b)) || a.domain_name.localeCompare(b.domain_name);
-            case 'tld-desc':
-                return getTld(b).localeCompare(getTld(a)) || a.domain_name.localeCompare(b.domain_name);
-            case 'added-desc':
-            default:
-                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        }
-    });
-    return sortable;
+    return sortDomains(filteredDomains, filter, sortOption, categorizedDomainById, categoryNames);
   }, [categorizedDomainById, categoryNames, filter, filteredDomains, sortOption]);
 
   const categoryGroups = useMemo(() => {
@@ -473,26 +349,17 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
     expired: <XCircleIcon className="h-4 w-4" />,
   };
 
-  const FilterButton: React.FC<{ filterType: FilterType, children: React.ReactNode }> = ({ filterType, children }) => (
-     <button
-        onClick={() => setFilter(filterType)}
-        disabled={isProcessing}
-        className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-          filter === filterType 
-            ? 'bg-brand-blue text-white' 
-            : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
-        }`}
-      >
-        {filterIcons[filterType]}
-        {children}
-        <span className={`rounded-full px-1.5 text-[11px] font-semibold ${
-          filter === filterType
-            ? 'bg-white/25 text-white'
-            : 'bg-white/70 text-slate-500 dark:bg-slate-900/60 dark:text-slate-300'
-        }`}>
-          {filterCounts[filterType]}
-        </span>
-      </button>
+  const renderFilterButton = (filterType: FilterType, label: string) => (
+    <DomainFilterButton
+      filterType={filterType}
+      activeFilter={filter}
+      count={filterCounts[filterType]}
+      icon={filterIcons[filterType]}
+      isDisabled={isProcessing}
+      onSelect={setFilter}
+    >
+      {label}
+    </DomainFilterButton>
   );
 
   const handleExportClick = (format: 'json' | 'csv') => {
@@ -578,43 +445,35 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
     : 0;
 
   if (isLoadingDomains && domains.length === 0) {
-    return (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Spinner size="md" color="border-brand-blue" />
-            <h3 className="mt-4 text-xl font-semibold text-slate-700 dark:text-slate-300">Your domains are loading</h3>
-            <p className="mt-2 text-slate-500 dark:text-slate-400">Fetching your saved domain list from Supabase.</p>
-        </div>
-    );
+    return <DomainListLoadingState />;
   }
 
   if (domains.length === 0 && !isProcessing) {
-    return (
-        <div className="text-center py-12">
-            <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-300">Your list is empty</h3>
-            <p className="mt-2 text-slate-500 dark:text-slate-400">Add a domain or import a list to start tracking!</p>
-            <button
-                onClick={onImportRequest}
-                className="mt-6 inline-flex items-center gap-2 px-4 py-2 font-semibold text-white bg-brand-blue hover:bg-blue-600 rounded-lg transition-colors"
-            >
-                <ArrowUpOnSquareIcon className="w-5 h-5" />
-                Import / Add Bulk
-            </button>
-        </div>
-    );
+    return <EmptyDomainListState onImportRequest={onImportRequest} />;
   }
 
   return (
     <div>
       <div className="mb-6 flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-center gap-3">
-            <FilterButton filterType="all">All</FilterButton>
-            <FilterButton filterType="mine">Mine</FilterButton>
-            <FilterButton filterType="to-snatch">To Snatch</FilterButton>
-            <FilterButton filterType="others">Others</FilterButton>
-            {filterCounts.missing > 0 && <FilterButton filterType="missing">Missing Data</FilterButton>}
-            <FilterButton filterType="available">Available</FilterButton>
-            <FilterButton filterType="expiring">Expiring Soon</FilterButton>
-            <FilterButton filterType="expired">Expired</FilterButton>
+            {renderFilterButton('all', 'All')}
+            {renderFilterButton('mine', 'Mine')}
+            {renderFilterButton('to-snatch', 'To Snatch')}
+            {renderFilterButton('others', 'Others')}
+            {filterCounts.missing > 0 && renderFilterButton('missing', 'Missing Data')}
+            {renderFilterButton('available', 'Available')}
+            {renderFilterButton('expiring', 'Expiring Soon')}
+            {renderFilterButton('expired', 'Expired')}
+            <KeywordDomainFilter
+              containerRef={keywordFilterRef}
+              keyword={keywordFilter}
+              suggestions={keywordSuggestions}
+              categorizedDomainById={categorizedDomainById}
+              isDisabled={isProcessing}
+              isSuggestionsOpen={isKeywordSuggestionsOpen}
+              onKeywordChange={setKeywordFilter}
+              onSuggestionsOpenChange={setIsKeywordSuggestionsOpen}
+            />
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-3">
@@ -796,10 +655,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
             renderedDomains.map(renderDomainItem)
           )
         ) : (
-            <div className="text-center py-12">
-                <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">No domains match this filter</h3>
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Try selecting another category.</p>
-            </div>
+            <NoDomainMatchesState />
         )}
         {hasMoreDomainsToRender && (
           <div ref={loadMoreRef} className="flex flex-col items-center gap-2 py-4">

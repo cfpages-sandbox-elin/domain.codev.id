@@ -13,6 +13,7 @@ Guidance for AI coding agents working in this repository.
 - Before editing, inspect the relevant existing patterns and keep changes scoped.
 - Before larger edits, check `docs/CODEBASE.md` for the current architecture map, then update it after the implementation if the map changed.
 - Do not revert user changes unless explicitly asked.
+- Code modularly from now on: keep large UI, service, and Edge Function files split by responsibility where practical. Prefer focused components, hooks, pure utility modules, provider adapters, and route-handler modules over adding more unrelated logic to already-large files.
 
 ## Suggestions Log
 
