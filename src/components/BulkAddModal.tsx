@@ -115,15 +115,24 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
             return;
         }
 
+        setSingleDomain('');
+        setAddFeedback({
+            title: 'Adding domain',
+            body: `Saving ${normalizedDomain} to your tracker...`,
+        });
+        focusActiveEntryField();
         setIsSingleSubmitting(true);
         const addedDomain = await onAddDomain(normalizedDomain, tag);
         setIsSingleSubmitting(false);
         if (addedDomain) {
-            setSingleDomain('');
             setAddFeedback({
                 title: 'Domain added',
                 body: `${addedDomain.domain_name} is now in your tracker. Checking WHOIS status in the background.`,
             });
+            focusActiveEntryField();
+        } else {
+            setSingleDomain(normalizedDomain);
+            setAddFeedback(null);
             focusActiveEntryField();
         }
     };
