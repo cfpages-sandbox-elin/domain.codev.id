@@ -1,6 +1,6 @@
 # UI Performance Optimization
 
-Last updated: 2026-06-05 22:37 WIB.
+Last updated: 2026-06-05 23:21 WIB.
 
 This tracker exists because the dashboard now has around 675 domains and is starting to feel sluggish.
 
@@ -25,12 +25,14 @@ This tracker exists because the dashboard now has around 675 domains and is star
 | Defer keyword filtering | Done | Uses React deferred keyword state so typing stays responsive while 685 rows are searched/sorted. |
 | Defer Categories page auto-group work | Done | Categories now defaults to word groups only; the 195 auto-category calculation and list render are behind a collapsed accordion and only run when opened. |
 | Warm Add Domains modal chunk | Done | The Add Domains chunk is prefetched after login/idle and on button intent; if still cold, a loading modal appears immediately instead of a blank delay. |
+| Paint route transitions before heavy page mounts | Done | Header navigation now shows an immediate route-loading view, preloads the target chunk, then mounts the target page on the next frame so heavy dashboard/category/docs/settings work does not make the click feel stuck. |
 | Verify with project checks | Done | `pnpm run lint`, `pnpm exec tsc --noEmit --pretty false`, and `pnpm run build` passed. |
 
 ## Progress Log
 
 | Date/Time (WIB) | Status | Change | Notes |
 | --- | --- | --- | --- |
+| 2026-06-05 23:21 WIB | Done | Added instant route transition feedback. | Page navigation now paints a spinner/message immediately, prefetches route chunks on idle and nav intent, and mounts heavy pages after the browser has had a frame to respond. |
 | 2026-06-05 22:37 WIB | Done | Tightened dashboard scrolling and Add Domains startup. | Replaced `content-visibility` with proactive 60-row chunk preloading, increased the sentinel margin to 1800px, prefetched Add Domains on idle/intent, and added an immediate modal fallback while the chunk loads. |
 | 2026-06-05 19:22 WIB | Done | Collapsed heavy Categories page auto-category work. | Word groups are now the default view. Auto categories compute/render only after opening the accordion. |
 | 2026-06-05 18:47 WIB | Done | Completed second dashboard list performance pass. | Tuned the render budget for a 10-row visible viewport, added offscreen render containment, deferred keyword filtering, and verified with lint/type/build checks. |

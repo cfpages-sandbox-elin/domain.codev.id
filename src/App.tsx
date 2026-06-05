@@ -1,4 +1,4 @@
-import React, { Suspense, useState, useEffect, useCallback } from 'react';
+import React, { Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import { Domain, DomainTag, WhoisData } from './types';
 import { supabase, supabaseConfigError } from './services/supabaseService';
 import { Session } from '@supabase/supabase-js';
@@ -23,14 +23,6 @@ import {
   getDomainNotificationMessage,
 } from './utils/appDomainLogic';
 
-const loadBulkAddModal = () => import('./components/BulkAddModal');
-
-const DocsPage = React.lazy(() => import('./components/DocsPage'));
-const BulkAddModal = React.lazy(loadBulkAddModal);
-const IntegrationSettingsModal = React.lazy(() => import('./components/IntegrationSettingsModal'));
-const CategoriesPage = React.lazy(() => import('./components/CategoriesPage'));
-const SettingsView = React.lazy(() => import('./components/app/SettingsView'));
-
 type View = 'dashboard' | 'docs' | 'categories' | 'settings';
 type SettingsTab = 'whois' | 'auto-mine';
 
@@ -38,9 +30,62 @@ type BulkDomain = { domainName: string; tag?: DomainTag };
 type DomainEntryTab = 'single' | 'bulk';
 type Toast = { id: number; kind: 'success' | 'warning'; title: string; body: string };
 
+const loadDocsPage = () => import('./components/DocsPage');
+const loadBulkAddModal = () => import('./components/BulkAddModal');
+const loadIntegrationSettingsModal = () => import('./components/IntegrationSettingsModal');
+const loadCategoriesPage = () => import('./components/CategoriesPage');
+const loadSettingsView = () => import('./components/app/SettingsView');
+
+const DocsPage = React.lazy(loadDocsPage);
+const BulkAddModal = React.lazy(loadBulkAddModal);
+const IntegrationSettingsModal = React.lazy(loadIntegrationSettingsModal);
+const CategoriesPage = React.lazy(loadCategoriesPage);
+const SettingsView = React.lazy(loadSettingsView);
+
 const LazyChunkFallback = () => (
   <div className="flex min-h-[16rem] items-center justify-center">
     <Spinner size="lg" color="border-brand-blue" />
+  </div>
+);
+
+const getViewLabel = (view: View) => {
+  switch (view) {
+    case 'docs':
+      return 'Documentation';
+    case 'categories':
+      return 'Categories';
+    case 'settings':
+      return 'Settings';
+    case 'dashboard':
+    default:
+      return 'Dashboard';
+  }
+};
+
+const preloadViewChunk = (view: View) => {
+  switch (view) {
+    case 'docs':
+      void loadDocsPage();
+      break;
+    case 'categories':
+      void loadCategoriesPage();
+      break;
+    case 'settings':
+      void loadSettingsView();
+      break;
+    case 'dashboard':
+    default:
+      break;
+  }
+};
+
+const ViewTransitionFallback = ({ view }: { view: View }) => (
+  <div className="flex min-h-[18rem] flex-col items-center justify-center gap-3 text-center">
+    <Spinner size="lg" color="border-brand-blue" />
+    <div>
+      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Loading {getViewLabel(view)}...</p>
+      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Preparing the page without blocking navigation.</p>
+    </div>
   </div>
 );
 
@@ -65,12 +110,33 @@ const App: React.FC = () => {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const { logs, addLog } = useStatusLog();
   const [view, setView] = useState<View>('dashboard');
+  const [pendingView, setPendingView] = useState<View | null>(null);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('whois');
+  const viewChangeTokenRef = useRef(0);
   const openDomainEntryModal = useCallback((tab: DomainEntryTab) => {
     void loadBulkAddModal();
     setDomainEntryInitialTab(tab);
     setIsDomainEntryModalOpen(true);
   }, []);
+  const requestViewChange = useCallback((nextView: View) => {
+    preloadViewChunk(nextView);
+    if (nextView === view) {
+      setPendingView(null);
+      return;
+    }
+
+    const token = viewChangeTokenRef.current + 1;
+    viewChangeTokenRef.current = token;
+    setPendingView(nextView);
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        if (viewChangeTokenRef.current !== token) return;
+        setView(nextView);
+        setPendingView(null);
+      });
+    });
+  }, [view]);
   const {
     categoryNameOverrides,
     setCategoryNameOverrides,
@@ -195,6 +261,10 @@ const App: React.FC = () => {
 
     const prefetch = () => {
       void loadBulkAddModal();
+      void loadCategoriesPage();
+      void loadSettingsView();
+      void loadDocsPage();
+      void loadIntegrationSettingsModal();
     };
 
     const idleWindow = window as Window & {
@@ -322,8 +392,12 @@ const App: React.FC = () => {
         session={session}
         notifications={notifications}
         clearNotifications={() => setNotifications([])}
-        setView={setView}
-        onOpenIntegrations={() => setIsIntegrationSettingsOpen(true)}
+        setView={requestViewChange}
+        onViewIntent={preloadViewChunk}
+        onOpenIntegrations={() => {
+          void loadIntegrationSettingsModal();
+          setIsIntegrationSettingsOpen(true);
+        }}
       />
       
       <main className="container mx-auto p-4 md:p-8">
@@ -335,6 +409,8 @@ const App: React.FC = () => {
           <ConfigErrorScreen message={supabaseConfigError} />
         ) : !session ? (
           <Auth />
+        ) : pendingView ? (
+          <ViewTransitionFallback view={pendingView} />
         ) : (
           <Suspense fallback={<LazyChunkFallback />}>
             {renderCurrentView()}

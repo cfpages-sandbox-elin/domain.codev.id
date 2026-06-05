@@ -11,10 +11,11 @@ interface HeaderProps {
     notifications: string[];
     clearNotifications: () => void;
     setView: (view: 'dashboard' | 'docs' | 'categories' | 'settings') => void;
+    onViewIntent?: (view: 'dashboard' | 'docs' | 'categories' | 'settings') => void;
     onOpenIntegrations: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotifications, setView, onOpenIntegrations }) => {
+const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotifications, setView, onViewIntent, onOpenIntegrations }) => {
   const [showNotifications, setShowNotifications] = useState(false);
 
   return (
@@ -23,6 +24,8 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
         <div className="flex items-center justify-between h-16">
           <Tooltip content="Domain Codev dashboard">
             <button
+              onMouseEnter={() => onViewIntent?.('dashboard')}
+              onFocus={() => onViewIntent?.('dashboard')}
               onClick={() => setView('dashboard')}
               className="inline-flex items-center gap-2 rounded-lg p-2 text-brand-blue hover:bg-blue-50 dark:hover:bg-slate-700"
               aria-label="Open Domain Codev dashboard"
@@ -44,6 +47,8 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
                 </Tooltip>
                 <Tooltip content="Documentation">
                   <button
+                    onMouseEnter={() => onViewIntent?.('docs')}
+                    onFocus={() => onViewIntent?.('docs')}
                     onClick={() => setView('docs')}
                     className="rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-200 hover:text-brand-blue dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white"
                     aria-label="Open documentation"
@@ -53,6 +58,8 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
                 </Tooltip>
                 <Tooltip content="Categories">
                   <button
+                    onMouseEnter={() => onViewIntent?.('categories')}
+                    onFocus={() => onViewIntent?.('categories')}
                     onClick={() => setView('categories')}
                     className="rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-200 hover:text-brand-blue dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white"
                     aria-label="Open categories"
@@ -71,6 +78,8 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
                 </Tooltip>
                 <Tooltip content="Settings">
                   <button
+                    onMouseEnter={() => onViewIntent?.('settings')}
+                    onFocus={() => onViewIntent?.('settings')}
                     onClick={() => setView('settings')}
                     className="rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-200 hover:text-brand-blue dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white"
                     aria-label="Open settings"
