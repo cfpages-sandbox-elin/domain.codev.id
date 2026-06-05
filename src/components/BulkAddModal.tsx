@@ -76,6 +76,21 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
         return () => window.clearTimeout(timer);
     }, [isOpen, activeTab, bulkEntryMode]);
 
+    const focusActiveEntryField = () => {
+        const focusCurrentField = () => {
+            if (activeTab === 'single') {
+                singleInputRef.current?.focus();
+            } else if (bulkEntryMode === 'paste') {
+                bulkInputRef.current?.focus();
+            } else {
+                fileInputRef.current?.focus();
+            }
+        };
+
+        window.setTimeout(focusCurrentField, 0);
+        window.setTimeout(focusCurrentField, 80);
+    };
+
     const parsedPaste = useMemo(() => parseBulkDomains(splitBulkInput(textValue), existingDomainNames), [existingDomainNames, textValue]);
 
     const switchTab = (nextTab?: ActiveTab) => {
@@ -96,6 +111,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
         }
         if (existingDomainNames.has(normalizedDomain)) {
             addLog(`⚠️ ${normalizedDomain} is already tracked, so it was not added again.`);
+            focusActiveEntryField();
             return;
         }
 
@@ -108,6 +124,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                 title: 'Domain added',
                 body: `${addedDomain.domain_name} is now in your tracker. Checking WHOIS status in the background.`,
             });
+            focusActiveEntryField();
         }
     };
 
@@ -138,6 +155,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                 body: `${result.addedCount} domain${result.addedCount === 1 ? '' : 's'} added to your tracker. WHOIS checks are running in the background.${result.skippedCount > 0 ? ` ${result.skippedCount} duplicate ${result.skippedCount === 1 ? 'domain was' : 'domains were'} skipped.` : ''}`,
             });
         }
+        focusActiveEntryField();
     };
 
     const handleBulkPasteKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -217,6 +235,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                         body: `${result.addedCount} domain${result.addedCount === 1 ? '' : 's'} added to your tracker from ${file.name}. WHOIS checks are running in the background.`,
                     });
                 }
+                focusActiveEntryField();
 
             } catch (error) {
                 const message = error instanceof Error ? error.message : String(error);
