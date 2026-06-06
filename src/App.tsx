@@ -151,7 +151,8 @@ const App: React.FC = () => {
       return;
     }
 
-    if (loadedViewChunks.has(nextView)) {
+    const shouldYieldBeforeMount = nextView === 'dashboard';
+    if (loadedViewChunks.has(nextView) && !shouldYieldBeforeMount) {
       viewChangeTokenRef.current += 1;
       setPendingView(null);
       setView(nextView);
