@@ -48,6 +48,9 @@ Use WIB time format: `YYYY-MM-DD HH:mm WIB`.
 ## Engineering Preferences
 
 - Use `pnpm` for package scripts and dependency operations. Do not use `npm run`, `npm install`, or npm-generated lockfiles in this repository; the project is pnpm-managed to avoid extra storage use.
+- Do not start a local dev server unless the user explicitly asks for it. This repo normally verifies locally with `pnpm run build`, then deploys and checks the production app directly.
+- After running `pnpm run build` for verification, delete generated build artifacts such as `dist/` to save local storage unless the user explicitly asks to keep them.
+- Clean up temporary logs or helper files created during verification, especially `.tmp/` dev-server logs created by agents.
 - For Supabase Edge Function deploys or bundling verification, use the newer Dockerless CLI path: `npx supabase@latest functions deploy ... --use-api`. Do not rely on the local `pnpm exec supabase` CLI for deploys because it may require Docker Desktop.
 - For Supabase secrets, use `npx supabase@latest secrets set NAME='value' --project-ref ...` without `--use-api`; the latest CLI rejects `--use-api` for `secrets set`.
 - Prefer Cloudflare-native services for the next backend iteration: D1 for relational data, Workers/Pages Functions for API routes and cron, Workers Secrets for API keys.
