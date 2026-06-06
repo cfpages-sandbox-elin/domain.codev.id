@@ -37,25 +37,36 @@ const loadCategoriesPage = () => import('./components/CategoriesPage');
 const loadSettingsView = () => import('./components/app/SettingsView');
 
 const loadedViewChunks = new Set<View>(['dashboard']);
+const viewChunkModules = new Map<View, unknown>();
 const viewChunkPromises = new Map<View, Promise<unknown>>();
 
-const trackViewChunk = (view: Exclude<View, 'dashboard'>, loader: () => Promise<unknown>) => {
-  if (loadedViewChunks.has(view)) return Promise.resolve();
+const trackViewChunk = <TModule extends { default: React.ComponentType<any> }>(
+  view: Exclude<View, 'dashboard'>,
+  loader: () => Promise<TModule>,
+): Promise<TModule> => {
+  const loadedModule = viewChunkModules.get(view);
+  if (loadedModule) return Promise.resolve(loadedModule as TModule);
   const existing = viewChunkPromises.get(view);
-  if (existing) return existing;
+  if (existing) return existing as Promise<TModule>;
   const promise = loader().then(module => {
+    viewChunkModules.set(view, module);
     loadedViewChunks.add(view);
     return module;
+  }).catch(error => {
+    viewChunkPromises.delete(view);
+    loadedViewChunks.delete(view);
+    viewChunkModules.delete(view);
+    throw error;
   });
   viewChunkPromises.set(view, promise);
   return promise;
 };
 
-const DocsPage = React.lazy(() => trackViewChunk('docs', loadDocsPage) as ReturnType<typeof loadDocsPage>);
+const DocsPage = React.lazy(() => trackViewChunk('docs', loadDocsPage));
 const BulkAddModal = React.lazy(loadBulkAddModal);
 const IntegrationSettingsModal = React.lazy(loadIntegrationSettingsModal);
-const CategoriesPage = React.lazy(() => trackViewChunk('categories', loadCategoriesPage) as ReturnType<typeof loadCategoriesPage>);
-const SettingsView = React.lazy(() => trackViewChunk('settings', loadSettingsView) as ReturnType<typeof loadSettingsView>);
+const CategoriesPage = React.lazy(() => trackViewChunk('categories', loadCategoriesPage));
+const SettingsView = React.lazy(() => trackViewChunk('settings', loadSettingsView));
 
 const LazyChunkFallback = () => (
   <div className="flex min-h-[16rem] items-center justify-center">
