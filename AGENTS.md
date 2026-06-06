@@ -13,6 +13,7 @@ Guidance for AI coding agents working in this repository.
 - Do not sacrifice implementation quality for brevity. Token saving must not reduce code correctness, verification, or maintainability.
 - Before editing, inspect the relevant existing patterns and keep changes scoped.
 - Before larger edits, check `docs/CODEBASE.md` for the current architecture map, then update it after the implementation if the map changed.
+- Before Supabase CLI work, check `docs/SUPABASE.md` for the current project ref, secret names, and command rules.
 - Do not revert user changes unless explicitly asked.
 - Code modularly from now on: keep large UI, service, and Edge Function files split by responsibility where practical. Prefer focused components, hooks, pure utility modules, provider adapters, and route-handler modules over adding more unrelated logic to already-large files.
 
@@ -48,6 +49,7 @@ Use WIB time format: `YYYY-MM-DD HH:mm WIB`.
 
 - Use `pnpm` for package scripts and dependency operations. Do not use `npm run`, `npm install`, or npm-generated lockfiles in this repository; the project is pnpm-managed to avoid extra storage use.
 - For Supabase Edge Function deploys or bundling verification, use the newer Dockerless CLI path: `npx supabase@latest functions deploy ... --use-api`. Do not rely on the local `pnpm exec supabase` CLI for deploys because it may require Docker Desktop.
+- For Supabase secrets, use `npx supabase@latest secrets set NAME='value' --project-ref ...` without `--use-api`; the latest CLI rejects `--use-api` for `secrets set`.
 - Prefer Cloudflare-native services for the next backend iteration: D1 for relational data, Workers/Pages Functions for API routes and cron, Workers Secrets for API keys.
 - Keep WHOIS provider keys server-side only.
 - Build domain checks as queued/batched work; avoid firing unbounded API calls from the browser.

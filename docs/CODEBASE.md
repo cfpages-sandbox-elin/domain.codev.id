@@ -1,6 +1,6 @@
 # Codebase Map
 
-Last audited: 2026-06-05 WIB.
+Last audited: 2026-06-06 WIB.
 
 ## Overview
 
@@ -26,7 +26,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | Auth | Supabase Auth with Google OAuth |
 | Database | Supabase Postgres tables assumed as `domains`, `whois_provider_telemetry`, `integration_clients`, `integration_events`, `notification_channels`, and `notification_deliveries` |
 | Backend/API | Supabase Edge Functions |
-| WHOIS providers | `who-dat`, WhoisXMLAPI, APILayer, WhoisFreaks, WhoAPI, RapidAPI, WhoisJSON, IP2WHOIS, direct IANA RDAP, RDAP.org, OTI Labs, Domainduck, and RDAP API with quota-aware fallback |
+| WHOIS providers | `who-dat`, WhoisXMLAPI, APILayer, WhoisFreaks, WhoAPI, WhoisJSON, IP2WHOIS, direct IANA RDAP, RDAP.org, OTI Labs, Domainduck, RDAP API, RapidAPI Domains API, and legacy RapidAPI Domain WHOIS Lookup with quota-aware fallback |
 | Docs rendering | Markdown content bundled into TypeScript and rendered with `marked` |
 
 ## Files
@@ -120,7 +120,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `supabase/functions/_shared/whois-registry.ts` | Provider registry and lookup helper. Defines provider labels, priorities, limits, env-key metadata, notes, and per-provider configuration checks including user credential overrides. |
 | `supabase/functions/_shared/whois-runtime.ts` | Runtime and persistent provider telemetry. Tracks in-flight calls, recent starts, estimated monthly use, quota blocks, Supabase `whois_provider_telemetry` reads/upserts, `claim_whois_provider_attempt(...)`, and user-scoped `whois_provider_credentials` loading. |
 | `supabase/functions/_shared/whois-normalize.ts` | WHOIS/RDAP normalization helpers. Parses quota headers, name servers, registry statuses, IANA RDAP bootstrap data, normalized RDAP payloads, and flexible vendor WHOIS payloads. |
-| `supabase/functions/_shared/whois-adapters.ts` | Provider adapter implementations for who-dat, WhoisXMLAPI, APILayer, WhoisFreaks, WhoAPI, RapidAPI, WhoisJSON, IP2WHOIS, direct IANA RDAP, RDAP.org, OTI Labs, Domainduck, and RDAP API. Exports the provider handler list used by `whois-logic.ts`. |
+| `supabase/functions/_shared/whois-adapters.ts` | Provider adapter implementations for who-dat, WhoisXMLAPI, APILayer, WhoisFreaks, WhoAPI, legacy RapidAPI Domain WHOIS Lookup, RapidAPI Domains API, WhoisJSON, IP2WHOIS, direct IANA RDAP, RDAP.org, OTI Labs, Domainduck, and RDAP API. Exports the provider handler list used by `whois-logic.ts`. |
 | `supabase/functions/_shared/whois-types.ts` | Shared WHOIS type definitions used by `whois-logic.ts`, including provider ids, quotas, attempts, normalized data, provider status/config/runtime state, runtime options, and user provider credentials. |
 | `supabase/functions/_shared/whois-status.ts` | Shared status inference helpers for WHOIS normalization. Detects conservative reserved-domain signals from provider/RDAP statuses, remarks, notices, descriptions, titles, messages, and errors. |
 | `supabase/functions/get-whois/index.ts` | Authenticated edge function for real-time lookups. Handles CORS, validates Supabase user from Authorization header, creates a service-role telemetry/credential client, validates `domainName`, calls shared WHOIS logic with the current `user_id`, and returns JSON. |
@@ -169,8 +169,10 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `docs/MIGRATION.md` | Supabase vs Better Auth + D1 decision guide and current auth-last migration recommendation. |
 | `docs/OPTIMIZATION.md` | UI performance audit, optimization plan, and progress tracker for keeping the dashboard responsive with hundreds of domains. |
 | `docs/OPTMIZATION.md` | Bundle-size optimization tracker created under the user-requested filename. Records the lazy route/modal chunk plan and build-size result for removing Vite's 500 kB JS warning. |
+| `docs/RAPIDAPI_WHOIS_PROVIDERS.md` | RapidAPI WHOIS/domain provider research for 20 marketplace listings, including parsed Basic/free-tier status, host names, endpoint capabilities, fit ranking, and implementation notes for separate RapidAPI-backed provider ids. |
 | `docs/REFACTOR.md` | Refactor audit and progress tracker for splitting oversized files into focused modules while preserving behavior. |
 | `docs/SUGGESTION.md` | Proactive suggestion log. |
+| `docs/SUPABASE.md` | Supabase operations guide for this project, including project ref, CLI command rules, Edge Function deploys with `--use-api`, secrets commands without `--use-api`, current secret names, and function roles. |
 | `docs/UI.md` | UI/UX audit and improvement plan. |
 | `docs/WHOIS.md` | Current WHOIS implementation study, quota behavior, and expanded provider research covering the 8 implemented providers plus more than 10 RDAP/WHOIS backup candidates. |
 | `docs/WHOIS_CHECKING_REFINEMENT.md` | Progress tracker and decision record for optional name-server completeness, reserved domains, precise drop-window scheduling, and exact-domain drop alert API. |

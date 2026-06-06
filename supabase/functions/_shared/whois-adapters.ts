@@ -173,6 +173,58 @@ const getWhoisDataFromRapidApi = async (domainName: string): Promise<WhoisData> 
   };
 };
 
+const getRapidApiJson = async (url: string, host: string) => {
+  if (!RAPIDAPI_KEY) throw new Error('RapidAPI Key not provided.');
+
+  const response = await fetch(url, {
+    headers: {
+      'x-rapidapi-key': RAPIDAPI_KEY,
+      'x-rapidapi-host': host,
+      Accept: 'application/json',
+    },
+  });
+  const quota = readQuotaHeaders(response.headers);
+  const text = await response.text();
+  let data: any = {};
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      if (response.ok) throw new Error(`${host} returned invalid JSON`);
+      data = { message: text.slice(0, 240) };
+    }
+  }
+
+  return { response, data, quota };
+};
+
+const getWhoisDataFromRapidApiDomainsApi = async (domainName: string): Promise<WhoisData> => {
+  const host = 'domains-api.p.rapidapi.com';
+  const { response, data, quota } = await getRapidApiJson(
+    `https://${host}/domains/${encodeURIComponent(domainName)}/whois`,
+    host,
+  );
+
+  if (response.status === 404 || data.status === 'Available for registration' || data.available === true) {
+    return {
+      status: 'available',
+      expirationDate: null,
+      registeredDate: null,
+      registrar: null,
+      quota,
+    };
+  }
+  if (!response.ok) {
+    throw new Error(`RapidAPI Domains API failed: ${response.status}: ${data.error || data.message || JSON.stringify(data)}`);
+  }
+  if (data.error || data.message === 'rate limit exceeded') {
+    throw new Error(`RapidAPI Domains API Error: ${data.error || data.message}`);
+  }
+
+  const normalized = parseFlexibleProviderData(data?.whois || data?.result?.whois || data?.data?.whois || data);
+  return { ...normalized, quota };
+};
+
 const getWhoisDataFromWhoisJson = async (domainName: string): Promise<WhoisData> => {
   if (!WHOISJSON_API_KEY) throw new Error('WhoisJSON Key not provided.');
   const response = await fetch(`https://whoisjson.com/api/v1/whois?domain=${encodeURIComponent(domainName)}`, {
@@ -323,6 +375,7 @@ export const providerHandlers: Array<[WhoisProviderId, WhoisProviderHandler]> = 
   ['whoisfreaks', getWhoisDataFromWhoisFreaks],
   ['whoapi', getWhoisDataFromWhoapi],
   ['rapidapi', getWhoisDataFromRapidApi],
+  ['rapidapi-domains-api', getWhoisDataFromRapidApiDomainsApi],
   ['whoisjson', getWhoisDataFromWhoisJson],
   ['ip2whois', getWhoisDataFromIp2Whois],
   ['rdap-iana', getWhoisDataFromIanaRdap],

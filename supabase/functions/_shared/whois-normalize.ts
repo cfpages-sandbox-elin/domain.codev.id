@@ -8,8 +8,10 @@ const toNumber = (value: string | null): number | null => {
 };
 
 export const readQuotaHeaders = (headers: Headers): WhoisQuota => ({
-  limitMonth: toNumber(headers.get('x-ratelimit-limit-month')),
-  remainingMonth: toNumber(headers.get('x-ratelimit-remaining-month')),
+  limitMonth: toNumber(headers.get('x-ratelimit-limit-month'))
+    ?? toNumber(headers.get('x-ratelimit-requests-limit')),
+  remainingMonth: toNumber(headers.get('x-ratelimit-remaining-month'))
+    ?? toNumber(headers.get('x-ratelimit-requests-remaining')),
   limitDay: toNumber(headers.get('x-ratelimit-limit-day')),
   remainingDay: toNumber(headers.get('x-ratelimit-remaining-day')),
 });
@@ -108,16 +110,22 @@ export const parseFlexibleProviderData = (rawData: any): WhoisData => {
   const data = rawData?.whois || rawData?.result || rawData?.data || rawData;
   const expiryDateStr = data.expires
     || data.expiry
+    || data.dates?.expiry
     || data.expire_date
     || data.expiry_date
+    || data.expires_at
     || data.expiration_date
+    || data.expirationDate
     || data.RegistryExpiryDate
     || data.registryExpiryDate
     || data.expiresDate
     || null;
   const registeredDateStr = data.created
+    || data.dates?.created
     || data.create_date
+    || data.created_at
     || data.creation_date
+    || data.creationDate
     || data.CreationDate
     || data.createdDate
     || null;
@@ -128,13 +136,22 @@ export const parseFlexibleProviderData = (rawData: any): WhoisData => {
     || data.domain_registered === false;
   const domainStatuses = readDomainStatuses(data.status, data.Status, data.statuses, data.domain_status);
   const status = inferDomainStatus(isAvailable, expiryDateStr, domainStatuses, data);
+  const registrar = typeof data.registrar === 'string'
+    ? data.registrar
+    : data.registrar?.name || data.registrar_name || data.registrarName || data.Registrar || null;
 
   return {
     status,
     expirationDate: expiryDateStr,
     registeredDate: registeredDateStr,
-    registrar: data.registrar || data.Registrar || data.registrar_name || data.registrarName || null,
+    registrar,
     domainStatuses,
-    nameServers: readNameServers(data.nameservers, data.name_servers, data.nameServers, data.NameServers),
+    nameServers: readNameServers(
+      data.nameservers,
+      data.name_servers,
+      data.nameServers,
+      data.NameServers,
+      Array.isArray(data.registrar?.nameServers) ? data.registrar.nameServers : [],
+    ),
   };
 };

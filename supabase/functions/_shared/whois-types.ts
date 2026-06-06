@@ -7,6 +7,7 @@ export type WhoisProviderId =
   | 'whoisfreaks'
   | 'whoapi'
   | 'rapidapi'
+  | 'rapidapi-domains-api'
   | 'whoisjson'
   | 'ip2whois'
   | 'rdap-iana'

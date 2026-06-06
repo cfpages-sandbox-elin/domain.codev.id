@@ -1,6 +1,6 @@
 # WHOIS Implementation And Provider Research
 
-Last researched: 2026-06-05.
+Last researched: 2026-06-06.
 
 ## Current Implementation
 
@@ -11,7 +11,7 @@ Current WHOIS checks are server-side through Supabase Edge Functions.
 | Client call | `src/services/whoisService.ts` | Calls `supabase.functions.invoke('get-whois', { body: { domainName } })`, logs progress, and returns `unknown` on failure. |
 | Authenticated lookup function | `supabase/functions/get-whois/index.ts` | Handles CORS, verifies the Supabase user from the Authorization header, validates `domainName`, calls shared logic, and returns normalized JSON. |
 | Scheduled lookup function | `supabase/functions/check-domains/index.ts` | Requires `CRON_SECRET`, uses Supabase service role, scans domain metadata, checks only domains due under the targeted expiry/drop schedule, and updates status. |
-| Provider selection | `supabase/functions/_shared/whois-logic.ts` | Tries configured providers with runtime quota pre-skipping and in-flight balancing across `who-dat`, WhoisXMLAPI, APILayer, WhoisFreaks, WhoAPI, RapidAPI, WhoisJSON, IP2WHOIS, direct IANA RDAP, RDAP.org, OTI Labs, Domainduck, and RDAP API. |
+| Provider selection | `supabase/functions/_shared/whois-logic.ts` | Tries configured providers with runtime quota pre-skipping and in-flight balancing across `who-dat`, WhoisXMLAPI, APILayer, WhoisFreaks, WhoAPI, WhoisJSON, IP2WHOIS, direct IANA RDAP, RDAP.org, OTI Labs, Domainduck, RDAP API, RapidAPI Domains API, and legacy RapidAPI Domain WHOIS Lookup. |
 
 Normalized return shape:
 
@@ -35,7 +35,7 @@ Normalized return shape:
 | APILayer | `APILAYER_API_KEY` |
 | WhoisFreaks | `WHOISFREAKS_API_KEY` |
 | WhoAPI | `WHOAPI_COM_API_KEY` |
-| RapidAPI marketplace API | `RAPIDAPI_KEY` |
+| RapidAPI marketplace APIs | `RAPIDAPI_KEY` |
 | WhoisJSON | `WHOISJSON_API_KEY` |
 | IP2WHOIS | `IP2WHOIS_API_KEY` |
 | Direct IANA RDAP | No key. Uses `https://data.iana.org/rdap/dns.json` bootstrap. |
@@ -110,7 +110,7 @@ Provider offers change, so verify before implementation. These were checked on 2
 | WhoisJSON | 1,000 requests/month, no credit card | Added backup candidate | One key covers WHOIS, DNS, SSL, availability, subdomains, and monitoring. Adapter added; needs live response validation. | https://whoisjson.com/free-domain-api |
 | IP2WHOIS | 500 WHOIS domain queries/month | Added backup candidate | Adapter added; needs live response validation. | https://www.ip2whois.com/developers-api |
 | JsonWhois | 250 free domain WHOIS calls/month and 500 free availability calls/month listed | Useful if availability checks are more important than full WHOIS | Not currently implemented. | https://jsonwhois.io/ |
-| RapidAPI WHOIS APIs | Depends on individual marketplace API | Use only as backup | RapidAPI free tiers vary per provider and add marketplace dependency. Current code supports one RapidAPI host. | https://rapidapi.com/collection/whois-api |
+| RapidAPI WHOIS APIs | Depends on individual marketplace API; several free Basic plans were found in the 2026-06-06 pass | Use only as backup | RapidAPI free tiers vary per provider and add marketplace dependency. Current code supports RapidAPI Domains API as a late 500/month hard-limit fallback plus the older generic RapidAPI Domain WHOIS Lookup host behind it. See `docs/RAPIDAPI_WHOIS_PROVIDERS.md` for the current candidate list and free-tier table. | https://rapidapi.com/collection/whois-api |
 | Direct RDAP via IANA bootstrap | No API key; public registry RDAP services | Strong next implementation because it removes vendor dependency | RDAP gives structured JSON and is the modern replacement for WHOIS, but registry rate limits and fields vary. Cache aggressively and treat 404/429 carefully. | https://www.icann.org/rdap/ and https://www.iana.org/help/rdap-requirements |
 | RDAP.org bootstrap | No API key; public bootstrap endpoint | Useful prototype/fallback before implementing full IANA bootstrap client | Single endpoint redirects to authoritative RDAP. It documents a 10 requests / 10 seconds Cloudflare limit, so this should not be used for large bulk checks. | https://about.rdap.org/ |
 | RDAP API | 7-day free trial; paid plans start at 30,000 requests/month | Good commercial RDAP fallback if free providers are noisy | Normalized JSON, cached responses, bulk domain lookups, and 1,200+ TLD coverage. Not free long-term. | https://rdapapi.io/pricing |
@@ -155,6 +155,8 @@ For a hobby project on Cloudflare:
 Provider limits, implementation state, and runtime health should be visible in the app dashboard. See `docs/WHOIS_DASHBOARD.md` for the provider table, quota tracking model, and backup-provider implementation guide.
 
 For Supabase Dashboard setup steps, including deploying `get-whois-providers` and adding `WHOISJSON_API_KEY` / `IP2WHOIS_API_KEY` through supabase.com, see the "Supabase UI Setup" section in `docs/WHOIS_DASHBOARD.md`.
+
+For the newer RapidAPI marketplace research pass, including the 20 user-supplied provider URLs and their parsed free-tier status, see `docs/RAPIDAPI_WHOIS_PROVIDERS.md`.
 
 ## Cloudflare Worker Shape
 

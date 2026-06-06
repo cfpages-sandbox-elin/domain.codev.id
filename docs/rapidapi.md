@@ -1,10 +1,17 @@
 # RapidAPI Domain WHOIS Lookup API Documentation
 
-This document summarizes the key details for integrating the RapidAPI Domain WHOIS Lookup API.
+This document summarizes the key details for integrating the older RapidAPI Domain WHOIS Lookup API and the newer RapidAPI Domains API backup.
+
+For the newer broader RapidAPI marketplace research pass covering 20 user-supplied WHOIS/domain providers and their parsed free-tier status, see `docs/RAPIDAPI_WHOIS_PROVIDERS.md`.
+
+Current implementation notes:
+
+- `rapidapi-domains-api` is the preferred RapidAPI backup. It uses `https://domains-api.p.rapidapi.com/domains/{domain}/whois`, shares the `RAPIDAPI_KEY` secret, and is configured with the parsed 500 requests/month hard Basic quota.
+- `rapidapi` is the older generic Domain WHOIS Lookup host below. It remains as a final fallback but is ordered after `rapidapi-domains-api`.
 
 ## Overview
 
-The service provides WHOIS data for any registered domain name via a RESTful API.
+The older service provides WHOIS data for any registered domain name via a RESTful API.
 
 -   **Endpoint**: `https://domain-whois-lookup-api.p.rapidapi.com/whois`
 -   **Method**: `GET`

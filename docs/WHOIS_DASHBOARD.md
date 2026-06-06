@@ -1,6 +1,6 @@
 # WHOIS Provider Dashboard And Backup Guide
 
-Last updated: 2026-06-04 21:20 WIB.
+Last updated: 2026-06-06 WIB.
 
 ## Position
 
@@ -125,13 +125,14 @@ Add a compact "WHOIS Providers" panel above or beside the domain list.
 | APILayer Whois API | Yes | `APILAYER_API_KEY` | Backup | Current code uses `/whois/check`; APILayer docs also expose `/check` and `/query`. Good quota headers. |
 | WhoisFreaks | Yes | `WHOISFREAKS_API_KEY` | Backup | Uses live WHOIS endpoint. |
 | WhoAPI | Yes | `WHOAPI_COM_API_KEY` | Backup | Implemented, but current free-tier status should be verified before relying on it. |
-| RapidAPI Domain WHOIS Lookup API | Yes | `RAPIDAPI_KEY` | Last fallback | Marketplace APIs vary by provider and plan. Treat as optional. |
 | WhoisJSON | Yes | `WHOISJSON_API_KEY` | New backup | 1,000 free monthly requests across endpoints. Adapter added, but response mapping needs live validation. |
 | IP2WHOIS / IP2Location.io | Yes | `IP2WHOIS_API_KEY` | New backup | 500 domain WHOIS API queries/month on free tier per IP2Location.io pricing. Adapter added, but response mapping needs live validation. |
 | Direct RDAP via IANA bootstrap | Yes | None | No-key fallback | Official structured registration-data path. Uses a warm-runtime IANA bootstrap cache and treats RDAP 404 as available. |
 | RDAP.org bootstrap | Yes | None | No-key fallback | Easy single endpoint, but documented Cloudflare limit is 10 requests per 10 seconds, so it runs after direct IANA RDAP. |
 | OTI Labs WHOIS API | Yes | User-stored `oti-labs` key or `OTI_LABS_API_KEY` secret | Optional backup | RDAP-first RapidAPI provider with port-43 fallback, free 1,000 requests/month through RapidAPI. |
 | Domainduck | Yes | User-stored `domainduck` key or `DOMAINDUCK_API_KEY` secret | Optional backup | Availability plus WHOIS. Free plan lists 2,500 requests and 500/hour when cache rules apply. |
+| RapidAPI Domains API | Yes | `RAPIDAPI_KEY` | Late backup | Separate RapidAPI provider id `rapidapi-domains-api`; uses the 500/month hard-limit Domains API WHOIS endpoint and reads RapidAPI quota headers. |
+| RapidAPI Domain WHOIS Lookup API | Yes | `RAPIDAPI_KEY` | Last fallback | Older generic RapidAPI host kept behind `rapidapi-domains-api`. Marketplace APIs vary by provider and plan. Treat as optional. |
 | JsonWhois.io | No | Proposed `JSONWHOIS_API_KEY` | Optional backup | Has availability and WHOIS endpoints; free quota should be verified from account/docs before implementation. |
 | WHOIS.LS | No | None | Experimental no-key fallback | Free JSON/raw WHOIS proxy claiming no usage limits. Keep low priority until reliability is measured. |
 | Domiquo | No | Proposed `DOMIQUO_API_KEY` | Availability-only backup | RDAP-based availability API. Useful for buy/not-buy checks, not full expiry/name-server metadata. |
@@ -150,7 +151,7 @@ These numbers were checked on 2026-06-04. Verify before coding billing-sensitive
 | WhoisFreaks | Free 500 API credits on signup. Live API rate listed as 80 rpm on API credit plans. Credits can be lifetime for one-time packages. | Medium | https://whoisfreaks.com/pricing/api-plans |
 | WhoisJSON | 1,000 free monthly requests shared across WHOIS, DNS, SSL, availability, subdomain discovery, and monitoring. Returns HTTP 429 after quota is reached. | High | https://whoisjson.com/ and https://whoisjson.com/pricing |
 | IP2WHOIS / IP2Location.io | 500 Domain WHOIS API queries/month on free tier. | High | https://www.ip2location.io/pricing |
-| RapidAPI marketplace WHOIS APIs | Free plans vary by individual API. RapidAPI says quota monitoring is the subscriber's responsibility. | Low/varies | https://docs.rapidapi.com/v2.0/docs/api-pricing |
+| RapidAPI marketplace WHOIS APIs | Free plans vary by individual API. A 2026-06-06 pass found multiple Basic free tiers; RapidAPI Domains API is implemented as a late backup with a 500/month hard free tier. Other candidates still need live response validation before implementation. | Medium for implemented Domains API, low/varies for the rest | https://docs.rapidapi.com/v2.0/docs/api-pricing and `docs/RAPIDAPI_WHOIS_PROVIDERS.md` |
 | WhoAPI | Current free quota not confirmed in this pass. | Low | Verify from account/pricing page before implementation. |
 | Direct RDAP via IANA bootstrap | No vendor quota or key, but each registry has its own rate limits and behavior. | High for protocol, medium for per-registry reliability | https://www.icann.org/rdap/ and https://www.iana.org/help/rdap-requirements |
 | RDAP.org bootstrap | No key, but Cloudflare limits clients to 10 requests in 10 seconds. | High | https://about.rdap.org/ |
@@ -230,6 +231,8 @@ The provider panel includes key inputs for implemented medium-confidence or bett
 | RDAP API | `rdap-api`, fallback `RDAP_API_KEY` secret | Same shared WHOIS logic. |
 
 Keys are stored in `whois_provider_credentials`. The browser can write/delete its own rows but cannot read raw key values back because no `SELECT` policy is created. The dashboard only reports whether the key is configured. Supabase secrets are also supported as project-wide fallbacks; user-stored keys take precedence.
+
+RapidAPI candidates should be modeled as separate provider ids even when they share the same `RAPIDAPI_KEY`, because each listing has a different RapidAPI host, endpoint path, response shape, free quota, and overage behavior.
 
 Example registry entries:
 
