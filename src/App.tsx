@@ -22,6 +22,7 @@ import {
   buildDropTimelineHtml,
   getDomainNotificationMessage,
 } from './utils/appDomainLogic';
+import { splitCategoryWords } from './utils/userSettingsStorage';
 
 type View = 'dashboard' | 'docs' | 'categories' | 'settings';
 type SettingsTab = 'whois' | 'auto-mine';
@@ -347,6 +348,53 @@ const App: React.FC = () => {
     addLog(`ℹ️ Displayed drop info for ${domain.domain_name}.`);
   }, [addLog]);
 
+  const handleRemoveDomainCategory = useCallback((domainId: number, categoryId: string) => {
+    setCategoryManualOverrides(current => {
+      const currentOverride = current[categoryId] || { includeDomainIds: [], excludeDomainIds: [] };
+      return {
+        ...current,
+        [categoryId]: {
+          includeDomainIds: currentOverride.includeDomainIds.filter(id => id !== domainId),
+          excludeDomainIds: Array.from(new Set([...currentOverride.excludeDomainIds, domainId])).sort((a, b) => a - b),
+        },
+      };
+    });
+  }, [setCategoryManualOverrides]);
+
+  const handleCreateWordGroupCategory = useCallback((domain: Domain, suggestedWords: string[]) => {
+    const rawWords = window.prompt(
+      `Create a word-group category for ${domain.domain_name}. Enter at least two words separated by commas.`,
+      suggestedWords.join(', '),
+    );
+    if (rawWords === null) return;
+
+    const words = splitCategoryWords(rawWords);
+    if (words.length < 2) {
+      alert('Add at least two words, for example: haji, umroh.');
+      return;
+    }
+
+    const signature = words.slice().sort().join(',');
+    const duplicate = categoryWordGroups.some(group => group.words.slice().sort().join(',') === signature);
+    if (duplicate) {
+      alert('This word-group category already exists.');
+      return;
+    }
+
+    const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `word-group-${Date.now()}`;
+    setCategoryWordGroups(current => [
+      {
+        id,
+        label: words.join(' '),
+        words,
+        enabled: true,
+      },
+      ...current,
+    ]);
+  }, [categoryWordGroups, setCategoryWordGroups]);
+
   const handleExport = (format: 'json' | 'csv') => {
     const { content, mimeType, filename } = buildDomainExport(domains, format);
     addLog(`✅ Exporting data as ${format.toUpperCase()}...`);
@@ -414,6 +462,8 @@ const App: React.FC = () => {
             autoRepairingDomainIds={autoRepairingDomainIds}
             pendingDomainIds={pendingDomainIds}
             tagUpdatingDomainIds={tagUpdatingDomainIds}
+            onRemoveDomainCategory={handleRemoveDomainCategory}
+            onCreateWordGroupCategory={handleCreateWordGroupCategory}
             onExportRequest={handleExport}
             onImportRequest={() => openDomainEntryModal('bulk')}
             isBulkProcessing={isBulkProcessing}

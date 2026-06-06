@@ -17,6 +17,8 @@ type DashboardViewProps = {
   onToggleTag: (id: number) => void;
   onSetTag: (id: number, tag: DomainTag) => void;
   onRecheck: (id: number) => Promise<void>;
+  onRemoveDomainCategory: (domainId: number, categoryId: string) => void;
+  onCreateWordGroupCategory: (domain: Domain, suggestedWords: string[]) => void;
   onExportRequest: (format: 'json' | 'csv') => void;
   onImportRequest: () => void;
 };
@@ -37,6 +39,8 @@ const DashboardView = ({
   onToggleTag,
   onSetTag,
   onRecheck,
+  onRemoveDomainCategory,
+  onCreateWordGroupCategory,
   onExportRequest,
   onImportRequest,
 }: DashboardViewProps) => (
@@ -55,6 +59,8 @@ const DashboardView = ({
         onToggleTag={onToggleTag}
         onSetTag={onSetTag}
         onRecheck={onRecheck}
+        onRemoveDomainCategory={onRemoveDomainCategory}
+        onCreateWordGroupCategory={onCreateWordGroupCategory}
         autoRepairingDomainIds={autoRepairingDomainIds}
         pendingDomainIds={pendingDomainIds}
         tagUpdatingDomainIds={tagUpdatingDomainIds}

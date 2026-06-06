@@ -1,7 +1,7 @@
 import React, { memo, useMemo, useState, useEffect } from 'react';
 import { Domain, DomainTag, WhoisData } from '../types';
 import { useCompactMode } from '../contexts/CompactModeContext';
-import { TrashIcon, InfoIcon, ShoppingCartIcon, RefreshIcon, TargetIcon, ExternalLinkIcon } from './icons';
+import { TrashIcon, InfoIcon, ShoppingCartIcon, RefreshIcon, TargetIcon, ExternalLinkIcon, PlusIcon, XCircleIcon } from './icons';
 import Spinner from './Spinner';
 import Tooltip from './Tooltip';
 import StatusBadge from './domain-item/StatusBadge';
@@ -28,14 +28,16 @@ interface DomainItemProps {
   onToggleTag: (id: number) => void;
   onSetTag: (id: number, tag: DomainTag) => void;
   onRecheck: (id: number) => Promise<void>;
+  onRemoveCategory: (domainId: number, categoryId: string) => void;
+  onCreateWordGroupCategory: () => void;
   isAutoRefreshing?: boolean;
   isPending?: boolean;
   isTagUpdating?: boolean;
-  categoryLabels?: Array<{ label: string; kind: 'word-group' | 'auto' }>;
+  categoryLabels?: Array<{ id: string; label: string; kind: 'word-group' | 'auto' }>;
   tld?: string;
 }
 
-const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove, onShowInfo, onToggleTag, onSetTag, onRecheck, isAutoRefreshing = false, isPending = false, isTagUpdating = false, categoryLabels = [], tld }) => {
+const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove, onShowInfo, onToggleTag, onSetTag, onRecheck, onRemoveCategory, onCreateWordGroupCategory, isAutoRefreshing = false, isPending = false, isTagUpdating = false, categoryLabels = [], tld }) => {
   const [selectedRegistrar, setSelectedRegistrar] = useState<string>('');
   const [isRechecking, setIsRechecking] = useState(false);
   const { isCompact } = useCompactMode();
@@ -183,16 +185,30 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
                 </span>
                 {(categoryLabels.length > 0 || tld) && (
                   <span className="mt-1 flex flex-wrap items-center gap-1">
-                    {categoryLabels.slice(0, 3).map(({ label, kind }) => (
+                    {categoryLabels.slice(0, 3).map(({ id, label, kind }) => (
                       <span
-                        key={`${kind}:${label}`}
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                        key={id}
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                           kind === 'word-group'
                             ? 'bg-blue-100 text-blue-800 ring-1 ring-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:ring-blue-800'
                             : 'bg-white/70 text-slate-600 ring-1 ring-slate-200 dark:bg-slate-900/70 dark:text-slate-300 dark:ring-slate-700'
                         }`}
                       >
                         {label}
+                        <Tooltip content={`Remove ${label} from ${domain.domain_name}`}>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              onRemoveCategory(domain.id, id);
+                            }}
+                            className="rounded-full text-slate-400 transition-colors hover:text-red-600 dark:text-slate-500 dark:hover:text-red-300"
+                            aria-label={`Remove ${label} category from ${domain.domain_name}`}
+                          >
+                            <XCircleIcon className="h-3 w-3" />
+                          </button>
+                        </Tooltip>
                       </span>
                     ))}
                     {categoryLabels.length > 3 && (
@@ -205,6 +221,20 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
                         {tld}
                       </span>
                     )}
+                    <Tooltip content="Create a word-group category from this domain">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          onCreateWordGroupCategory();
+                        }}
+                        className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-blue-700 ring-1 ring-blue-200 transition-colors hover:bg-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:ring-blue-800 dark:hover:bg-blue-900"
+                        aria-label={`Create word-group category for ${domain.domain_name}`}
+                      >
+                        <PlusIcon className="h-3 w-3" />
+                      </button>
+                    </Tooltip>
                   </span>
                 )}
               </span>

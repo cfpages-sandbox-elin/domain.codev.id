@@ -41,6 +41,8 @@ interface DomainListProps {
   onToggleTag: (id: number) => void;
   onSetTag: (id: number, tag: Domain['tag']) => void;
   onRecheck: (id: number) => Promise<void>;
+  onRemoveDomainCategory: (domainId: number, categoryId: string) => void;
+  onCreateWordGroupCategory: (domain: Domain, suggestedWords: string[]) => void;
   autoRepairingDomainIds?: Set<number>;
   pendingDomainIds?: Set<number>;
   tagUpdatingDomainIds?: Set<number>;
@@ -73,7 +75,7 @@ const getCategoryGroupStyle = (categoryId: string, index: number) => {
   if (getCategoryKind(categoryId) === 'word-group') return 'border-blue-300 bg-blue-50/75 dark:border-blue-700 dark:bg-blue-950/35';
   return CATEGORY_GROUP_STYLES[index % CATEGORY_GROUP_STYLES.length];
 };
-const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = false, categoryNameOverrides, categoryManualOverrides, categoryWordGroups, whoisDetailsByDomainId, onRemove, onShowInfo, onToggleTag, onSetTag, onRecheck, autoRepairingDomainIds, pendingDomainIds, tagUpdatingDomainIds, onImportRequest, onExportRequest, isProcessing }) => {
+const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = false, categoryNameOverrides, categoryManualOverrides, categoryWordGroups, whoisDetailsByDomainId, onRemove, onShowInfo, onToggleTag, onSetTag, onRecheck, onRemoveDomainCategory, onCreateWordGroupCategory, autoRepairingDomainIds, pendingDomainIds, tagUpdatingDomainIds, onImportRequest, onExportRequest, isProcessing }) => {
   const [filter, setFilter] = useState<FilterType>(readStoredFilter);
   const [sortOption, setSortOption] = useState<SortOption>(readStoredSort);
   const [categoryFilter, setCategoryFilter] = useState(readStoredString(CATEGORY_FILTER_STORAGE_KEY));
@@ -486,6 +488,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
   const renderDomainItem = (domain: Domain) => {
     const meta = categorizedDomainById.get(domain.id);
     const labels = meta?.categoryIds.map(categoryId => ({
+      id: categoryId,
       label: categoryNames[categoryId] || categoryId,
       kind: getCategoryKind(categoryId),
     })) || [];
@@ -499,6 +502,14 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
         onToggleTag={onToggleTag}
         onSetTag={onSetTag}
         onRecheck={onRecheck}
+        onRemoveCategory={onRemoveDomainCategory}
+        onCreateWordGroupCategory={() => onCreateWordGroupCategory(
+          domain,
+          Array.from(new Set([
+            meta?.parts.base || '',
+            ...(meta?.categoryIds.map(categoryId => categoryNames[categoryId] || '') || []),
+          ].filter(word => word.length >= 3))).slice(0, 3),
+        )}
         isAutoRefreshing={autoRepairingDomainIds?.has(domain.id)}
         isPending={pendingDomainIds?.has(domain.id)}
         isTagUpdating={tagUpdatingDomainIds?.has(domain.id)}
