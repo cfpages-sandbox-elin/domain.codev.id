@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useState, useEffect } from 'react';
+import React, { memo, useMemo, useState, useEffect, useRef } from 'react';
 import { Domain, DomainTag, WhoisData } from '../types';
 import { useCompactMode } from '../contexts/CompactModeContext';
 import { TrashIcon, InfoIcon, ShoppingCartIcon, RefreshIcon, TargetIcon, ExternalLinkIcon, PlusIcon, XCircleIcon } from './icons';
@@ -40,6 +40,8 @@ interface DomainItemProps {
 const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove, onShowInfo, onToggleTag, onSetTag, onRecheck, onRemoveCategory, onCreateWordGroupCategory, isAutoRefreshing = false, isPending = false, isTagUpdating = false, categoryLabels = [], tld }) => {
   const [selectedRegistrar, setSelectedRegistrar] = useState<string>('');
   const [isRechecking, setIsRechecking] = useState(false);
+  const [pendingCategoryRemovalIds, setPendingCategoryRemovalIds] = useState<Set<string>>(() => new Set());
+  const categoryRemovalTimeoutsRef = useRef<number[]>([]);
   const { isCompact } = useCompactMode();
   
   const registrars = useMemo(() => registrarOptionsForDomain(domain.domain_name), [domain.domain_name]);
@@ -47,6 +49,11 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
   useEffect(() => {
     setSelectedRegistrar(Object.keys(registrars)[0]);
   }, [registrars]);
+
+  useEffect(() => () => {
+    categoryRemovalTimeoutsRef.current.forEach(timeoutId => window.clearTimeout(timeoutId));
+    categoryRemovalTimeoutsRef.current = [];
+  }, []);
 
   const handleBuyClick = () => {
     const url = getRegistrarUrl(selectedRegistrar, domain.domain_name);
@@ -61,6 +68,25 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
     } finally {
       setIsRechecking(false);
     }
+  };
+
+  const handleRemoveCategory = (categoryId: string) => {
+    if (pendingCategoryRemovalIds.has(categoryId)) return;
+    setPendingCategoryRemovalIds(current => {
+      const next = new Set(current);
+      next.add(categoryId);
+      return next;
+    });
+    const timeoutId = window.setTimeout(() => {
+      onRemoveCategory(domain.id, categoryId);
+      setPendingCategoryRemovalIds(current => {
+        const next = new Set(current);
+        next.delete(categoryId);
+        return next;
+      });
+      categoryRemovalTimeoutsRef.current = categoryRemovalTimeoutsRef.current.filter(id => id !== timeoutId);
+    }, 350);
+    categoryRemovalTimeoutsRef.current.push(timeoutId);
   };
 
   const daysUntilExpiry = getDaysUntilExpiry(domain.expiration_date);
@@ -185,10 +211,14 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
                 </span>
                 {(categoryLabels.length > 0 || tld) && (
                   <span className="mt-1 flex flex-wrap items-center gap-1">
-                    {categoryLabels.slice(0, 3).map(({ id, label, kind }) => (
+                    {categoryLabels.slice(0, 3).map(({ id, label, kind }) => {
+                      const isRemovingCategory = pendingCategoryRemovalIds.has(id);
+                      return (
                       <span
                         key={id}
-                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-opacity ${
+                          isRemovingCategory ? 'opacity-80' : ''
+                        } ${
                           kind === 'word-group'
                             ? 'bg-blue-100 text-blue-800 ring-1 ring-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:ring-blue-800'
                             : 'bg-white/70 text-slate-600 ring-1 ring-slate-200 dark:bg-slate-900/70 dark:text-slate-300 dark:ring-slate-700'
@@ -201,16 +231,22 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
                             onClick={(event) => {
                               event.preventDefault();
                               event.stopPropagation();
-                              onRemoveCategory(domain.id, id);
+                              handleRemoveCategory(id);
                             }}
-                            className="rounded-full text-slate-400 transition-colors hover:text-red-600 dark:text-slate-500 dark:hover:text-red-300"
+                            disabled={isRemovingCategory}
+                            className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-slate-400 transition-colors hover:text-red-600 disabled:cursor-wait disabled:hover:text-slate-400 dark:text-slate-500 dark:hover:text-red-300"
                             aria-label={`Remove ${label} category from ${domain.domain_name}`}
                           >
-                            <XCircleIcon className="h-3 w-3" />
+                            {isRemovingCategory ? (
+                              <span className="h-3 w-3 animate-spin rounded-full border-b-2 border-brand-blue" aria-hidden="true" />
+                            ) : (
+                              <XCircleIcon className="h-3 w-3" />
+                            )}
                           </button>
                         </Tooltip>
                       </span>
-                    ))}
+                      );
+                    })}
                     {categoryLabels.length > 3 && (
                       <span className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-900/70 dark:text-slate-300">
                         +{categoryLabels.length - 3}
