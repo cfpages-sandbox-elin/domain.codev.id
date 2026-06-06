@@ -129,7 +129,7 @@ Add a compact "WHOIS Providers" panel above or beside the domain list.
 | IP2WHOIS / IP2Location.io | Yes | `IP2WHOIS_API_KEY` | New backup | 500 domain WHOIS API queries/month on free tier per IP2Location.io pricing. Adapter added, but response mapping needs live validation. |
 | Direct RDAP via IANA bootstrap | Yes | None | No-key fallback | Official structured registration-data path. Uses a warm-runtime IANA bootstrap cache and treats RDAP 404 as available. |
 | RDAP.org bootstrap | Yes | None | No-key fallback | Easy single endpoint, but documented Cloudflare limit is 10 requests per 10 seconds, so it runs after direct IANA RDAP. |
-| OTI Labs WHOIS API | Yes | User-stored `oti-labs` key or `OTI_LABS_API_KEY` secret | Optional backup | RDAP-first RapidAPI provider with port-43 fallback, free 1,000 requests/month through RapidAPI. |
+| OTI Labs WHOIS API | Yes | User-stored `oti-labs` key, `OTI_LABS_API_KEY`, or shared `RAPIDAPI_KEY` secret | Optional backup | RDAP-first RapidAPI provider with port-43 fallback, free 1,000 requests/month through RapidAPI. The RapidAPI account must be subscribed to the OTI Labs listing. |
 | Domainduck | Yes | User-stored `domainduck` key or `DOMAINDUCK_API_KEY` secret | Optional backup | Availability plus WHOIS. Free plan lists 2,500 requests and 500/hour when cache rules apply. |
 | RapidAPI Domains API | Yes | `RAPIDAPI_KEY` | Late backup | Separate RapidAPI provider id `rapidapi-domains-api`; uses the 500/month hard-limit Domains API WHOIS endpoint and reads RapidAPI quota headers. |
 | RapidAPI Domain WHOIS Lookup API | Yes | `RAPIDAPI_KEY` | Last fallback | Older generic RapidAPI host kept behind `rapidapi-domains-api`. Marketplace APIs vary by provider and plan. Treat as optional. |
@@ -226,7 +226,7 @@ The provider panel includes key inputs for implemented medium-confidence or bett
 
 | Provider | Stored provider id | Where the key is used |
 | --- | --- | --- |
-| OTI Labs WHOIS API | `oti-labs`, fallback `OTI_LABS_API_KEY` secret | `get-whois`, `check-domains`, and `external-api` pass the owning `user_id` into shared WHOIS logic. |
+| OTI Labs WHOIS API | `oti-labs`, fallback `OTI_LABS_API_KEY`, then shared `RAPIDAPI_KEY` secret | `get-whois`, `check-domains`, and `external-api` pass the owning `user_id` into shared WHOIS logic. |
 | Domainduck | `domainduck`, fallback `DOMAINDUCK_API_KEY` secret | Same shared WHOIS logic. |
 | RDAP API | `rdap-api`, fallback `RDAP_API_KEY` secret | Same shared WHOIS logic. |
 

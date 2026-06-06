@@ -40,7 +40,7 @@ Normalized return shape:
 | IP2WHOIS | `IP2WHOIS_API_KEY` |
 | Direct IANA RDAP | No key. Uses `https://data.iana.org/rdap/dns.json` bootstrap. |
 | RDAP.org | No key. Uses `https://rdap.org/domain/{domain}`. |
-| OTI Labs | Stored per user in `whois_provider_credentials` as provider id `oti-labs`, or Supabase secret `OTI_LABS_API_KEY` / legacy `VITE_OTI_LABS_API_KEY`. |
+| OTI Labs | Stored per user in `whois_provider_credentials` as provider id `oti-labs`, Supabase secret `OTI_LABS_API_KEY` / legacy `VITE_OTI_LABS_API_KEY`, or shared RapidAPI secret `RAPIDAPI_KEY`. |
 | Domainduck | Stored per user in `whois_provider_credentials` as provider id `domainduck`, or Supabase secret `DOMAINDUCK_API_KEY` / legacy `VITE_DOMAINDUCK_API_KEY`. |
 | RDAP API | Stored per user in `whois_provider_credentials` as provider id `rdap-api`, or Supabase secret `RDAP_API_KEY` / legacy `VITE_RDAP_API_KEY`. |
 

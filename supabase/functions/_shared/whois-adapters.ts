@@ -309,7 +309,7 @@ const getWhoisDataFromRdapOrg = async (domainName: string): Promise<WhoisData> =
 };
 
 const getWhoisDataFromOtiLabs = async (domainName: string, credentials: WhoisProviderCredentials): Promise<WhoisData> => {
-  const apiKey = credentials['oti-labs'] || OTI_LABS_API_KEY;
+  const apiKey = credentials['oti-labs'] || OTI_LABS_API_KEY || RAPIDAPI_KEY;
   if (!apiKey) throw new Error('OTI Labs API key not provided.');
 
   const response = await fetch(`https://domain-intelligence-api.p.rapidapi.com/domain/${encodeURIComponent(domainName)}/whois`, {

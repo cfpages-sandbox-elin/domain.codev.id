@@ -42,7 +42,7 @@ WHOIS provider secrets used by shared Edge Function logic include:
 - `RAPIDAPI_KEY` or legacy `VITE_RAPIDAPI_KEY`
 - `WHOISJSON_API_KEY`
 - `IP2WHOIS_API_KEY`
-- `OTI_LABS_API_KEY`
+- `OTI_LABS_API_KEY`, optional dedicated OTI Labs RapidAPI key. If absent, the OTI Labs adapter falls back to shared `RAPIDAPI_KEY`.
 - `DOMAINDUCK_API_KEY`
 - `RDAP_API_KEY`
 - `WHO_DAT_URL`
