@@ -36,11 +36,26 @@ const loadIntegrationSettingsModal = () => import('./components/IntegrationSetti
 const loadCategoriesPage = () => import('./components/CategoriesPage');
 const loadSettingsView = () => import('./components/app/SettingsView');
 
-const DocsPage = React.lazy(loadDocsPage);
+const loadedViewChunks = new Set<View>(['dashboard']);
+const viewChunkPromises = new Map<View, Promise<unknown>>();
+
+const trackViewChunk = (view: Exclude<View, 'dashboard'>, loader: () => Promise<unknown>) => {
+  if (loadedViewChunks.has(view)) return Promise.resolve();
+  const existing = viewChunkPromises.get(view);
+  if (existing) return existing;
+  const promise = loader().then(module => {
+    loadedViewChunks.add(view);
+    return module;
+  });
+  viewChunkPromises.set(view, promise);
+  return promise;
+};
+
+const DocsPage = React.lazy(() => trackViewChunk('docs', loadDocsPage) as ReturnType<typeof loadDocsPage>);
 const BulkAddModal = React.lazy(loadBulkAddModal);
 const IntegrationSettingsModal = React.lazy(loadIntegrationSettingsModal);
-const CategoriesPage = React.lazy(loadCategoriesPage);
-const SettingsView = React.lazy(loadSettingsView);
+const CategoriesPage = React.lazy(() => trackViewChunk('categories', loadCategoriesPage) as ReturnType<typeof loadCategoriesPage>);
+const SettingsView = React.lazy(() => trackViewChunk('settings', loadSettingsView) as ReturnType<typeof loadSettingsView>);
 
 const LazyChunkFallback = () => (
   <div className="flex min-h-[16rem] items-center justify-center">
@@ -65,13 +80,13 @@ const getViewLabel = (view: View) => {
 const preloadViewChunk = (view: View) => {
   switch (view) {
     case 'docs':
-      void loadDocsPage();
+      void trackViewChunk('docs', loadDocsPage);
       break;
     case 'categories':
-      void loadCategoriesPage();
+      void trackViewChunk('categories', loadCategoriesPage);
       break;
     case 'settings':
-      void loadSettingsView();
+      void trackViewChunk('settings', loadSettingsView);
       break;
     case 'dashboard':
     default:
@@ -122,6 +137,13 @@ const App: React.FC = () => {
     preloadViewChunk(nextView);
     if (nextView === view) {
       setPendingView(null);
+      return;
+    }
+
+    if (loadedViewChunks.has(nextView)) {
+      viewChangeTokenRef.current += 1;
+      setPendingView(null);
+      setView(nextView);
       return;
     }
 
@@ -240,6 +262,7 @@ const App: React.FC = () => {
     whoisDetailsByDomainId,
     autoRepairingDomainIds,
     pendingDomainIds,
+    tagUpdatingDomainIds,
     addDomain,
     bulkAddDomains,
     removeDomain,
@@ -378,6 +401,7 @@ const App: React.FC = () => {
             onRecheck={recheckDomain}
             autoRepairingDomainIds={autoRepairingDomainIds}
             pendingDomainIds={pendingDomainIds}
+            tagUpdatingDomainIds={tagUpdatingDomainIds}
             onExportRequest={handleExport}
             onImportRequest={() => openDomainEntryModal('bulk')}
             isBulkProcessing={isBulkProcessing}

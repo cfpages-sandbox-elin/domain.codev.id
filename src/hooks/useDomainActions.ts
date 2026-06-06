@@ -9,6 +9,7 @@ import {
   getWhoisFailureReason,
   isDomainMissingWhoisData,
 } from '../utils/appDomainLogic';
+import { readCachedDomains, writeCachedDomains } from '../utils/appDataCache';
 import type { BulkAddResult, BulkDomain } from '../components/bulk-add/bulkAddLogic';
 
 type ViewName = 'dashboard' | 'docs' | 'categories' | 'settings';
@@ -40,11 +41,14 @@ export const useDomainActions = ({
   const [whoisDetailsByDomainId, setWhoisDetailsByDomainId] = useState<Record<number, WhoisData>>({});
   const [autoRepairingDomainIds, setAutoRepairingDomainIds] = useState<Set<number>>(() => new Set());
   const [pendingDomainIds, setPendingDomainIds] = useState<Set<number>>(() => new Set());
+  const [tagUpdatingDomainIds, setTagUpdatingDomainIds] = useState<Set<number>>(() => new Set());
   const [isAutoRepairingWhois, setIsAutoRepairingWhois] = useState(false);
 
   const autoRepairAttemptedIdsRef = useRef<Set<number>>(new Set());
   const nextPendingDomainIdRef = useRef(-1);
   const domainsRef = useRef<Domain[]>([]);
+  const hasHydratedDomainSnapshotRef = useRef(false);
+  const tagUpdatingDomainIdsRef = useRef<Set<number>>(new Set());
 
   useEffect(() => {
     domainsRef.current = domains;
@@ -57,20 +61,33 @@ export const useDomainActions = ({
       setWhoisDetailsByDomainId({});
       setAutoRepairingDomainIds(new Set());
       setPendingDomainIds(new Set());
+      setTagUpdatingDomainIds(new Set());
       autoRepairAttemptedIdsRef.current.clear();
+      tagUpdatingDomainIdsRef.current.clear();
+      hasHydratedDomainSnapshotRef.current = false;
       return;
     }
 
     let cancelled = false;
 
     const fetchAndSyncDomains = async () => {
-      setIsDomainListLoading(true);
-      addLog('➡️ Fetching user domains...');
+      const cachedDomains = readCachedDomains(session.user.id);
+      if (cachedDomains && cachedDomains.length > 0) {
+        hasHydratedDomainSnapshotRef.current = true;
+        setDomains(cachedDomains);
+        setIsDomainListLoading(false);
+        addLog(`✅ Loaded ${cachedDomains.length} cached domains. Refreshing from Supabase in the background.`);
+      } else {
+        setIsDomainListLoading(true);
+        addLog('➡️ Fetching user domains...');
+      }
       try {
         const userDomains = await SupabaseService.getDomains();
         if (cancelled) return;
         if (userDomains) {
+          hasHydratedDomainSnapshotRef.current = true;
           setDomains(userDomains);
+          writeCachedDomains(session.user.id, userDomains);
           addLog(`✅ Found ${userDomains.length} domains.`);
         } else {
           addLog('❌ Failed to fetch domains.');
@@ -86,6 +103,31 @@ export const useDomainActions = ({
       cancelled = true;
     };
   }, [session, addLog]);
+
+  useEffect(() => {
+    if (!session || !hasHydratedDomainSnapshotRef.current) return;
+    writeCachedDomains(session.user.id, domains);
+  }, [domains, session]);
+
+  const markTagUpdateStart = useCallback((id: number) => {
+    if (tagUpdatingDomainIdsRef.current.has(id)) return false;
+    tagUpdatingDomainIdsRef.current.add(id);
+    setTagUpdatingDomainIds(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+    return true;
+  }, []);
+
+  const markTagUpdateFinished = useCallback((id: number) => {
+    tagUpdatingDomainIdsRef.current.delete(id);
+    setTagUpdatingDomainIds(prev => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }, []);
 
   const addDomain = useCallback(async (domainName: string, tag: DomainTag, options: AddDomainOptions = {}): Promise<Domain | null> => {
     const normalizedDomainName = domainName.trim().toLowerCase();
@@ -283,35 +325,48 @@ export const useDomainActions = ({
   }, [addLog]);
 
   const toggleDomainTag = useCallback(async (id: number) => {
+    if (!markTagUpdateStart(id)) return;
     const domain = domainsRef.current.find(d => d.id === id);
-    if (!domain) return;
-
-    const nextTags: DomainTag[] = ['mine', 'to-snatch', 'others'];
-    const currentIndex = nextTags.indexOf(domain.tag);
-    const newTag = nextTags[(currentIndex + 1) % nextTags.length];
-
-    const updatedDomain = await SupabaseService.updateDomain(id, { tag: newTag });
-    if (updatedDomain) {
-      setDomains(prevDomains => prevDomains.map(d =>
-        d.id === id ? updatedDomain : d
-      ));
-      addLog(`✅ Switched tag for ${domain.domain_name} to "${newTag}".`);
+    if (!domain) {
+      markTagUpdateFinished(id);
+      return;
     }
-  }, [addLog]);
+
+    try {
+      const nextTags: DomainTag[] = ['mine', 'to-snatch', 'others'];
+      const currentIndex = nextTags.indexOf(domain.tag);
+      const newTag = nextTags[(currentIndex + 1) % nextTags.length];
+
+      const updatedDomain = await SupabaseService.updateDomain(id, { tag: newTag });
+      if (updatedDomain) {
+        setDomains(prevDomains => prevDomains.map(d =>
+          d.id === id ? updatedDomain : d
+        ));
+        addLog(`✅ Switched tag for ${domain.domain_name} to "${newTag}".`);
+      }
+    } finally {
+      markTagUpdateFinished(id);
+    }
+  }, [addLog, markTagUpdateFinished, markTagUpdateStart]);
 
   const setDomainTag = useCallback(async (id: number, tag: DomainTag) => {
     const domain = domainsRef.current.find(d => d.id === id);
     if (!domain || domain.tag === tag) return;
     if ((domain.status === 'available' || domain.status === 'dropped') && tag !== 'to-snatch') return;
+    if (!markTagUpdateStart(id)) return;
 
-    const updatedDomain = await SupabaseService.updateDomain(id, { tag });
-    if (updatedDomain) {
-      setDomains(prevDomains => prevDomains.map(d =>
-        d.id === id ? updatedDomain : d
-      ));
-      addLog(`✅ Switched tag for ${domain.domain_name} to "${tag}".`);
+    try {
+      const updatedDomain = await SupabaseService.updateDomain(id, { tag });
+      if (updatedDomain) {
+        setDomains(prevDomains => prevDomains.map(d =>
+          d.id === id ? updatedDomain : d
+        ));
+        addLog(`✅ Switched tag for ${domain.domain_name} to "${tag}".`);
+      }
+    } finally {
+      markTagUpdateFinished(id);
     }
-  }, [addLog]);
+  }, [addLog, markTagUpdateFinished, markTagUpdateStart]);
 
   const markDomainsAsMine = useCallback(async (domainIds: number[], reason: string) => {
     const targets = domains.filter(domain => (
@@ -446,6 +501,7 @@ export const useDomainActions = ({
     whoisDetailsByDomainId,
     autoRepairingDomainIds,
     pendingDomainIds,
+    tagUpdatingDomainIds,
     addDomain,
     bulkAddDomains,
     removeDomain,

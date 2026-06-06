@@ -43,6 +43,7 @@ interface DomainListProps {
   onRecheck: (id: number) => Promise<void>;
   autoRepairingDomainIds?: Set<number>;
   pendingDomainIds?: Set<number>;
+  tagUpdatingDomainIds?: Set<number>;
   onImportRequest: () => void;
   onExportRequest: (format: 'json' | 'csv') => void;
   isProcessing: boolean;
@@ -63,7 +64,7 @@ const CATEGORY_GROUP_STYLES = [
   'border-sky-300 bg-sky-50/70 dark:border-sky-700 dark:bg-sky-950/30',
   'border-violet-300 bg-violet-50/70 dark:border-violet-700 dark:bg-violet-950/30',
 ];
-const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = false, categoryNameOverrides, categoryManualOverrides, categoryWordGroups, whoisDetailsByDomainId, onRemove, onShowInfo, onToggleTag, onSetTag, onRecheck, autoRepairingDomainIds, pendingDomainIds, onImportRequest, onExportRequest, isProcessing }) => {
+const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = false, categoryNameOverrides, categoryManualOverrides, categoryWordGroups, whoisDetailsByDomainId, onRemove, onShowInfo, onToggleTag, onSetTag, onRecheck, autoRepairingDomainIds, pendingDomainIds, tagUpdatingDomainIds, onImportRequest, onExportRequest, isProcessing }) => {
   const [filter, setFilter] = useState<FilterType>(readStoredFilter);
   const [sortOption, setSortOption] = useState<SortOption>(readStoredSort);
   const [categoryFilter, setCategoryFilter] = useState(readStoredString(CATEGORY_FILTER_STORAGE_KEY));
@@ -480,6 +481,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
         onRecheck={onRecheck}
         isAutoRefreshing={autoRepairingDomainIds?.has(domain.id)}
         isPending={pendingDomainIds?.has(domain.id)}
+        isTagUpdating={tagUpdatingDomainIds?.has(domain.id)}
         categoryLabels={labels}
         tld={meta?.parts.tld}
       />

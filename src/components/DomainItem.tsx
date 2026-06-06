@@ -29,11 +29,12 @@ interface DomainItemProps {
   onRecheck: (id: number) => Promise<void>;
   isAutoRefreshing?: boolean;
   isPending?: boolean;
+  isTagUpdating?: boolean;
   categoryLabels?: string[];
   tld?: string;
 }
 
-const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove, onShowInfo, onToggleTag, onSetTag, onRecheck, isAutoRefreshing = false, isPending = false, categoryLabels = [], tld }) => {
+const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove, onShowInfo, onToggleTag, onSetTag, onRecheck, isAutoRefreshing = false, isPending = false, isTagUpdating = false, categoryLabels = [], tld }) => {
   const [selectedRegistrar, setSelectedRegistrar] = useState<string>('');
   const [isRechecking, setIsRechecking] = useState(false);
   const { isCompact } = useCompactMode();
@@ -278,6 +279,11 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
             </Tooltip>
           ) : (
             <div className="group/tag relative inline-flex h-8 w-8 items-center justify-center rounded-md focus-within:bg-slate-200 hover:bg-slate-200 dark:focus-within:bg-slate-700 dark:hover:bg-slate-700">
+              {isTagUpdating && (
+                <span className="absolute inset-0 z-30 flex items-center justify-center rounded-md bg-white/80 dark:bg-slate-900/80">
+                  <Spinner size="sm" color="border-brand-blue" />
+                </span>
+              )}
               <span className="pointer-events-none absolute right-8 top-0 z-20 inline-flex h-8 items-center gap-1 rounded-md bg-white/95 px-1 opacity-0 shadow-sm ring-1 ring-slate-200 transition-opacity group-hover/tag:pointer-events-auto group-hover/tag:opacity-100 group-focus-within/tag:pointer-events-auto group-focus-within/tag:opacity-100 dark:bg-slate-900/95 dark:ring-slate-700">
                 {(['mine', 'to-snatch', 'others'] as DomainTag[])
                   .filter(tag => tag !== effectiveTag)
@@ -289,6 +295,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
                         <button
                           type="button"
                           onClick={() => onSetTag(domain.id, tag)}
+                          disabled={isTagUpdating}
                           className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-white/70 dark:hover:bg-slate-800"
                           aria-label={`Set ${domain.domain_name} tag to ${optionLabel}`}
                         >
@@ -301,6 +308,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
               <Tooltip content={<PlainTooltipText title={`Current tag: ${tagLabel}`} body="Hover to choose Mine, To Snatch, or Others directly." />}>
                 <button
                   onClick={() => onToggleTag(domain.id)}
+                  disabled={isTagUpdating}
                   className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors"
                   aria-label={`Current tag for ${domain.domain_name}: ${tagLabel}`}
                 >
@@ -343,6 +351,7 @@ export default memo(DomainItem, (prev, next) => (
   && prev.whoisDetails === next.whoisDetails
   && prev.isAutoRefreshing === next.isAutoRefreshing
   && prev.isPending === next.isPending
+  && prev.isTagUpdating === next.isTagUpdating
   && prev.tld === next.tld
   && areStringArraysEqual(prev.categoryLabels, next.categoryLabels)
 ));

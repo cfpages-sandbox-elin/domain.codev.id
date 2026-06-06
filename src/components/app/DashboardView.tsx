@@ -10,6 +10,7 @@ type DashboardViewProps = {
   whoisDetailsByDomainId: Record<number, WhoisData>;
   autoRepairingDomainIds: Set<number>;
   pendingDomainIds: Set<number>;
+  tagUpdatingDomainIds: Set<number>;
   isBulkProcessing: boolean;
   onRemove: (id: number) => void;
   onShowInfo: (domain: Domain) => void;
@@ -29,6 +30,7 @@ const DashboardView = ({
   whoisDetailsByDomainId,
   autoRepairingDomainIds,
   pendingDomainIds,
+  tagUpdatingDomainIds,
   isBulkProcessing,
   onRemove,
   onShowInfo,
@@ -55,6 +57,7 @@ const DashboardView = ({
         onRecheck={onRecheck}
         autoRepairingDomainIds={autoRepairingDomainIds}
         pendingDomainIds={pendingDomainIds}
+        tagUpdatingDomainIds={tagUpdatingDomainIds}
         onExportRequest={onExportRequest}
         onImportRequest={onImportRequest}
         isProcessing={isBulkProcessing}

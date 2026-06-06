@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { WhoisData, WhoisProviderStatus } from '../types';
 import { getWhoisProviderStatuses } from '../services/whoisService';
 import { removeWhoisProviderCredential, saveWhoisProviderCredential } from '../services/supabaseService';
+import { readCachedWhoisProviderStatuses, writeCachedWhoisProviderStatuses } from '../utils/appDataCache';
 
 export const useWhoisProviders = (addLog: (message: string) => void) => {
   const [whoisProviders, setWhoisProviders] = useState<WhoisProviderStatus[]>([]);
@@ -9,6 +10,10 @@ export const useWhoisProviders = (addLog: (message: string) => void) => {
 
   const refreshWhoisProviders = useCallback(async () => {
     setIsWhoisProviderLoading(true);
+    const cachedStatuses = readCachedWhoisProviderStatuses();
+    if (cachedStatuses && cachedStatuses.length > 0) {
+      setWhoisProviders(current => current.length > 0 ? current : cachedStatuses);
+    }
     const statuses = await getWhoisProviderStatuses();
     if (statuses) {
       setWhoisProviders(current => statuses.map(status => {
@@ -20,6 +25,7 @@ export const useWhoisProviders = (addLog: (message: string) => void) => {
           lastErrorMessage: status.lastErrorMessage || existing.lastErrorMessage,
         } : status;
       }));
+      writeCachedWhoisProviderStatuses(statuses);
       addLog(`✅ Loaded ${statuses.length} WHOIS provider statuses.`);
     } else {
       addLog('⚠️ WHOIS provider dashboard is unavailable. Deploy get-whois-providers if needed.');

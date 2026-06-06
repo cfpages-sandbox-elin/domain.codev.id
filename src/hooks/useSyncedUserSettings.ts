@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import type { AutoMineRule, CategoryManualOverrides, CategoryWordGroup } from '../types';
+import type { AutoMineRule, CategoryManualOverrides, CategoryWordGroup, UserAppSettings } from '../types';
 import * as SupabaseService from '../services/supabaseService';
 import {
   readStoredAutoMineRules,
@@ -19,6 +19,41 @@ export const useSyncedUserSettings = (session: Session | null, addLog: (message:
   const [categoryWordGroups, setCategoryWordGroups] = useState<CategoryWordGroup[]>(readStoredCategoryWordGroups);
   const [autoMineRules, setAutoMineRules] = useState<AutoMineRule[]>(readStoredAutoMineRules);
   const [userSettingsLoaded, setUserSettingsLoaded] = useState(false);
+  const pendingSettingsSaveRef = useRef<Partial<{
+    categoryNameOverrides: Record<string, string>;
+    categoryManualOverrides: CategoryManualOverrides;
+    categoryWordGroups: CategoryWordGroup[];
+    autoMineRules: AutoMineRule[];
+  }>>({});
+  const lastSyncedSettingsJsonRef = useRef<Partial<Record<keyof UserAppSettings, string>>>({});
+  const settingsSaveTimerRef = useRef<number | null>(null);
+
+  const scheduleSettingsSave = useCallback((updates: Partial<UserAppSettings>) => {
+    if (!session || !userSettingsLoaded) return;
+    const changedUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([key, value]) => {
+        const settingsKey = key as keyof UserAppSettings;
+        const serialized = JSON.stringify(value);
+        if (lastSyncedSettingsJsonRef.current[settingsKey] === serialized) return false;
+        lastSyncedSettingsJsonRef.current[settingsKey] = serialized;
+        return true;
+      }),
+    ) as Partial<UserAppSettings>;
+    if (Object.keys(changedUpdates).length === 0) return;
+    pendingSettingsSaveRef.current = {
+      ...pendingSettingsSaveRef.current,
+      ...changedUpdates,
+    };
+    if (settingsSaveTimerRef.current !== null) {
+      window.clearTimeout(settingsSaveTimerRef.current);
+    }
+    settingsSaveTimerRef.current = window.setTimeout(() => {
+      const payload = pendingSettingsSaveRef.current;
+      pendingSettingsSaveRef.current = {};
+      settingsSaveTimerRef.current = null;
+      void SupabaseService.saveUserAppSettings(payload);
+    }, 900);
+  }, [session, userSettingsLoaded]);
 
   const resetUserSettings = useCallback(() => {
     setCategoryNameOverrides(readStoredCategoryNameOverrides());
@@ -41,6 +76,12 @@ export const useSyncedUserSettings = (session: Session | null, addLog: (message:
         setCategoryManualOverrides(settings.categoryManualOverrides);
         setCategoryWordGroups(settings.categoryWordGroups);
         setAutoMineRules(settings.autoMineRules);
+        lastSyncedSettingsJsonRef.current = {
+          categoryNameOverrides: JSON.stringify(settings.categoryNameOverrides),
+          categoryManualOverrides: JSON.stringify(settings.categoryManualOverrides),
+          categoryWordGroups: JSON.stringify(settings.categoryWordGroups),
+          autoMineRules: JSON.stringify(settings.autoMineRules),
+        };
         writeStoredCategoryNameOverrides(settings.categoryNameOverrides);
         writeStoredCategoryManualOverrides(settings.categoryManualOverrides);
         writeStoredCategoryWordGroups(settings.categoryWordGroups);
@@ -60,27 +101,35 @@ export const useSyncedUserSettings = (session: Session | null, addLog: (message:
 
   useEffect(() => {
     writeStoredCategoryNameOverrides(categoryNameOverrides);
-    if (!session || !userSettingsLoaded) return;
-    void SupabaseService.saveUserAppSettings({ categoryNameOverrides });
-  }, [categoryNameOverrides, session, userSettingsLoaded]);
+    scheduleSettingsSave({ categoryNameOverrides });
+  }, [categoryNameOverrides, scheduleSettingsSave]);
 
   useEffect(() => {
     writeStoredCategoryManualOverrides(categoryManualOverrides);
-    if (!session || !userSettingsLoaded) return;
-    void SupabaseService.saveUserAppSettings({ categoryManualOverrides });
-  }, [categoryManualOverrides, session, userSettingsLoaded]);
+    scheduleSettingsSave({ categoryManualOverrides });
+  }, [categoryManualOverrides, scheduleSettingsSave]);
 
   useEffect(() => {
     writeStoredCategoryWordGroups(categoryWordGroups);
-    if (!session || !userSettingsLoaded) return;
-    void SupabaseService.saveUserAppSettings({ categoryWordGroups });
-  }, [categoryWordGroups, session, userSettingsLoaded]);
+    scheduleSettingsSave({ categoryWordGroups });
+  }, [categoryWordGroups, scheduleSettingsSave]);
 
   useEffect(() => {
     writeStoredAutoMineRules(autoMineRules);
-    if (!session || !userSettingsLoaded) return;
-    void SupabaseService.saveUserAppSettings({ autoMineRules });
-  }, [autoMineRules, session, userSettingsLoaded]);
+    scheduleSettingsSave({ autoMineRules });
+  }, [autoMineRules, scheduleSettingsSave]);
+
+  useEffect(() => {
+    return () => {
+      if (settingsSaveTimerRef.current !== null) {
+        window.clearTimeout(settingsSaveTimerRef.current);
+      }
+      const pending = pendingSettingsSaveRef.current;
+      if (Object.keys(pending).length > 0) {
+        void SupabaseService.saveUserAppSettings(pending);
+      }
+    };
+  }, []);
 
   return {
     categoryNameOverrides,

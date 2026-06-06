@@ -1,6 +1,6 @@
 # UI Performance Optimization
 
-Last updated: 2026-06-05 23:21 WIB.
+Last updated: 2026-06-06 14:18 WIB.
 
 This tracker exists because the dashboard now has around 675 domains and is starting to feel sluggish.
 
@@ -26,12 +26,27 @@ This tracker exists because the dashboard now has around 675 domains and is star
 | Defer Categories page auto-group work | Done | Categories now defaults to word groups only; the 195 auto-category calculation and list render are behind a collapsed accordion and only run when opened. |
 | Warm Add Domains modal chunk | Done | The Add Domains chunk is prefetched after login/idle and on button intent; if still cold, a loading modal appears immediately instead of a blank delay. |
 | Paint route transitions before heavy page mounts | Done | Header navigation now shows an immediate route-loading view, preloads the target chunk, then mounts the target page on the next frame so heavy dashboard/category/docs/settings work does not make the click feel stuck. |
+| Page/data cache strategy | Done | Do not wait on Supabase just to navigate. Use already-loaded React state first, hydrate domains from a user-scoped local stale cache after refresh, revalidate Supabase in the background, debounce category/settings writes while the user is tidying, and cache provider dashboard status for immediate settings paint. |
+| Tag update feedback | Done | Changing Mine / To Snatch / Others waits on Supabase and could feel stuck. Track per-domain tag updates and show a small spinner/disabled tag controls for only the row being changed. |
 | Verify with project checks | Done | `pnpm run lint`, `pnpm exec tsc --noEmit --pretty false`, and `pnpm run build` passed. |
+
+## Current Cache/Navigation Plan
+
+| Idea | Decision | Implementation note |
+| --- | --- | --- |
+| Keep domain rows in memory across app pages | Keep | `useDomainActions` already owns domains at app-shell level, so dashboard/categories/settings share the same array and page switching should not refetch domains. |
+| Hydrate domains from browser cache after reload | Implement | Read a user-scoped local snapshot immediately after session is known, render it as stale data, then fetch Supabase in the background and replace/cache the fresh rows. |
+| Debounce category/settings saves | Implement | Category word-group/manual override/name edits currently call Supabase on every state change. Merge pending setting patches and save after a short idle delay so rapid tidying becomes one write. |
+| Cache provider status | Implement lightly | Keep the latest provider dashboard state in session storage and show it immediately while the provider function refreshes in the background. |
+| Always show route spinner before page switch | Change | If a lazy page chunk has already loaded from idle/hover prefetch, switch views immediately. Keep the spinner only for genuinely cold chunks. |
+| Add server pagination for domains | Defer | With 685 rows, local stale-while-revalidate plus list windowing should be enough. Server pagination becomes useful after several thousand rows or multi-user/admin views. |
 
 ## Progress Log
 
 | Date/Time (WIB) | Status | Change | Notes |
 | --- | --- | --- | --- |
+| 2026-06-06 14:18 WIB | Done | Completed stale-cache and reduced-Supabase-call pass. | Added user-scoped local domain snapshots, session-cached provider statuses, debounced merged app-settings writes, immediate route switches for warmed chunks, and row-level tag-update spinners. |
+| 2026-06-06 08:11 WIB | Done | Started stale-cache and reduced-Supabase-call pass. | Focus: no Supabase wait on page change, cache domain/provider data locally, and debounce category/settings writes during cleanup. |
 | 2026-06-05 23:21 WIB | Done | Added instant route transition feedback. | Page navigation now paints a spinner/message immediately, prefetches route chunks on idle and nav intent, and mounts heavy pages after the browser has had a frame to respond. |
 | 2026-06-05 22:37 WIB | Done | Tightened dashboard scrolling and Add Domains startup. | Replaced `content-visibility` with proactive 60-row chunk preloading, increased the sentinel margin to 1800px, prefetched Add Domains on idle/intent, and added an immediate modal fallback while the chunk loads. |
 | 2026-06-05 19:22 WIB | Done | Collapsed heavy Categories page auto-category work. | Word groups are now the default view. Auto categories compute/render only after opening the accordion. |
