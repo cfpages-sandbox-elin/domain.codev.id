@@ -31,7 +31,7 @@ interface DomainItemProps {
   isAutoRefreshing?: boolean;
   isPending?: boolean;
   isTagUpdating?: boolean;
-  categoryLabels?: string[];
+  categoryLabels?: Array<{ label: string; kind: 'word-group' | 'auto' }>;
   tld?: string;
 }
 
@@ -130,7 +130,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
       status={domain.status === 'dropped' ? 'available' : domain.status === 'reserved' ? 'reserved domain' : domain.status}
       tagLabel={tagLabel}
       tld={tld}
-      categoryLabels={categoryLabels}
+      categoryLabels={categoryLabels.map(item => item.label)}
       expirationDate={domain.expiration_date}
       registeredDate={domain.registered_date}
       registrar={domain.registrar}
@@ -183,8 +183,15 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
                 </span>
                 {(categoryLabels.length > 0 || tld) && (
                   <span className="mt-1 flex flex-wrap items-center gap-1">
-                    {categoryLabels.slice(0, 3).map(label => (
-                      <span key={label} className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-900/70 dark:text-slate-300">
+                    {categoryLabels.slice(0, 3).map(({ label, kind }) => (
+                      <span
+                        key={`${kind}:${label}`}
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                          kind === 'word-group'
+                            ? 'bg-blue-100 text-blue-800 ring-1 ring-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:ring-blue-800'
+                            : 'bg-white/70 text-slate-600 ring-1 ring-slate-200 dark:bg-slate-900/70 dark:text-slate-300 dark:ring-slate-700'
+                        }`}
+                      >
                         {label}
                       </span>
                     ))}
@@ -362,5 +369,8 @@ export default memo(DomainItem, (prev, next) => (
   && prev.isPending === next.isPending
   && prev.isTagUpdating === next.isTagUpdating
   && prev.tld === next.tld
-  && areStringArraysEqual(prev.categoryLabels, next.categoryLabels)
+  && areStringArraysEqual(
+    prev.categoryLabels?.map(item => `${item.kind}:${item.label}`),
+    next.categoryLabels?.map(item => `${item.kind}:${item.label}`),
+  )
 ));

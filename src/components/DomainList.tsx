@@ -64,6 +64,15 @@ const CATEGORY_GROUP_STYLES = [
   'border-sky-300 bg-sky-50/70 dark:border-sky-700 dark:bg-sky-950/30',
   'border-violet-300 bg-violet-50/70 dark:border-violet-700 dark:bg-violet-950/30',
 ];
+const UNCATEGORIZED_CATEGORY_FILTER = '__uncategorized__';
+const getCategoryKind = (categoryId: string): 'word-group' | 'auto' => (
+  categoryId.startsWith('word-group:') ? 'word-group' : 'auto'
+);
+const getCategoryGroupStyle = (categoryId: string, index: number) => {
+  if (categoryId === 'uncategorized') return 'border-slate-300 bg-slate-50/70 dark:border-slate-700 dark:bg-slate-950/40';
+  if (getCategoryKind(categoryId) === 'word-group') return 'border-blue-300 bg-blue-50/75 dark:border-blue-700 dark:bg-blue-950/35';
+  return CATEGORY_GROUP_STYLES[index % CATEGORY_GROUP_STYLES.length];
+};
 const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = false, categoryNameOverrides, categoryManualOverrides, categoryWordGroups, whoisDetailsByDomainId, onRemove, onShowInfo, onToggleTag, onSetTag, onRecheck, autoRepairingDomainIds, pendingDomainIds, tagUpdatingDomainIds, onImportRequest, onExportRequest, isProcessing }) => {
   const [filter, setFilter] = useState<FilterType>(readStoredFilter);
   const [sortOption, setSortOption] = useState<SortOption>(readStoredSort);
@@ -182,7 +191,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
   }, [categorization.categorizedDomains]);
 
   useEffect(() => {
-    if (categoryFilter !== 'all' && !categoriesById.has(categoryFilter)) {
+    if (categoryFilter !== 'all' && categoryFilter !== UNCATEGORIZED_CATEGORY_FILTER && !categoriesById.has(categoryFilter)) {
       setCategoryFilter('all');
     }
   }, [categoriesById, categoryFilter]);
@@ -195,7 +204,8 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
 
   const contextFilteredDomains = useMemo(() => domains.filter(domain => {
     const meta = categorizedDomainById.get(domain.id);
-    if (categoryFilter !== 'all' && !meta?.categoryIds.includes(categoryFilter)) return false;
+    if (categoryFilter === UNCATEGORIZED_CATEGORY_FILTER && (meta?.categoryIds.length || 0) > 0) return false;
+    if (categoryFilter !== 'all' && categoryFilter !== UNCATEGORIZED_CATEGORY_FILTER && !meta?.categoryIds.includes(categoryFilter)) return false;
     if (tldFilter !== 'all' && meta?.parts.tld !== tldFilter) return false;
     if (hideRegisteredTargets && domain.tag === 'to-snatch' && domain.status === 'registered') return false;
     return true;
@@ -267,7 +277,8 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
           id: category.id,
           label: categoryNames[category.id] || category.suggestedName,
           domains: groupDomains,
-          style: CATEGORY_GROUP_STYLES[index % CATEGORY_GROUP_STYLES.length],
+          style: getCategoryGroupStyle(category.id, index),
+          kind: getCategoryKind(category.id),
           overlapCategoryIds: Array.from(overlapCategoryIds),
           overlapLabels: Array.from(overlapCategoryIds).map(categoryId => categoryNames[categoryId] || categoryId),
         };
@@ -277,6 +288,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
         label: string;
         domains: Domain[];
         style: string;
+        kind: 'word-group' | 'auto';
         overlapCategoryIds: string[];
         overlapLabels: string[];
       } => Boolean(group));
@@ -305,7 +317,8 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
         id: 'uncategorized',
         label: 'Uncategorized',
         domains: uncategorized,
-        style: 'border-slate-300 bg-slate-50/70 dark:border-slate-700 dark:bg-slate-950/40',
+        style: getCategoryGroupStyle('uncategorized', 0),
+        kind: 'auto',
         overlapCategoryIds: [],
         overlapLabels: [],
       });
@@ -465,10 +478,17 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
     () => domains.filter(domain => domain.tag === 'to-snatch' && domain.status === 'registered').length,
     [domains],
   );
+  const uncategorizedCount = useMemo(
+    () => categorization.categorizedDomains.filter(item => item.categoryIds.length === 0).length,
+    [categorization.categorizedDomains],
+  );
 
   const renderDomainItem = (domain: Domain) => {
     const meta = categorizedDomainById.get(domain.id);
-    const labels = meta?.categoryIds.map(categoryId => categoryNames[categoryId] || categoryId) || [];
+    const labels = meta?.categoryIds.map(categoryId => ({
+      label: categoryNames[categoryId] || categoryId,
+      kind: getCategoryKind(categoryId),
+    })) || [];
     return (
       <DomainItem
         key={domain.id}
@@ -492,6 +512,15 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
     <section key={group.id} className={`rounded-lg border-2 p-2 shadow-sm ${group.style}`}>
       <div className="mb-2 flex flex-wrap items-center gap-2 px-1">
         <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">{group.label}</h3>
+        {group.id !== 'uncategorized' && (
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+            group.kind === 'word-group'
+              ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200'
+              : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+          }`}>
+            {group.kind === 'word-group' ? 'Word group' : 'Auto'}
+          </span>
+        )}
         <span className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-900/70 dark:text-slate-300">
           {group.renderedCount === group.totalCount ? group.totalCount : `${group.renderedCount}/${group.totalCount}`}
         </span>
@@ -761,13 +790,31 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
             id="category-filter-select"
             value={categoryFilter}
             onChange={(event) => setCategoryFilter(event.target.value)}
-            disabled={isProcessing || categorization.categories.length === 0}
+            disabled={isProcessing || (categorization.categories.length === 0 && uncategorizedCount === 0)}
             className="appearance-none rounded-full bg-slate-200 py-2 pl-4 pr-10 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-blue disabled:opacity-50 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
           >
             <option value="all">All categories</option>
-            {categorization.categories.map(category => (
-              <option key={category.id} value={category.id}>{categoryNames[category.id]}</option>
-            ))}
+            {uncategorizedCount > 0 && (
+              <option value={UNCATEGORIZED_CATEGORY_FILTER}>Uncategorized ({uncategorizedCount})</option>
+            )}
+            {categorization.categories.some(category => category.id.startsWith('word-group:')) && (
+              <optgroup label="Word groups">
+                {categorization.categories
+                  .filter(category => category.id.startsWith('word-group:'))
+                  .map(category => (
+                    <option key={category.id} value={category.id}>{categoryNames[category.id]}</option>
+                  ))}
+              </optgroup>
+            )}
+            {categorization.categories.some(category => category.id.startsWith('category:')) && (
+              <optgroup label="Auto categories">
+                {categorization.categories
+                  .filter(category => category.id.startsWith('category:'))
+                  .map(category => (
+                    <option key={category.id} value={category.id}>{categoryNames[category.id]}</option>
+                  ))}
+              </optgroup>
+            )}
           </select>
           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500 dark:text-slate-400">
             <ChevronUpDownIcon className="h-5 w-5" />
