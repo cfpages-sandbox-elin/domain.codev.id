@@ -4,6 +4,7 @@ import {
   formatDate,
   formatDateWithTime,
   humanizeRegistryStatus,
+  type DropLifecycleEstimate,
 } from './domainItemLogic';
 
 export const DetailRow: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
@@ -20,6 +21,33 @@ export const PlainTooltipText: React.FC<{ title: string; body?: string }> = ({ t
   </span>
 );
 
+export const DropTimelineTooltip: React.FC<{ estimate: DropLifecycleEstimate }> = ({ estimate }) => (
+  <span className="block min-w-[220px] space-y-2">
+    <span className="block font-semibold text-slate-800 dark:text-slate-100">{estimate.phaseLabel}</span>
+    <span className="block text-slate-500 dark:text-slate-400">
+      Estimated timeline. Actual registry and registrar policies may vary.
+    </span>
+    <span className="block space-y-1">
+      <span className="grid grid-cols-[92px_1fr] gap-2">
+        <span className="text-slate-400 dark:text-slate-500">Expired</span>
+        <span className="text-slate-700 dark:text-slate-200">{formatDate(estimate.expiryDate.toISOString())}</span>
+      </span>
+      <span className="grid grid-cols-[92px_1fr] gap-2">
+        <span className="text-slate-400 dark:text-slate-500">Grace ends</span>
+        <span className="text-slate-700 dark:text-slate-200">{formatDate(estimate.gracePeriodEnd.toISOString())}</span>
+      </span>
+      <span className="grid grid-cols-[92px_1fr] gap-2">
+        <span className="text-slate-400 dark:text-slate-500">Redemption</span>
+        <span className="text-slate-700 dark:text-slate-200">{formatDate(estimate.redemptionPeriodEnd.toISOString())}</span>
+      </span>
+      <span className="grid grid-cols-[92px_1fr] gap-2">
+        <span className="text-slate-400 dark:text-slate-500">Drop</span>
+        <span className="text-slate-700 dark:text-slate-200">{formatDate(estimate.dropDate.toISOString())}</span>
+      </span>
+    </span>
+  </span>
+);
+
 interface DomainTooltipContentProps {
   domainName: string;
   status: string;
@@ -33,6 +61,8 @@ interface DomainTooltipContentProps {
   providerLabel?: string;
   registryStatuses: string[];
   nameServers: string[];
+  dropLifecycleLabel?: string;
+  dropLifecycleEstimate?: DropLifecycleEstimate | null;
 }
 
 export const DomainTooltipContent: React.FC<DomainTooltipContentProps> = ({
@@ -48,6 +78,8 @@ export const DomainTooltipContent: React.FC<DomainTooltipContentProps> = ({
   providerLabel,
   registryStatuses,
   nameServers,
+  dropLifecycleLabel,
+  dropLifecycleEstimate,
 }) => (
   <div className="space-y-3">
     <div className="space-y-1">
@@ -57,11 +89,24 @@ export const DomainTooltipContent: React.FC<DomainTooltipContentProps> = ({
       <DetailRow label="TLD" value={tld || 'N/A'} />
       {categoryLabels.length > 0 && <DetailRow label="Category" value={categoryLabels.join(', ')} />}
       <DetailRow label="Expires" value={formatDate(expirationDate)} />
+      {dropLifecycleLabel && <DetailRow label="Phase" value={dropLifecycleLabel} />}
       <DetailRow label="Registered" value={formatDate(registeredDate)} />
       <DetailRow label="Registrar" value={registrar || 'N/A'} />
       <DetailRow label="Last check" value={formatDateWithTime(lastChecked)} />
       {providerLabel && <DetailRow label="Provider" value={providerLabel} />}
     </div>
+
+    {dropLifecycleEstimate && (
+      <div>
+        <p className="mb-1 font-semibold text-slate-700 dark:text-slate-200">Estimated drop timeline</p>
+        <div className="space-y-1">
+          <DetailRow label="Grace ends" value={formatDate(dropLifecycleEstimate.gracePeriodEnd.toISOString())} />
+          <DetailRow label="Redemption" value={formatDate(dropLifecycleEstimate.redemptionPeriodEnd.toISOString())} />
+          <DetailRow label="Drop" value={formatDate(dropLifecycleEstimate.dropDate.toISOString())} />
+        </div>
+        <p className="mt-1 text-slate-500 dark:text-slate-400">Estimate only. Actual timing can vary by TLD, registry, and registrar.</p>
+      </div>
+    )}
 
     <div>
       <p className="mb-1 font-semibold text-slate-700 dark:text-slate-200">Registry status</p>

@@ -5,11 +5,12 @@ import { TrashIcon, InfoIcon, ShoppingCartIcon, RefreshIcon, TargetIcon, Externa
 import Spinner from './Spinner';
 import Tooltip from './Tooltip';
 import StatusBadge from './domain-item/StatusBadge';
-import { DomainTooltipContent, PlainTooltipText } from './domain-item/TooltipContent';
+import { DomainTooltipContent, DropTimelineTooltip, PlainTooltipText } from './domain-item/TooltipContent';
 import {
   formatDate,
   getDaysUntilExpiry,
   getDomainTextStyles,
+  getDropLifecycleEstimate,
   getRegistrarUrl,
   getRowStyles,
   getTagColorClass,
@@ -61,6 +62,10 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
   };
 
   const daysUntilExpiry = getDaysUntilExpiry(domain.expiration_date);
+  const dropLifecycleEstimate = domain.status === 'expired' && domain.expiration_date
+    ? getDropLifecycleEstimate(domain.expiration_date)
+    : null;
+  const expiredStatusLabel = dropLifecycleEstimate?.phaseLabel;
   const isAvailableStatus = domain.status === 'available' || domain.status === 'dropped';
   const isReservedStatus = domain.status === 'reserved';
   const effectiveTag = isAvailableStatus ? 'to-snatch' : domain.tag;
@@ -133,8 +138,10 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
       providerLabel={whoisDetails?.providerLabel}
       registryStatuses={registryStatuses}
       nameServers={nameServers}
+      dropLifecycleLabel={expiredStatusLabel}
+      dropLifecycleEstimate={dropLifecycleEstimate}
     />
-  ), [categoryLabels, domain, nameServers, registryStatuses, tagLabel, tld, whoisDetails?.providerLabel]);
+  ), [categoryLabels, domain, dropLifecycleEstimate, expiredStatusLabel, nameServers, registryStatuses, tagLabel, tld, whoisDetails?.providerLabel]);
 
   return (
     <div className={`relative overflow-hidden rounded-md border transition-all ${rowStyles} ${isRegisteredTarget ? 'saturate-50 opacity-[0.55] grayscale-[35%]' : ''} ${isWhoisIncomplete ? 'grayscale opacity-75' : ''} ${isCompact ? 'px-3 py-2' : 'px-4 py-3'}`}>
@@ -199,7 +206,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
         </div>
 
         <div className="flex items-center gap-2">
-          <StatusBadge status={domain.status} isCompact={isCompact} />
+          <StatusBadge status={domain.status} isCompact={isCompact} labelOverride={expiredStatusLabel} />
         </div>
 
         <div className="text-sm font-medium text-slate-700 dark:text-slate-200">
@@ -215,7 +222,9 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
               )}
               {daysUntilExpiry !== null && daysUntilExpiry <= 90 && domain.status !== 'unknown' && (
                 <span className="block text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  {domain.status === 'expired' ? 'Expired' : `${daysUntilExpiry} days left`}
+                  {domain.status === 'expired'
+                    ? `${expiredStatusLabel || 'Expired'}${dropLifecycleEstimate ? `; drop around ${formatDate(dropLifecycleEstimate.dropDate.toISOString())}` : ''}`
+                    : `${daysUntilExpiry} days left`}
                 </span>
               )}
               {domain.status === 'unknown' && (
@@ -249,7 +258,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
             </button>
           </Tooltip>
           {canShowDropTimeline && (
-            <Tooltip content={<PlainTooltipText title="Show drop timeline" body="Estimate grace, redemption, and release timing." />}>
+            <Tooltip content={dropLifecycleEstimate ? <DropTimelineTooltip estimate={dropLifecycleEstimate} /> : <PlainTooltipText title="Show drop timeline" body="Estimate grace, redemption, and release timing." />}>
               <button
                 onClick={() => onShowInfo(domain)}
                 className={actionButtonClass}

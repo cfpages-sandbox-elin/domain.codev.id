@@ -1,5 +1,12 @@
 import { Domain, DomainStatus, DomainTag } from '../../types';
 import { HomeIcon, TargetIcon, UsersIcon } from '../icons';
+import {
+  getDropLifecycleEstimate,
+  type DropLifecycleEstimate,
+} from '../../utils/appDomainLogic';
+
+export type { DropLifecycleEstimate };
+export { getDropLifecycleEstimate };
 
 export const formatDate = (dateString: string | null) => {
   if (!dateString) return 'N/A';

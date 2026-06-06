@@ -2,6 +2,86 @@ import { Domain, WhoisData } from '../types';
 
 export const formatLongDate = (date: Date) => date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
+const addDays = (date: Date, days: number) => {
+  const next = new Date(date);
+  next.setDate(date.getDate() + days);
+  return next;
+};
+
+export type DropLifecyclePhase = 'pre-expiry' | 'grace' | 'redemption' | 'drop-window' | 'drop-expected';
+
+export interface DropLifecycleEstimate {
+  phase: DropLifecyclePhase;
+  phaseLabel: string;
+  expiryDate: Date;
+  gracePeriodEnd: Date;
+  redemptionPeriodEnd: Date;
+  dropDate: Date;
+}
+
+export const getDropLifecycleEstimate = (expirationDate: string, now = new Date()): DropLifecycleEstimate | null => {
+  const expiryDate = new Date(expirationDate);
+  if (Number.isNaN(expiryDate.getTime())) return null;
+
+  const gracePeriodEnd = addDays(expiryDate, 30);
+  const redemptionPeriodEnd = addDays(gracePeriodEnd, 30);
+  const dropDate = addDays(redemptionPeriodEnd, 5);
+  const nowTime = now.getTime();
+
+  if (nowTime < expiryDate.getTime()) {
+    return {
+      phase: 'pre-expiry',
+      phaseLabel: 'Before expiry',
+      expiryDate,
+      gracePeriodEnd,
+      redemptionPeriodEnd,
+      dropDate,
+    };
+  }
+
+  if (nowTime <= gracePeriodEnd.getTime()) {
+    return {
+      phase: 'grace',
+      phaseLabel: 'Grace period',
+      expiryDate,
+      gracePeriodEnd,
+      redemptionPeriodEnd,
+      dropDate,
+    };
+  }
+
+  if (nowTime <= redemptionPeriodEnd.getTime()) {
+    return {
+      phase: 'redemption',
+      phaseLabel: 'Redemption',
+      expiryDate,
+      gracePeriodEnd,
+      redemptionPeriodEnd,
+      dropDate,
+    };
+  }
+
+  if (nowTime <= dropDate.getTime()) {
+    return {
+      phase: 'drop-window',
+      phaseLabel: 'Drop window',
+      expiryDate,
+      gracePeriodEnd,
+      redemptionPeriodEnd,
+      dropDate,
+    };
+  }
+
+  return {
+    phase: 'drop-expected',
+    phaseLabel: 'Drop expected',
+    expiryDate,
+    gracePeriodEnd,
+    redemptionPeriodEnd,
+    dropDate,
+  };
+};
+
 export const getWhoisFailureReason = (whoisData: WhoisData): string | null => {
   if ((whoisData.status === 'registered' || whoisData.status === 'expired') && !whoisData.expirationDate) {
     return 'WHOIS provider confirmed the domain is registered, but did not return an expiry date.';
@@ -77,21 +157,16 @@ export const getDomainNotificationMessage = (domain: Domain) => {
 };
 
 export const buildDropTimelineHtml = (expirationDate: string) => {
-  const expiry = new Date(expirationDate);
-  const gracePeriodEnd = new Date(expiry);
-  gracePeriodEnd.setDate(expiry.getDate() + 30);
-  const redemptionPeriodEnd = new Date(gracePeriodEnd);
-  redemptionPeriodEnd.setDate(gracePeriodEnd.getDate() + 30);
-  const dropDate = new Date(redemptionPeriodEnd);
-  dropDate.setDate(redemptionPeriodEnd.getDate() + 5);
+  const estimate = getDropLifecycleEstimate(expirationDate);
+  if (!estimate) return '<p class="text-slate-600 dark:text-slate-400">No valid expiry date is available for this domain.</p>';
 
   return `
       <p class="mb-4 text-slate-600 dark:text-slate-400"><b>Note:</b> This is an estimation based on typical domain registrar policies for .com, .net, etc. Actual dates may vary.</p>
       <ul class="space-y-3">
-        <li class="flex items-start"><span class="bg-yellow-100 text-yellow-800 text-xs font-semibold mr-3 px-2.5 py-1 rounded-full dark:bg-yellow-900 dark:text-yellow-300">Expired</span><div><p class="font-semibold text-slate-800 dark:text-slate-200">Domain Expired: ${formatLongDate(expiry)}</p><p class="text-sm text-slate-500 dark:text-slate-400">The domain is no longer active.</p></div></li>
-        <li class="flex items-start"><span class="bg-orange-100 text-orange-800 text-xs font-semibold mr-3 px-2.5 py-1 rounded-full dark:bg-orange-900 dark:text-orange-300">Grace Period</span><div><p class="font-semibold text-slate-800 dark:text-slate-200">Ends around: ${formatLongDate(gracePeriodEnd)}</p><p class="text-sm text-slate-500 dark:text-slate-400">Original owner can usually renew at normal price.</p></div></li>
-        <li class="flex items-start"><span class="bg-red-100 text-red-800 text-xs font-semibold mr-3 px-2.5 py-1 rounded-full dark:bg-red-900 dark:text-red-300">Redemption</span><div><p class="font-semibold text-slate-800 dark:text-slate-200">Ends around: ${formatLongDate(redemptionPeriodEnd)}</p><p class="text-sm text-slate-500 dark:text-slate-400">Owner can recover domain for a high fee.</p></div></li>
-        <li class="flex items-start"><span class="bg-green-100 text-green-800 text-xs font-semibold mr-3 px-2.5 py-1 rounded-full dark:bg-green-900 dark:text-green-300">Drops</span><div><p class="font-semibold text-slate-800 dark:text-slate-200">Becomes available after: ${formatLongDate(dropDate)}</p><p class="text-sm text-slate-500 dark:text-slate-400">The domain will be released for public registration.</p></div></li>
+        <li class="flex items-start"><span class="bg-yellow-100 text-yellow-800 text-xs font-semibold mr-3 px-2.5 py-1 rounded-full dark:bg-yellow-900 dark:text-yellow-300">Expired</span><div><p class="font-semibold text-slate-800 dark:text-slate-200">Domain expired: ${formatLongDate(estimate.expiryDate)}</p><p class="text-sm text-slate-500 dark:text-slate-400">The domain is no longer active.</p></div></li>
+        <li class="flex items-start"><span class="bg-orange-100 text-orange-800 text-xs font-semibold mr-3 px-2.5 py-1 rounded-full dark:bg-orange-900 dark:text-orange-300">Grace Period</span><div><p class="font-semibold text-slate-800 dark:text-slate-200">Ends around: ${formatLongDate(estimate.gracePeriodEnd)}</p><p class="text-sm text-slate-500 dark:text-slate-400">Original owner can usually renew at normal price.</p></div></li>
+        <li class="flex items-start"><span class="bg-red-100 text-red-800 text-xs font-semibold mr-3 px-2.5 py-1 rounded-full dark:bg-red-900 dark:text-red-300">Redemption</span><div><p class="font-semibold text-slate-800 dark:text-slate-200">Ends around: ${formatLongDate(estimate.redemptionPeriodEnd)}</p><p class="text-sm text-slate-500 dark:text-slate-400">Owner can recover domain for a high fee.</p></div></li>
+        <li class="flex items-start"><span class="bg-green-100 text-green-800 text-xs font-semibold mr-3 px-2.5 py-1 rounded-full dark:bg-green-900 dark:text-green-300">Drops</span><div><p class="font-semibold text-slate-800 dark:text-slate-200">Becomes available around: ${formatLongDate(estimate.dropDate)}</p><p class="text-sm text-slate-500 dark:text-slate-400">The domain may be released for public registration.</p></div></li>
       </ul>`;
 };
 
