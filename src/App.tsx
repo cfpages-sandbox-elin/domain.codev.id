@@ -125,13 +125,46 @@ const DomainEntryModalFallback = ({ onClose }: { onClose: () => void }) => (
   </Modal>
 );
 
+const millisecondsUntilNextLocalDay = () => {
+  const now = new Date();
+  const nextDay = new Date(now);
+  nextDay.setHours(24, 0, 1, 0);
+  return Math.max(nextDay.getTime() - now.getTime(), 1000);
+};
+
 const App: React.FC = () => {
+  const [dateRefreshTick, setDateRefreshTick] = useState(() => Date.now());
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState<string[]>([]);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [isDomainEntryModalOpen, setIsDomainEntryModalOpen] = useState(false);
   const [isIntegrationSettingsOpen, setIsIntegrationSettingsOpen] = useState(false);
+
+  useEffect(() => {
+    let intervalId: number | null = null;
+    const timeoutId = window.setTimeout(() => {
+      setDateRefreshTick(Date.now());
+      intervalId = window.setInterval(() => {
+        setDateRefreshTick(Date.now());
+      }, 24 * 60 * 60 * 1000);
+    }, millisecondsUntilNextLocalDay());
+
+    const refreshOnVisible = () => {
+      if (document.visibilityState === 'visible') {
+        setDateRefreshTick(Date.now());
+      }
+    };
+    document.addEventListener('visibilitychange', refreshOnVisible);
+    window.addEventListener('focus', refreshOnVisible);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      if (intervalId !== null) window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', refreshOnVisible);
+      window.removeEventListener('focus', refreshOnVisible);
+    };
+  }, []);
   const [domainEntryInitialTab, setDomainEntryInitialTab] = useState<DomainEntryTab>('single');
   const [modalContent, setModalContent] = useState({ title: '', body: '' });
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -448,6 +481,7 @@ const App: React.FC = () => {
       default:
         return (
           <DashboardView
+            dateRefreshTick={dateRefreshTick}
             domains={domains}
             isDomainListLoading={isDomainListLoading}
             categoryNameOverrides={categoryNameOverrides}

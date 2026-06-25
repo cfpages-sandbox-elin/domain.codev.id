@@ -2,6 +2,7 @@ import type { CategoryManualOverrides, CategoryWordGroup, Domain, DomainTag, Who
 import DomainList from '../DomainList';
 
 type DashboardViewProps = {
+  dateRefreshTick: number;
   domains: Domain[];
   isDomainListLoading: boolean;
   categoryNameOverrides: Record<string, string>;
@@ -24,6 +25,7 @@ type DashboardViewProps = {
 };
 
 const DashboardView = ({
+  dateRefreshTick,
   domains,
   isDomainListLoading,
   categoryNameOverrides,
@@ -48,6 +50,7 @@ const DashboardView = ({
     <div className="-mx-4 bg-white px-3 py-4 shadow-sm dark:bg-slate-900 dark:shadow-black/30 sm:mx-0 sm:rounded-xl sm:p-5 md:rounded-2xl md:p-6 md:shadow-lg">
       <h2 className="mb-3 px-1 text-xl font-bold text-slate-800 dark:text-white sm:mb-4 sm:px-0 sm:text-2xl">Tracked Domains</h2>
       <DomainList
+        dateRefreshTick={dateRefreshTick}
         domains={domains}
         isLoadingDomains={isDomainListLoading}
         categoryNameOverrides={categoryNameOverrides}

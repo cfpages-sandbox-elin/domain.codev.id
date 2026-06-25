@@ -93,12 +93,21 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
   const dropLifecycleEstimate = domain.status === 'expired' && domain.expiration_date
     ? getDropLifecycleEstimate(domain.expiration_date)
     : null;
+  const canDeriveExpiryState = domain.status !== 'available'
+    && domain.status !== 'dropped'
+    && domain.status !== 'reserved'
+    && daysUntilExpiry !== null;
+  const isExpiredByDate = canDeriveExpiryState && daysUntilExpiry < 0;
+  const isExpiringSoonByDate = canDeriveExpiryState && daysUntilExpiry >= 0 && daysUntilExpiry <= 90;
+  const displayStatus = isExpiredByDate ? 'expired' : domain.status;
   const expiredStatusLabel = dropLifecycleEstimate?.phaseLabel;
+  const statusLabelOverride = expiredStatusLabel
+    || (isExpiredByDate ? 'Expired' : daysUntilExpiry === 0 ? 'Expires today' : isExpiringSoonByDate ? 'Expiring soon' : undefined);
   const isAvailableStatus = domain.status === 'available' || domain.status === 'dropped';
   const isReservedStatus = domain.status === 'reserved';
   const effectiveTag = isAvailableStatus ? 'to-snatch' : domain.tag;
   const isRegisteredTarget = domain.tag === 'to-snatch' && domain.status === 'registered';
-  const rowStyles = getRowStyles(domain.status, effectiveTag, daysUntilExpiry);
+  const rowStyles = getRowStyles(displayStatus, effectiveTag, daysUntilExpiry);
   const needsExpiryDate = domain.status !== 'reserved'
     && (domain.status === 'registered' || domain.status === 'expired' || effectiveTag === 'mine')
     && !domain.expiration_date;
@@ -191,7 +200,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
                     href={whoisUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`min-w-0 font-semibold underline-offset-2 hover:underline break-all leading-snug ${getDomainTextStyles(domain.status)} ${isCompact ? 'text-sm' : 'text-base'}`}
+                    className={`min-w-0 break-all font-semibold leading-snug underline-offset-2 hover:underline ${getDomainTextStyles(displayStatus)} ${isCompact ? 'text-sm' : 'text-base'}`}
                   >
                     {domain.domain_name}
                   </a>
@@ -279,7 +288,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
         </div>
 
         <div className="flex items-center gap-2">
-          <StatusBadge status={domain.status} isCompact={isCompact} labelOverride={expiredStatusLabel} />
+          <StatusBadge status={displayStatus} isCompact={isCompact} labelOverride={statusLabelOverride} />
         </div>
 
         <div className="text-xs font-medium text-slate-700 dark:text-slate-200 sm:text-sm">
@@ -295,9 +304,9 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
               )}
               {daysUntilExpiry !== null && daysUntilExpiry <= 90 && domain.status !== 'unknown' && (
                 <span className="block text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  {domain.status === 'expired'
+                  {displayStatus === 'expired'
                     ? `${expiredStatusLabel || 'Expired'}${dropLifecycleEstimate ? `; drop around ${formatDate(dropLifecycleEstimate.dropDate.toISOString())}` : ''}`
-                    : `${daysUntilExpiry} days left`}
+                    : daysUntilExpiry === 0 ? 'Expires today' : `${daysUntilExpiry} days left`}
                 </span>
               )}
               {domain.status === 'unknown' && (

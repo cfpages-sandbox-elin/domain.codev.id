@@ -13,6 +13,7 @@ export const FILTER_OPTIONS: FilterType[] = ['all', 'mine', 'to-snatch', 'others
 export const SORT_OPTIONS: SortOption[] = ['added-desc', 'added-asc', 'name-asc', 'name-desc', 'expiry-asc', 'expiry-desc', 'checked-desc', 'checked-asc', 'category-asc', 'category-desc', 'tld-asc', 'tld-desc'];
 export const INITIAL_RENDERED_DOMAINS = 60;
 export const RENDER_INCREMENT = 60;
+const DAY_MS = 1000 * 3600 * 24;
 
 export const readStoredFilter = (): FilterType => {
   if (typeof window === 'undefined') return 'all';
@@ -49,7 +50,35 @@ export const hasMissingData = (domain: Domain) => {
     || domain.domain_statuses.length === 0;
 };
 
-export const getFilterMatch = (domain: Domain, filterType: FilterType) => {
+export const getDaysUntilExpiry = (domain: Domain, now = new Date()) => {
+  if (!domain.expiration_date) return null;
+  const expiryDate = new Date(domain.expiration_date);
+  const diffMs = expiryDate.getTime() - now.getTime();
+  if (!Number.isFinite(diffMs)) return null;
+  return Math.ceil(diffMs / DAY_MS);
+};
+
+export const canDeriveExpiryState = (domain: Domain) => (
+  domain.status !== 'available'
+  && domain.status !== 'dropped'
+  && domain.status !== 'reserved'
+  && Boolean(domain.expiration_date)
+);
+
+export const isExpiredByDate = (domain: Domain, now = new Date()) => {
+  if (domain.status === 'expired') return true;
+  if (!canDeriveExpiryState(domain)) return false;
+  const daysLeft = getDaysUntilExpiry(domain, now);
+  return daysLeft !== null && daysLeft < 0;
+};
+
+export const isExpiringSoonByDate = (domain: Domain, now = new Date()) => {
+  if (!canDeriveExpiryState(domain) || isExpiredByDate(domain, now)) return false;
+  const daysLeft = getDaysUntilExpiry(domain, now);
+  return daysLeft !== null && daysLeft >= 0 && daysLeft <= 90;
+};
+
+export const getFilterMatch = (domain: Domain, filterType: FilterType, now = new Date()) => {
   switch (filterType) {
     case 'mine':
       return domain.tag === 'mine' && domain.status !== 'available' && domain.status !== 'dropped';
@@ -61,20 +90,17 @@ export const getFilterMatch = (domain: Domain, filterType: FilterType) => {
       return hasMissingData(domain);
     case 'available':
       return domain.status === 'available' || domain.status === 'dropped';
-    case 'expiring': {
-      if (!domain.expiration_date) return false;
-      const daysLeft = (new Date(domain.expiration_date).getTime() - Date.now()) / (1000 * 3600 * 24);
-      return daysLeft > 0 && daysLeft <= 90;
-    }
+    case 'expiring':
+      return isExpiringSoonByDate(domain, now);
     case 'expired':
-      return domain.status === 'expired';
+      return isExpiredByDate(domain, now);
     case 'all':
     default:
       return true;
   }
 };
 
-export const getFilterCounts = (domains: Domain[]) => {
+export const getFilterCounts = (domains: Domain[], now = new Date()) => {
   const counts: Record<FilterType, number> = {
     all: 0,
     mine: 0,
@@ -88,20 +114,20 @@ export const getFilterCounts = (domains: Domain[]) => {
 
   for (const domain of domains) {
     counts.all += 1;
-    if (getFilterMatch(domain, 'mine')) counts.mine += 1;
-    if (getFilterMatch(domain, 'to-snatch')) counts['to-snatch'] += 1;
-    if (getFilterMatch(domain, 'others')) counts.others += 1;
-    if (getFilterMatch(domain, 'missing')) counts.missing += 1;
-    if (getFilterMatch(domain, 'expiring')) counts.expiring += 1;
-    if (getFilterMatch(domain, 'expired')) counts.expired += 1;
-    if (getFilterMatch(domain, 'available')) counts.available += 1;
+    if (getFilterMatch(domain, 'mine', now)) counts.mine += 1;
+    if (getFilterMatch(domain, 'to-snatch', now)) counts['to-snatch'] += 1;
+    if (getFilterMatch(domain, 'others', now)) counts.others += 1;
+    if (getFilterMatch(domain, 'missing', now)) counts.missing += 1;
+    if (getFilterMatch(domain, 'expiring', now)) counts.expiring += 1;
+    if (getFilterMatch(domain, 'expired', now)) counts.expired += 1;
+    if (getFilterMatch(domain, 'available', now)) counts.available += 1;
   }
 
   return counts;
 };
 
-export const applyStatusFilter = (domains: Domain[], filter: FilterType) => (
-  domains.filter(domain => getFilterMatch(domain, filter))
+export const applyStatusFilter = (domains: Domain[], filter: FilterType, now = new Date()) => (
+  domains.filter(domain => getFilterMatch(domain, filter, now))
 );
 
 export const applyKeywordFilter = (
