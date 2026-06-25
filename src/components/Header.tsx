@@ -19,22 +19,22 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
   const [showNotifications, setShowNotifications] = useState(false);
 
   return (
-    <header className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg sticky top-0 z-40 shadow-sm dark:shadow-slate-700/[.7]">
-      <div className="container mx-auto px-4 md:px-8">
-        <div className="flex items-center justify-between h-16">
+    <header className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-lg sticky top-0 z-40 shadow-sm dark:shadow-slate-700/[.7]">
+      <div className="container mx-auto px-2 sm:px-4 md:px-8">
+        <div className="flex h-14 items-center justify-between gap-1 sm:h-16">
           <Tooltip content="Domain Codev dashboard">
             <button
               onMouseEnter={() => onViewIntent?.('dashboard')}
               onFocus={() => onViewIntent?.('dashboard')}
               onClick={() => setView('dashboard')}
-              className="inline-flex items-center gap-2 rounded-lg p-2 text-brand-blue hover:bg-blue-50 dark:hover:bg-slate-700"
+              className="inline-flex min-w-0 items-center gap-2 rounded-lg p-1.5 text-brand-blue hover:bg-blue-50 dark:hover:bg-slate-700 sm:p-2"
               aria-label="Open Domain Codev dashboard"
             >
-              <DomainCodevIcon className="h-7 w-7" />
-              <span className="hidden text-xl font-bold sm:inline">Domain Codev</span>
+              <DomainCodevIcon className="h-6 w-6 sm:h-7 sm:w-7" />
+              <span className="hidden text-xl font-bold md:inline">Domain Codev</span>
             </button>
           </Tooltip>
-          <div className="flex items-center space-x-2 sm:space-x-4">
+          <div className="flex min-w-0 items-center gap-0.5 sm:gap-2 md:gap-4">
             {session && (
               <>
                 <Tooltip content={session.user.email || 'Signed in account'}>
@@ -50,10 +50,10 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
                     onMouseEnter={() => onViewIntent?.('docs')}
                     onFocus={() => onViewIntent?.('docs')}
                     onClick={() => setView('docs')}
-                    className="rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-200 hover:text-brand-blue dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white"
+                    className="hidden rounded-full p-1.5 text-slate-600 transition-colors hover:bg-slate-200 hover:text-brand-blue dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white sm:inline-flex sm:p-2"
                     aria-label="Open documentation"
                   >
-                    <BookOpenIcon className="h-6 w-6" />
+                    <BookOpenIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                   </button>
                 </Tooltip>
                 <Tooltip content="Categories">
@@ -61,19 +61,19 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
                     onMouseEnter={() => onViewIntent?.('categories')}
                     onFocus={() => onViewIntent?.('categories')}
                     onClick={() => setView('categories')}
-                    className="rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-200 hover:text-brand-blue dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white"
+                    className="rounded-full p-1.5 text-slate-600 transition-colors hover:bg-slate-200 hover:text-brand-blue dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white sm:p-2"
                     aria-label="Open categories"
                   >
-                    <TagIcon className="h-6 w-6" />
+                    <TagIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                   </button>
                 </Tooltip>
                 <Tooltip content="Integration API tokens">
                   <button
                     onClick={onOpenIntegrations}
-                    className="rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-200 hover:text-brand-blue dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white"
+                    className="hidden rounded-full p-1.5 text-slate-600 transition-colors hover:bg-slate-200 hover:text-brand-blue dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white sm:inline-flex sm:p-2"
                     aria-label="Open integration API tokens"
                   >
-                    <CommandLineIcon className="h-6 w-6" />
+                    <CommandLineIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                   </button>
                 </Tooltip>
                 <Tooltip content="Settings">
@@ -81,20 +81,20 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
                     onMouseEnter={() => onViewIntent?.('settings')}
                     onFocus={() => onViewIntent?.('settings')}
                     onClick={() => setView('settings')}
-                    className="rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-200 hover:text-brand-blue dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white"
+                    className="rounded-full p-1.5 text-slate-600 transition-colors hover:bg-slate-200 hover:text-brand-blue dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white sm:p-2"
                     aria-label="Open settings"
                   >
-                    <SettingsIcon className="h-6 w-6" />
+                    <SettingsIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                   </button>
                 </Tooltip>
                 <div className="relative">
                   <Tooltip content="Notifications">
                     <button
                       onClick={() => setShowNotifications(!showNotifications)}
-                      className="relative text-slate-600 dark:text-slate-400 hover:text-brand-blue dark:hover:text-white transition-colors p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"
+                      className="relative rounded-full p-1.5 text-slate-600 transition-colors hover:bg-slate-200 hover:text-brand-blue dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white sm:p-2"
                       aria-label="Toggle notifications"
                     >
-                      <BellIcon className="w-6 h-6" />
+                      <BellIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                       {notifications.length > 0 && (
                         <span className="absolute -top-1 -right-1 flex h-4 w-4">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -106,7 +106,7 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
                     </button>
                   </Tooltip>
                   {showNotifications && (
-                    <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-700 rounded-lg shadow-xl overflow-hidden z-50">
+                    <div className="absolute right-0 z-50 mt-2 w-[calc(100vw-1rem)] max-w-80 overflow-hidden rounded-lg bg-white shadow-xl dark:bg-slate-700">
                         <div className="p-3 font-semibold text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-600">Notifications</div>
                         {notifications.length > 0 ? (
                             <ul>
@@ -135,10 +135,10 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
               <Tooltip content="Log out">
                 <button
                   onClick={signOut}
-                  className="rounded-full p-2 text-brand-red transition-colors hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-900/50"
+                  className="rounded-full p-1.5 text-brand-red transition-colors hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-900/50 sm:p-2"
                   aria-label="Log out"
                 >
-                  <LogOutIcon className="h-6 w-6" />
+                  <LogOutIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                 </button>
               </Tooltip>
             )}

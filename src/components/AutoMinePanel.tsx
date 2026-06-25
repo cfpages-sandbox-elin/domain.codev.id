@@ -146,7 +146,7 @@ const AutoMinePanel: React.FC<AutoMinePanelProps> = ({ domains, rules, onRulesCh
             Add combinations of two or more name servers that are unique to your Cloudflare/hosting account. A domain is marked Mine only when every server in a saved combination is present.
           </p>
 
-          <div className="grid gap-3 md:grid-cols-[1fr_1.4fr_auto]">
+          <div className="grid gap-2 sm:gap-3 md:grid-cols-[1fr_1.4fr_auto]">
             <input
               value={label}
               onChange={(event) => setLabel(event.target.value)}
@@ -173,12 +173,12 @@ const AutoMinePanel: React.FC<AutoMinePanelProps> = ({ domains, rules, onRulesCh
           {rules.length > 0 ? (
             <div className="space-y-2">
               {rules.map(rule => (
-                <div key={rule.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950/60">
+                <div key={rule.id} className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950/60 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                   <div className="min-w-0">
                     <p className="font-semibold text-slate-800 dark:text-slate-100">{rule.label}</p>
                     <p className="mt-1 break-all font-mono text-[11px] text-slate-500 dark:text-slate-400">{rule.nameServers.join(' + ')}</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-end gap-2">
                     <button
                       type="button"
                       onClick={() => toggleRule(rule.id)}

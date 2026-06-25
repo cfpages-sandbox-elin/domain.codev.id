@@ -78,7 +78,7 @@ const WhoisProviderPanel: React.FC<WhoisProviderPanelProps> = ({ providers, isLo
 
   return (
     <section className="mb-6 border-y border-slate-200 py-4 dark:border-slate-700">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"
           onClick={() => setIsExpanded(current => !current)}
@@ -123,7 +123,77 @@ const WhoisProviderPanel: React.FC<WhoisProviderPanelProps> = ({ providers, isLo
               Provider dashboard is unavailable. Deploy the `get-whois-providers` Supabase function to read server-side provider configuration.
             </p>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            <div className="space-y-2 md:hidden">
+              {providers
+                .slice()
+                .sort((a, b) => a.priority - b.priority)
+                .map(provider => (
+                  <article key={provider.id} className="rounded-lg border border-slate-200 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-950/60">
+                    <div className="mb-2 flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="truncate font-semibold text-slate-900 dark:text-white">{provider.label}</h3>
+                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Priority {provider.priority} · {provider.freeTierLabel}</p>
+                      </div>
+                      <span className="inline-flex flex-none items-center gap-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                        <span className={`h-2 w-2 rounded-full ${statusStyles[provider.status]}`} />
+                        {statusLabels[provider.status]}
+                      </span>
+                    </div>
+                    <dl className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <dt className="font-semibold text-slate-500 dark:text-slate-400">Daily</dt>
+                        <dd className="text-slate-700 dark:text-slate-200">{formatDailyQuota(provider)}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-semibold text-slate-500 dark:text-slate-400">Monthly</dt>
+                        <dd className="text-slate-700 dark:text-slate-200">{formatMonthlyQuota(provider)}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-semibold text-slate-500 dark:text-slate-400">Live quota</dt>
+                        <dd className="text-slate-700 dark:text-slate-200">{provider.supportsQuotaHeaders ? 'Headers' : provider.quota ? 'Telemetry' : 'None'}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-semibold text-slate-500 dark:text-slate-400">Keys</dt>
+                        <dd className="break-words text-slate-700 dark:text-slate-200">{provider.envKeys.length > 0 ? provider.envKeys.join(', ') : 'None'}</dd>
+                      </div>
+                    </dl>
+                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{provider.lastErrorMessage || provider.notes}</p>
+                    {CREDENTIAL_PROVIDER_IDS.has(provider.id) && (
+                      <div className="mt-3 grid gap-2">
+                        <input
+                          type="password"
+                          value={apiKeysByProviderId[provider.id] || ''}
+                          onChange={(event) => setApiKeysByProviderId(current => ({ ...current, [provider.id]: event.target.value }))}
+                          placeholder={provider.configured ? 'Replace saved key' : 'Paste API key'}
+                          className="min-w-0 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-brand-blue focus:ring-1 focus:ring-brand-blue dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => saveCredential(provider.id)}
+                            disabled={savingProviderId === provider.id || !apiKeysByProviderId[provider.id]?.trim()}
+                            className="rounded-md bg-brand-blue px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {provider.configured ? 'Replace' : 'Save'}
+                          </button>
+                          {provider.configured && (
+                            <button
+                              type="button"
+                              onClick={() => removeCredential(provider.id)}
+                              disabled={savingProviderId === provider.id}
+                              className="rounded-md bg-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-300 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </article>
+                ))}
+            </div>
+            <div className="hidden overflow-x-auto md:block">
               <table className="min-w-full text-left text-sm">
                 <thead className="text-xs uppercase text-slate-500 dark:text-slate-400">
                   <tr>
@@ -198,6 +268,7 @@ const WhoisProviderPanel: React.FC<WhoisProviderPanelProps> = ({ providers, isLo
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </div>
       )}

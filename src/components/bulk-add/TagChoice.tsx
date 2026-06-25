@@ -34,7 +34,7 @@ const TagChoice: React.FC<TagChoiceProps> = ({ id, name, tag, checked, disabled,
       <input type="radio" id={id} name={name} value={tag} checked={checked} onChange={onChange} disabled={disabled} className="sr-only peer" />
       <label
         htmlFor={id}
-        className={`inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-2 px-4 py-3 text-sm font-semibold transition-all peer-disabled:cursor-not-allowed peer-disabled:opacity-60 ${
+        className={`inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg border-2 px-3 py-2 text-xs font-semibold transition-all peer-disabled:cursor-not-allowed peer-disabled:opacity-60 sm:gap-2 sm:px-4 sm:py-3 sm:text-sm ${
           isMine
             ? 'border-slate-300 text-indigo-700 peer-checked:border-brand-blue peer-checked:ring-2 peer-checked:ring-brand-blue dark:border-slate-600 dark:text-indigo-200'
             : isOthers

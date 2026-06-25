@@ -230,7 +230,7 @@ Behavior rules:
             <CommandLineIcon className="h-5 w-5 text-brand-blue" />
             API base URL
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <code className="min-w-0 flex-1 break-all rounded bg-white px-2 py-1 text-xs text-slate-800 dark:bg-slate-900 dark:text-slate-100">{apiBaseUrl}</code>
             <Tooltip content="Copy API base URL">
               <button
@@ -251,7 +251,7 @@ Behavior rules:
               <CheckCircleIcon className="h-5 w-5" />
               New token. Copy it now; it will not be shown again.
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <code className="min-w-0 flex-1 break-all rounded bg-white px-2 py-1 text-xs text-emerald-900 dark:bg-slate-950 dark:text-emerald-100">{newToken}</code>
               <Tooltip content="Copy new token">
                 <button
@@ -282,7 +282,7 @@ Behavior rules:
                 </button>
               </Tooltip>
             </div>
-            <pre className="max-h-64 overflow-auto rounded bg-slate-900 p-3 text-xs leading-relaxed text-slate-100"><code>{hermesPrompt}</code></pre>
+            <pre className="max-h-56 overflow-auto rounded bg-slate-900 p-3 text-[11px] leading-relaxed text-slate-100 sm:max-h-64 sm:text-xs"><code>{hermesPrompt}</code></pre>
           </div>
         )}
 
@@ -318,7 +318,7 @@ Behavior rules:
             type="button"
             onClick={handleCreate}
             disabled={isLoading}
-            className="inline-flex w-fit items-center gap-2 rounded-md bg-brand-blue px-3 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-brand-blue px-3 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-60 sm:w-fit"
           >
             {isLoading ? <Spinner size="sm" color="border-white" /> : <CommandLineIcon className="h-4 w-4" />}
             Create token
@@ -334,10 +334,10 @@ Behavior rules:
           ) : (
             <div className="space-y-2">
               {activeClients.map(client => (
-                <div key={client.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+                <div key={client.id} className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
                   <div className="min-w-0">
                     <div className="font-semibold text-slate-900 dark:text-white">{client.name}</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">Scopes: {client.scopes.join(', ')}</div>
+                    <div className="break-words text-xs text-slate-500 dark:text-slate-400">Scopes: {client.scopes.join(', ')}</div>
                     <div className="text-xs text-slate-500 dark:text-slate-400">Last used: {formatDateTime(client.last_used_at)}</div>
                   </div>
                   <Tooltip content="Revoke token">
@@ -371,7 +371,7 @@ Behavior rules:
 
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950">
           <div className="mb-2 font-semibold text-slate-900 dark:text-white">Quick test</div>
-          <pre className="max-h-40 overflow-auto rounded bg-slate-900 p-3 text-xs text-slate-100"><code>{curlExample}</code></pre>
+          <pre className="max-h-40 overflow-auto rounded bg-slate-900 p-3 text-[11px] text-slate-100 sm:text-xs"><code>{curlExample}</code></pre>
         </div>
       </div>
     </Modal>

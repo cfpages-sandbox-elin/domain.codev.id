@@ -234,19 +234,19 @@ const CategoriesPage: React.FC<CategoriesPageProps> = ({
 
   return (
     <div className="mx-auto max-w-5xl">
-      <div className="mb-6 flex items-center gap-3">
-        <span className="rounded-lg bg-slate-200 p-2 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+      <div className="mb-4 flex items-center gap-3 sm:mb-6">
+        <span className="rounded-lg bg-slate-200 p-1.5 text-slate-600 dark:bg-slate-800 dark:text-slate-300 sm:p-2">
           <TagIcon className="h-5 w-5" />
         </span>
         <div>
-          <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Categories</h2>
+          <h2 className="text-xl font-bold text-slate-800 dark:text-white sm:text-2xl">Categories</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Manage word groups for {domains.length} domains. Auto categories stay collapsed until opened.
           </p>
         </div>
       </div>
 
-      <section className="mb-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <section className="mb-4 rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:mb-6 sm:p-4">
         <div className="mb-3">
           <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Word groups</h3>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -254,7 +254,7 @@ const CategoriesPage: React.FC<CategoriesPageProps> = ({
           </p>
         </div>
 
-        <form className="grid gap-3 md:grid-cols-[1fr_1.5fr_auto]" onSubmit={handleWordGroupFormSubmit}>
+        <form className="grid gap-2 sm:gap-3 md:grid-cols-[1fr_1.5fr_auto]" onSubmit={handleWordGroupFormSubmit}>
           <input
             id="category-word-group-label"
             value={wordGroupLabel}
@@ -292,9 +292,9 @@ const CategoriesPage: React.FC<CategoriesPageProps> = ({
         )}
 
         {categoryWordGroups.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-wrap gap-1.5 sm:gap-2">
             {categoryWordGroups.map(group => (
-              <span key={group.id} className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${group.enabled ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300'}`}>
+              <span key={group.id} className={`inline-flex max-w-full flex-wrap items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold sm:gap-2 sm:px-3 ${group.enabled ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300'}`}>
                 <button
                   type="button"
                   onClick={() => toggleWordGroup(group.id)}
@@ -303,7 +303,7 @@ const CategoriesPage: React.FC<CategoriesPageProps> = ({
                 >
                   {group.enabled ? group.label : `${group.label} off`}
                 </button>
-                <span className="font-mono text-[10px] opacity-80">{group.words.join(' + ')}</span>
+                <span className="break-all font-mono text-[10px] opacity-80">{group.words.join(' + ')}</span>
                 <Tooltip content="Edit this word group">
                   <button
                     type="button"
@@ -351,14 +351,14 @@ const CategoriesPage: React.FC<CategoriesPageProps> = ({
         </button>
 
         {isAutoCategoriesOpen && (
-          <div className="border-t border-slate-200 p-4 dark:border-slate-700">
+          <div className="border-t border-slate-200 p-3 dark:border-slate-700 sm:p-4">
             {categoryGroups.length === 0 ? (
               <div className="p-6 text-center">
                 <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200">No categories yet</h3>
                 <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Add related domains and the auto categorizer will group them here.</p>
               </div>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-3 md:grid-cols-2 md:gap-4">
                 {categoryGroups.map(({ category, label, domains: categoryDomains, overlapLabels, override }) => {
             const selectedDomainId = Number(selectedDomainByCategoryId[category.id] || 0);
             const categoryDomainIds = new Set(categoryDomains.map(({ domain }) => domain.id));
@@ -367,7 +367,7 @@ const CategoriesPage: React.FC<CategoriesPageProps> = ({
               .sort((a, b) => a.domain_name.localeCompare(b.domain_name));
 
             return (
-            <section key={category.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <section key={category.id} className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-4">
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <input
                   value={label}
@@ -426,8 +426,8 @@ const CategoriesPage: React.FC<CategoriesPageProps> = ({
 
               <div className="flex flex-wrap gap-1.5">
                 {categoryDomains.slice(0, 30).map(({ domain, member }) => (
-                  <span key={domain.id} className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${member.reason === 'manual' || member.reason === 'word-group' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>
-                    {domain.domain_name}
+                  <span key={domain.id} className={`inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${member.reason === 'manual' || member.reason === 'word-group' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>
+                    <span className="min-w-0 break-all">{domain.domain_name}</span>
                     <Tooltip content={member.reason === 'manual' ? 'Remove this manual include.' : 'Exclude this domain from this category.'}>
                       <button
                         type="button"

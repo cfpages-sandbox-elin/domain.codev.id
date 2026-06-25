@@ -260,20 +260,20 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
 
     return (
         <Modal isOpen={isOpen} onClose={isBusy ? () => {} : onClose} title="Add Domains">
-            <div className="flex flex-col gap-5" onKeyDown={handleModalKeyDown}>
+            <div className="flex flex-col gap-4 sm:gap-5" onKeyDown={handleModalKeyDown}>
                 {addFeedback && (
                     <div className="rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-900 dark:border-green-800 dark:bg-green-950/50 dark:text-green-100">
                         <p className="font-semibold">{addFeedback.title}</p>
                         <p className="mt-1">{addFeedback.body}</p>
                     </div>
                 )}
-                <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1 dark:bg-slate-900" role="tablist" aria-label="Domain add mode">
+                <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-900 sm:gap-2" role="tablist" aria-label="Domain add mode">
                     <button
                         type="button"
                         role="tab"
                         aria-selected={activeTab === 'single'}
                         onClick={() => switchTab('single')}
-                        className={`inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${activeTab === 'single' ? 'bg-white text-brand-blue shadow-sm dark:bg-slate-700 dark:text-white' : 'text-slate-600 hover:bg-white/60 dark:text-slate-300 dark:hover:bg-slate-800'}`}
+                        className={`inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-2 text-xs font-semibold transition-colors sm:gap-2 sm:px-3 sm:text-sm ${activeTab === 'single' ? 'bg-white text-brand-blue shadow-sm dark:bg-slate-700 dark:text-white' : 'text-slate-600 hover:bg-white/60 dark:text-slate-300 dark:hover:bg-slate-800'}`}
                     >
                         <HomeIcon className="h-4 w-4" />
                         New Domain
@@ -283,7 +283,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                         role="tab"
                         aria-selected={activeTab === 'bulk'}
                         onClick={() => switchTab('bulk')}
-                        className={`inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${activeTab === 'bulk' ? 'bg-white text-brand-blue shadow-sm dark:bg-slate-700 dark:text-white' : 'text-slate-600 hover:bg-white/60 dark:text-slate-300 dark:hover:bg-slate-800'}`}
+                        className={`inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-2 text-xs font-semibold transition-colors sm:gap-2 sm:px-3 sm:text-sm ${activeTab === 'bulk' ? 'bg-white text-brand-blue shadow-sm dark:bg-slate-700 dark:text-white' : 'text-slate-600 hover:bg-white/60 dark:text-slate-300 dark:hover:bg-slate-800'}`}
                     >
                         <ArrowUpOnSquareIcon className="h-4 w-4" />
                         Bulk Add
@@ -305,7 +305,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                             onChange={(event) => setSingleDomain(event.target.value)}
                             onKeyDown={handleSingleKeyDown}
                             placeholder="example.com"
-                            className="w-full rounded-lg border-2 border-transparent bg-slate-100 px-4 py-3 transition focus:border-brand-blue focus:ring-0 dark:bg-slate-700"
+                            className="w-full rounded-lg border-2 border-transparent bg-slate-100 px-3 py-2.5 text-sm transition focus:border-brand-blue focus:ring-0 dark:bg-slate-700 sm:px-4 sm:py-3"
                             disabled={isBusy}
                         />
                         {exactExistingDomain && (
@@ -343,13 +343,13 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                             <TagChoice id="single-tag-others" name="single-tag" tag="others" checked={singleTag === 'others'} disabled={isBusy} onChange={() => setSingleTag('others')} />
                         </fieldset>
 
-                        <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-600">
+                        <div className="flex justify-stretch border-t border-slate-200 pt-3 dark:border-slate-600 sm:justify-end sm:pt-4">
                             <Tooltip content="Runs WHOIS first, then saves only if the result is usable. Enter saves as Mine; Shift + Enter saves as To Snatch. Use Others for client-owned domains.">
                                 <button
                                     type="button"
                                     onClick={() => handleSingleSubmit(singleTag)}
                                     disabled={isBusy || !singleDomain.trim() || Boolean(exactExistingDomain)}
-                                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-blue px-6 py-3 font-semibold text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-blue-300 dark:disabled:bg-blue-800"
+                                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-blue px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-blue-300 dark:disabled:bg-blue-800 sm:w-auto sm:px-6 sm:py-3 sm:text-base"
                                 >
                                     {isSingleSubmitting ? <><Spinner /> Adding...</> : 'Add and Check WHOIS'}
                                 </button>
@@ -357,14 +357,14 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                         </div>
                     </div>
                 ) : (
-                    <div className="flex flex-col gap-6" role="tabpanel">
-                        <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1 dark:bg-slate-900" role="tablist" aria-label="Bulk input source">
+                    <div className="flex flex-col gap-4 sm:gap-6" role="tabpanel">
+                        <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-900 sm:gap-2" role="tablist" aria-label="Bulk input source">
                             <button
                                 type="button"
                                 role="tab"
                                 aria-selected={bulkEntryMode === 'paste'}
                                 onClick={() => setBulkEntryMode('paste')}
-                                className={`inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${bulkEntryMode === 'paste' ? 'bg-white text-brand-blue shadow-sm dark:bg-slate-700 dark:text-white' : 'text-slate-600 hover:bg-white/60 dark:text-slate-300 dark:hover:bg-slate-800'}`}
+                                className={`inline-flex items-center justify-center gap-2 rounded-md px-2 py-2 text-xs font-semibold transition-colors sm:px-3 sm:text-sm ${bulkEntryMode === 'paste' ? 'bg-white text-brand-blue shadow-sm dark:bg-slate-700 dark:text-white' : 'text-slate-600 hover:bg-white/60 dark:text-slate-300 dark:hover:bg-slate-800'}`}
                             >
                                 Paste List
                             </button>
@@ -373,7 +373,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                                 role="tab"
                                 aria-selected={bulkEntryMode === 'file'}
                                 onClick={() => setBulkEntryMode('file')}
-                                className={`inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${bulkEntryMode === 'file' ? 'bg-white text-brand-blue shadow-sm dark:bg-slate-700 dark:text-white' : 'text-slate-600 hover:bg-white/60 dark:text-slate-300 dark:hover:bg-slate-800'}`}
+                                className={`inline-flex items-center justify-center gap-2 rounded-md px-2 py-2 text-xs font-semibold transition-colors sm:px-3 sm:text-sm ${bulkEntryMode === 'file' ? 'bg-white text-brand-blue shadow-sm dark:bg-slate-700 dark:text-white' : 'text-slate-600 hover:bg-white/60 dark:text-slate-300 dark:hover:bg-slate-800'}`}
                             >
                                 Upload File
                             </button>
@@ -381,7 +381,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
 
                         {bulkEntryMode === 'paste' ? (
                             <div>
-                                <h4 className="mb-2 text-lg font-semibold text-slate-800 dark:text-slate-200">Paste a List</h4>
+                                <h4 className="mb-2 text-base font-semibold text-slate-800 dark:text-slate-200 sm:text-lg">Paste a List</h4>
                                 <Tooltip content="Ctrl + Enter = check as Mine. Ctrl + Shift + Enter = check as To Snatch.">
                                     <textarea
                                         ref={bulkInputRef}
@@ -389,7 +389,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                                         onChange={(e) => setTextValue(e.target.value)}
                                         onKeyDown={handleBulkPasteKeyDown}
                                         placeholder="example.com, anotherexample.net\nfinaldomain.org"
-                                        className="h-32 w-full rounded-lg border-2 border-slate-200 bg-slate-100 p-3 transition focus:border-brand-blue focus:ring-0 dark:border-slate-600 dark:bg-slate-700"
+                                        className="h-28 w-full rounded-lg border-2 border-slate-200 bg-slate-100 p-3 text-sm transition focus:border-brand-blue focus:ring-0 dark:border-slate-600 dark:bg-slate-700 sm:h-32"
                                         disabled={isBusy}
                                     />
                                 </Tooltip>
@@ -401,7 +401,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                             </div>
                         ) : (
                             <div>
-                                <h4 className="mb-2 text-lg font-semibold text-slate-800 dark:text-slate-200">Upload a File</h4>
+                                <h4 className="mb-2 text-base font-semibold text-slate-800 dark:text-slate-200 sm:text-lg">Upload a File</h4>
                                 <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">Upload a `.json` or `.csv` file. CSV files must have a `domain_name` column header. An optional `tag` column can be included.</p>
                                 <input
                                     type="file"
@@ -421,7 +421,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                         )}
 
                 <div>
-                    <h4 className="font-semibold text-lg text-slate-800 dark:text-slate-200 mb-2">Default Tag</h4>
+                    <h4 className="mb-2 text-base font-semibold text-slate-800 dark:text-slate-200 sm:text-lg">Default Tag</h4>
                     <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">Imported available domains are always saved as To Snatch. This default is used when WHOIS says the domain is registered.</p>
                      <fieldset className="grid gap-2 sm:grid-cols-3">
                         <legend className="sr-only">Default tag selection</legend>
@@ -432,12 +432,12 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                 </div>
 
                 {bulkEntryMode === 'paste' && (
-                    <div className="flex justify-end border-t border-slate-200 pt-4 dark:border-slate-600">
+                    <div className="flex justify-stretch border-t border-slate-200 pt-3 dark:border-slate-600 sm:justify-end sm:pt-4">
                         <Tooltip content="Each new valid domain runs WHOIS before saving. Invalid, repeated, and already tracked domains are skipped. Ctrl + Enter checks as Mine; Ctrl + Shift + Enter checks as To Snatch.">
                         <button
                             onClick={() => handlePasteSubmit()}
                             disabled={isBusy || !textValue.trim() || parsedPaste.domains.length === 0}
-                            className="flex items-center justify-center rounded-lg bg-brand-blue px-6 py-3 font-semibold text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-blue-300 dark:disabled:bg-blue-800"
+                            className="flex w-full items-center justify-center rounded-lg bg-brand-blue px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-blue-300 dark:disabled:bg-blue-800 sm:w-auto sm:px-6 sm:py-3 sm:text-base"
                         >
                             {isLoading ? <><Spinner /> Processing...</> : 'Add Valid Domains'}
                         </button>

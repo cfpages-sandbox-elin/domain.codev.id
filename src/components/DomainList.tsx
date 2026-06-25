@@ -520,8 +520,8 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
   };
 
   const renderCategorySection = (group: (typeof renderedCategoryGroups)[number]) => (
-    <section key={group.id} className={`rounded-lg border-2 p-2 shadow-sm ${group.style}`}>
-      <div className="mb-2 flex flex-wrap items-center gap-2 px-1">
+    <section key={group.id} className={`rounded-lg border-2 p-1.5 shadow-sm sm:p-2 ${group.style}`}>
+      <div className="mb-2 flex flex-wrap items-center gap-1.5 px-1 sm:gap-2">
         <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">{group.label}</h3>
         {group.id !== 'uncategorized' && (
           <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
@@ -607,13 +607,13 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
     <div>
       <div
         ref={floatingFilterRef}
-        className={`fixed bottom-5 left-1/2 z-40 w-[calc(100%-1.5rem)] max-w-3xl -translate-x-1/2 transition-all duration-200 md:bottom-6 ${
+        className={`fixed bottom-4 left-1/2 z-40 w-[calc(100%-1rem)] max-w-3xl -translate-x-1/2 transition-all duration-200 md:bottom-6 ${
           isFloatingFilterVisible
             ? 'translate-y-0 opacity-100'
             : 'pointer-events-none translate-y-3 opacity-0'
         }`}
       >
-        <div className="mx-auto flex items-center gap-1 overflow-x-auto rounded-full border border-slate-200 bg-white/95 p-1.5 shadow-xl backdrop-blur dark:border-slate-700 dark:bg-slate-900/95">
+        <div className="mx-auto flex items-center gap-1 overflow-x-auto rounded-full border border-slate-200 bg-white/95 p-1 shadow-xl backdrop-blur dark:border-slate-700 dark:bg-slate-900/95 sm:p-1.5">
           {renderFloatingFilterButton('all', 'All')}
           {renderFloatingFilterButton('mine', 'Mine')}
           {renderFloatingFilterButton('to-snatch', 'To Snatch')}
@@ -622,7 +622,7 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
           {renderFloatingFilterButton('available', 'Available')}
           {renderFloatingFilterButton('expiring', 'Expiring Soon')}
           {renderFloatingFilterButton('expired', 'Expired')}
-          <div className="relative ml-1 min-w-[10rem] flex-1">
+          <div className="relative ml-1 hidden min-w-[10rem] flex-1 md:block">
             <label htmlFor="domain-keyword-filter-floating" className="sr-only">Filter domains by keyword</label>
             <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
             <input
@@ -659,8 +659,8 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
           </div>
         </div>
       </div>
-      <div className="mb-6 flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-center gap-3">
+      <div className="mb-4 flex flex-col gap-3 sm:mb-6">
+        <div className="order-2 -mx-3 flex items-center gap-2 overflow-x-auto px-3 pb-1 sm:order-1 sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0 sm:pb-0 sm:gap-3">
             {renderFilterButton('all', 'All')}
             {renderFilterButton('mine', 'Mine')}
             {renderFilterButton('to-snatch', 'To Snatch')}
@@ -669,6 +669,8 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
             {renderFilterButton('available', 'Available')}
             {renderFilterButton('expiring', 'Expiring Soon')}
             {renderFilterButton('expired', 'Expired')}
+        </div>
+        <div className="order-1 sm:order-2 sm:flex sm:justify-center">
             <KeywordDomainFilter
               containerRef={keywordFilterRef}
               keyword={keywordFilter}
@@ -681,20 +683,20 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
             />
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-3">
+        <div className="order-3 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-3">
             <div className="relative" ref={recheckMenuRef}>
                 <Tooltip content="Choose what to re-check. This may use WHOIS API quota.">
                     <button
                         onClick={() => setIsRecheckMenuOpen(prev => !prev)}
                         disabled={isProcessing || isRecheckingVisible || sortedDomains.length === 0}
-                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-full transition-colors disabled:opacity-50"
+                        className="flex w-full items-center justify-center gap-1.5 rounded-full bg-slate-200 px-2 py-2 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-300 disabled:opacity-50 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 sm:w-auto sm:gap-2 sm:px-3 sm:text-sm"
                     >
                         <RefreshIcon className={`w-5 h-5 ${isRecheckingVisible ? 'animate-spin' : ''}`} />
-                        <span>{isRecheckingVisible ? 'Re-checking...' : 'Re-check'}</span>
+                        <span className="truncate">{isRecheckingVisible ? 'Checking...' : 'Re-check'}</span>
                     </button>
                 </Tooltip>
                 {isRecheckMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-700 rounded-md shadow-lg overflow-hidden z-10 ring-1 ring-black ring-opacity-5">
+                    <div className="absolute left-0 z-10 mt-2 w-64 overflow-hidden rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 dark:bg-slate-700 sm:left-auto sm:right-0">
                         <button
                             onClick={() => runRecheck(sortedDomains, 'visible domain(s)')}
                             className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600"
@@ -718,10 +720,11 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
                 <button
                     onClick={onImportRequest}
                     disabled={isProcessing}
-                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-full transition-colors disabled:opacity-50"
+                    className="flex w-full items-center justify-center gap-1.5 rounded-full bg-slate-200 px-2 py-2 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-300 disabled:opacity-50 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 sm:w-auto sm:gap-2 sm:px-3 sm:text-sm"
                 >
                     <ArrowUpOnSquareIcon className="w-5 h-5" />
-                    <span>Import / Add Bulk</span>
+                    <span className="truncate sm:hidden">Add</span>
+                    <span className="hidden sm:inline">Import / Add Bulk</span>
                 </button>
             </Tooltip>
 
@@ -730,14 +733,14 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
                     <button
                         onClick={() => setIsExportMenuOpen(prev => !prev)}
                         disabled={isProcessing}
-                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-full transition-colors disabled:opacity-50"
+                        className="flex w-full items-center justify-center gap-1.5 rounded-full bg-slate-200 px-2 py-2 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-300 disabled:opacity-50 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 sm:w-auto sm:gap-2 sm:px-3 sm:text-sm"
                     >
                         <ArrowDownOnSquareIcon className="w-5 h-5" />
                         <span>Export</span>
                     </button>
                 </Tooltip>
                 {isExportMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-slate-700 rounded-md shadow-lg overflow-hidden z-10 ring-1 ring-black ring-opacity-5">
+                    <div className="absolute right-0 z-10 mt-2 w-40 overflow-hidden rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 dark:bg-slate-700">
                         <button onClick={() => handleExportClick('json')} className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600">
                             Export as JSON
                         </button>
@@ -748,14 +751,14 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
                 )}
             </div>
 
-            <div className="relative">
+            <div className="relative col-span-3 sm:col-span-1">
                 <label htmlFor="sort-select" className="sr-only">Sort by</label>
                 <select 
                     id="sort-select"
                     value={sortOption}
                     onChange={(e) => setSortOption(e.target.value as SortOption)}
                     disabled={isProcessing}
-                    className="appearance-none pl-4 pr-10 py-2 text-sm font-medium bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-full transition-colors focus:ring-2 focus:ring-brand-blue focus:outline-none disabled:opacity-50"
+                    className="w-full appearance-none rounded-full bg-slate-200 py-2 pl-4 pr-10 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-blue disabled:opacity-50 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 sm:w-auto sm:text-sm"
                 >
                     <option value="added-desc">Added: Newest</option>
                     <option value="added-asc">Added: Oldest</option>
@@ -777,13 +780,13 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
         </div>
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center justify-center gap-3">
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-3">
         <Tooltip content="Registered target domains are mostly useful for their expiry date. Hide them when you want to focus on owned, client, available, expired, or failed rows.">
           <button
             type="button"
             onClick={() => setHideRegisteredTargets(current => !current)}
             disabled={isProcessing || registeredTargetCount === 0}
-            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+            className={`col-span-2 inline-flex items-center justify-center gap-2 rounded-full px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:col-span-1 sm:px-4 sm:text-sm ${
               hideRegisteredTargets
                 ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900'
                 : 'bg-slate-200 text-slate-600 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600'
@@ -795,14 +798,14 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
           </button>
         </Tooltip>
 
-        <div className="relative">
+        <div className="relative min-w-0">
           <label htmlFor="category-filter-select" className="sr-only">Filter by category</label>
           <select
             id="category-filter-select"
             value={categoryFilter}
             onChange={(event) => setCategoryFilter(event.target.value)}
             disabled={isProcessing || (categorization.categories.length === 0 && uncategorizedCount === 0)}
-            className="appearance-none rounded-full bg-slate-200 py-2 pl-4 pr-10 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-blue disabled:opacity-50 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+            className="w-full appearance-none rounded-full bg-slate-200 py-2 pl-3 pr-9 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-blue disabled:opacity-50 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 sm:w-auto sm:pl-4 sm:pr-10 sm:text-sm"
           >
             <option value="all">All categories</option>
             {uncategorizedCount > 0 && (
@@ -832,14 +835,14 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
           </div>
         </div>
 
-        <div className="relative">
+        <div className="relative min-w-0">
           <label htmlFor="tld-filter-select" className="sr-only">Filter by TLD</label>
           <select
             id="tld-filter-select"
             value={tldFilter}
             onChange={(event) => setTldFilter(event.target.value)}
             disabled={isProcessing || tldOptions.length === 0}
-            className="appearance-none rounded-full bg-slate-200 py-2 pl-4 pr-10 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-blue disabled:opacity-50 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+            className="w-full appearance-none rounded-full bg-slate-200 py-2 pl-3 pr-9 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-blue disabled:opacity-50 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 sm:w-auto sm:pl-4 sm:pr-10 sm:text-sm"
           >
             <option value="all">All TLDs</option>
             {tldOptions.map(tld => (
@@ -852,12 +855,12 @@ const DomainList: React.FC<DomainListProps> = ({ domains, isLoadingDomains = fal
         </div>
       </div>
 
-      <div className={`space-y-3 transition-opacity ${isProcessing ? 'opacity-50' : 'opacity-100'}`}>
+      <div className={`space-y-2 transition-opacity sm:space-y-3 ${isProcessing ? 'opacity-50' : 'opacity-100'}`}>
         {sortedDomains.length > 0 ? (
           categoryGroups.length > 0 ? (
             renderedCategoryBlocks.map(block => (
               block.isOverlapBlock ? (
-                <div key={block.id} className="rounded-xl border-2 border-dashed border-brand-blue/70 bg-white/45 p-2 shadow-sm dark:border-blue-400/70 dark:bg-slate-900/35">
+                <div key={block.id} className="rounded-xl border-2 border-dashed border-brand-blue/70 bg-white/45 p-1.5 shadow-sm dark:border-blue-400/70 dark:bg-slate-900/35 sm:p-2">
                   <div className="space-y-2">
                     {block.groups.map(renderCategorySection)}
                   </div>

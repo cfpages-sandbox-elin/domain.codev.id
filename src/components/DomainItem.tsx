@@ -104,7 +104,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
     && !domain.expiration_date;
   const isAvailableForPurchase = isAvailableStatus;
   const canShowDropTimeline = domain.status === 'expired' && Boolean(domain.expiration_date);
-  const actionButtonClass = 'p-1.5 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-wait';
+  const actionButtonClass = 'inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200 disabled:cursor-wait disabled:opacity-50 dark:hover:bg-slate-700';
   const registryStatuses = useMemo(() => (
     domain.domain_statuses || whoisDetails?.domainStatuses || []
   ), [domain.domain_statuses, whoisDetails?.domainStatuses]);
@@ -172,7 +172,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
   ), [categoryLabels, domain, dropLifecycleEstimate, expiredStatusLabel, nameServers, registryStatuses, tagLabel, tld, whoisDetails?.providerLabel]);
 
   return (
-    <div className={`relative overflow-hidden rounded-md border transition-all ${rowStyles} ${isRegisteredTarget ? 'saturate-50 opacity-[0.55] grayscale-[35%]' : ''} ${isWhoisIncomplete ? 'grayscale opacity-75' : ''} ${isCompact ? 'px-3 py-2' : 'px-4 py-3'}`}>
+    <div className={`relative overflow-hidden rounded-md border transition-all ${rowStyles} ${isRegisteredTarget ? 'saturate-50 opacity-[0.55] grayscale-[35%]' : ''} ${isWhoisIncomplete ? 'grayscale opacity-75' : ''} ${isCompact ? 'px-3 py-2' : 'px-3 py-2.5 sm:px-4 sm:py-3'}`}>
       {(isWhoisIncomplete || isWhoisProcessing) && (
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center">
           <span className="rounded-b-md bg-slate-800/90 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white dark:bg-slate-100/90 dark:text-slate-900">
@@ -180,7 +180,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
           </span>
         </div>
       )}
-      <div className={`grid grid-cols-1 gap-3 md:grid-cols-[minmax(180px,1.5fr)_minmax(110px,0.7fr)_minmax(120px,0.8fr)_minmax(160px,0.9fr)_auto] md:items-center ${(isWhoisIncomplete || isWhoisProcessing) ? 'pt-4' : ''}`}>
+      <div className={`grid grid-cols-1 gap-2 sm:gap-3 md:grid-cols-[minmax(180px,1.5fr)_minmax(110px,0.7fr)_minmax(120px,0.8fr)_minmax(160px,0.9fr)_auto] md:items-center ${(isWhoisIncomplete || isWhoisProcessing) ? 'pt-4' : ''}`}>
         <div className="min-w-0">
           <Tooltip content={tooltipContent}>
             <span className="flex min-w-0 items-start gap-2">
@@ -211,7 +211,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
                 </span>
                 {(categoryLabels.length > 0 || tld) && (
                   <span className="mt-1 flex flex-wrap items-center gap-1">
-                    {categoryLabels.slice(0, 3).map(({ id, label, kind }) => {
+                    {categoryLabels.slice(0, 2).map(({ id, label, kind }) => {
                       const isRemovingCategory = pendingCategoryRemovalIds.has(id);
                       return (
                       <span
@@ -247,9 +247,9 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
                       </span>
                       );
                     })}
-                    {categoryLabels.length > 3 && (
+                    {categoryLabels.length > 2 && (
                       <span className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-900/70 dark:text-slate-300">
-                        +{categoryLabels.length - 3}
+                        +{categoryLabels.length - 2}
                       </span>
                     )}
                     {tld && (
@@ -282,7 +282,7 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
           <StatusBadge status={domain.status} isCompact={isCompact} labelOverride={expiredStatusLabel} />
         </div>
 
-        <div className="text-sm font-medium text-slate-700 dark:text-slate-200">
+        <div className="text-xs font-medium text-slate-700 dark:text-slate-200 sm:text-sm">
           {isAvailableForPurchase ? (
             purchaseControls
           ) : (
@@ -312,10 +312,10 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
           )}
         </div>
 
-        <div className="min-h-[32px]">
+        <div className="hidden min-h-[32px] md:block">
         </div>
 
-        <div className="flex items-center justify-start gap-1 md:justify-end">
+        <div className="flex items-center justify-between gap-1 border-t border-black/5 pt-2 dark:border-white/10 md:justify-end md:border-0 md:pt-0">
           {isPending ? (
             <Spinner size="sm" color="border-brand-blue" />
           ) : (
@@ -360,13 +360,13 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
               </span>
             </Tooltip>
           ) : (
-            <div className="group/tag relative inline-flex h-8 w-8 items-center justify-center rounded-md focus-within:bg-slate-200 hover:bg-slate-200 dark:focus-within:bg-slate-700 dark:hover:bg-slate-700">
+            <div className="group/tag relative inline-flex items-center gap-1 rounded-md focus-within:bg-slate-200 hover:bg-slate-200 dark:focus-within:bg-slate-700 dark:hover:bg-slate-700">
               {isTagUpdating && (
                 <span className="absolute inset-0 z-30 flex items-center justify-center rounded-md bg-white/80 dark:bg-slate-900/80">
                   <Spinner size="sm" color="border-brand-blue" />
                 </span>
               )}
-              <span className="pointer-events-none absolute right-8 top-0 z-20 inline-flex h-8 items-center gap-1 rounded-md bg-white/95 px-1 opacity-0 shadow-sm ring-1 ring-slate-200 transition-opacity group-hover/tag:pointer-events-auto group-hover/tag:opacity-100 group-focus-within/tag:pointer-events-auto group-focus-within/tag:opacity-100 dark:bg-slate-900/95 dark:ring-slate-700">
+              <span className="hidden pointer-events-none absolute right-8 top-0 z-20 h-8 items-center gap-1 rounded-md bg-white/95 px-1 opacity-0 shadow-sm ring-1 ring-slate-200 transition-opacity group-hover/tag:pointer-events-auto group-hover/tag:opacity-100 group-focus-within/tag:pointer-events-auto group-focus-within/tag:opacity-100 dark:bg-slate-900/95 dark:ring-slate-700 md:inline-flex">
                 {(['mine', 'to-snatch', 'others'] as DomainTag[])
                   .filter(tag => tag !== effectiveTag)
                   .map(tag => {
@@ -397,6 +397,27 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
                   <TagIconComponent className={tagIconClass} />
                 </button>
               </Tooltip>
+              <span className="inline-flex items-center gap-0.5 md:hidden">
+                {(['mine', 'to-snatch', 'others'] as DomainTag[])
+                  .filter(tag => tag !== effectiveTag)
+                  .map(tag => {
+                    const OptionIcon = getTagIcon(tag);
+                    const optionLabel = getTagLabel(tag);
+                    return (
+                      <Tooltip key={tag} content={<PlainTooltipText title={`Set ${optionLabel}`} body={`Change this domain tag to ${optionLabel}.`} />}>
+                        <button
+                          type="button"
+                          onClick={() => onSetTag(domain.id, tag)}
+                          disabled={isTagUpdating}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-white/70 disabled:opacity-50 dark:hover:bg-slate-800"
+                          aria-label={`Set ${domain.domain_name} tag to ${optionLabel}`}
+                        >
+                          <OptionIcon className={`h-4 w-4 ${getTagColorClass(tag)}`} />
+                        </button>
+                      </Tooltip>
+                    );
+                  })}
+              </span>
             </div>
           )}
           <Tooltip content={<PlainTooltipText title="Remove domain" body="Delete this domain from your tracking list." />}>

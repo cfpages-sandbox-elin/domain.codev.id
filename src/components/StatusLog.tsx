@@ -26,9 +26,9 @@ const StatusLog: React.FC<StatusLogProps> = ({ logs }) => {
   }
 
   return (
-    <div className="fixed bottom-4 left-4 z-50 font-sans">
+    <div className="fixed bottom-3 left-3 z-50 font-sans sm:bottom-4 sm:left-4">
         {isExpanded ? (
-            <div className="w-96 h-[400px] bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg rounded-xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-700">
+            <div className="flex h-[min(400px,70vh)] w-[calc(100vw-1.5rem)] max-w-96 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white/90 shadow-2xl backdrop-blur-lg dark:border-slate-700 dark:bg-slate-800/90">
                 <header className="flex items-center justify-between p-3 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
                     <h3 className="font-semibold text-slate-800 dark:text-slate-200">System Status</h3>
                     <button 
@@ -56,10 +56,10 @@ const StatusLog: React.FC<StatusLogProps> = ({ logs }) => {
         ) : (
             <button
                 onClick={() => setIsExpanded(true)}
-                className="flex items-center justify-center w-12 h-12 bg-white dark:bg-slate-800 rounded-full shadow-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors border border-slate-200 dark:border-slate-700"
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white shadow-lg transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 sm:h-12 sm:w-12"
                 aria-label="Expand status log"
             >
-                <CommandLineIcon className="w-6 h-6 text-slate-600 dark:text-slate-300" />
+                <CommandLineIcon className="h-5 w-5 text-slate-600 dark:text-slate-300 sm:h-6 sm:w-6" />
                 <span className={`absolute top-1 right-1 block h-3 w-3 rounded-full ${latestLogDot} ring-2 ring-white dark:ring-slate-800`}></span>
             </button>
         )}

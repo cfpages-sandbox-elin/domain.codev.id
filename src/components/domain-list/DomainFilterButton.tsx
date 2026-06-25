@@ -23,7 +23,7 @@ const DomainFilterButton: React.FC<DomainFilterButtonProps> = ({
   <button
     onClick={() => onSelect(filterType)}
     disabled={isDisabled}
-    className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+    className={`inline-flex flex-none items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:py-2 sm:text-sm ${
       activeFilter === filterType
         ? 'bg-brand-blue text-white'
         : 'bg-slate-200 text-slate-600 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600'

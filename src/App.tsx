@@ -486,7 +486,7 @@ const App: React.FC = () => {
         }}
       />
       
-      <main className="container mx-auto p-4 md:p-8">
+      <main className="container mx-auto px-4 py-3 sm:p-4 md:p-8">
         {loading ? (
             <div className="flex items-center justify-center pt-20">
               <Spinner size="lg" color="border-brand-blue" />
@@ -505,22 +505,22 @@ const App: React.FC = () => {
       </main>
 
       {!loading && session && (
-        <Tooltip content="Add new domain. Shortcut: Ctrl + N; fallback: Alt + N if the browser captures Ctrl + N." className="fixed bottom-8 right-8 z-40" placement="top">
+        <Tooltip content="Add new domain. Shortcut: Ctrl + N; fallback: Alt + N if the browser captures Ctrl + N." className="fixed bottom-20 right-4 z-40 sm:bottom-8 sm:right-8" placement="top">
           <button
             onMouseEnter={() => void loadBulkAddModal()}
             onFocus={() => void loadBulkAddModal()}
             onClick={() => openDomainEntryModal('single')}
-            className="bg-brand-blue hover:bg-blue-600 text-white rounded-full p-4 shadow-lg transition-transform hover:scale-110 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800"
+            className="rounded-full bg-brand-blue p-3 text-white shadow-lg transition-transform hover:scale-110 hover:bg-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800 sm:p-4"
             aria-label="Add new domain"
           >
-            <PlusIcon className="w-6 h-6" />
+            <PlusIcon className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
         </Tooltip>
       )}
 
       {!loading && <StatusLog logs={logs} />}
       {toasts.length > 0 && (
-        <div className="fixed right-4 top-20 z-50 flex w-[calc(100%-2rem)] max-w-sm flex-col gap-2">
+        <div className="fixed left-3 right-3 top-16 z-50 flex flex-col gap-2 sm:left-auto sm:right-4 sm:top-20 sm:w-[calc(100%-2rem)] sm:max-w-sm">
           {toasts.map(toast => {
             const Icon = toast.kind === 'warning' ? ExclamationTriangleIcon : CheckCircleIcon;
             return (
@@ -536,7 +536,7 @@ const App: React.FC = () => {
                   <Icon className="mt-0.5 h-5 w-5 flex-none" />
                   <div className="min-w-0">
                     <p className="text-sm font-semibold">{toast.title}</p>
-                    <p className="mt-0.5 text-sm opacity-90">{toast.body}</p>
+                    <p className="mt-0.5 text-xs opacity-90 sm:text-sm">{toast.body}</p>
                   </div>
                 </div>
               </div>

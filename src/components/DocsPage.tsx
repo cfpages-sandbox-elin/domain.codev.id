@@ -25,12 +25,12 @@ class CustomRenderer extends marked.Renderer {
         const text = this.parser.parseInline(token.tokens || []);
         const level = token.depth;
         const sizes = ['text-3xl', 'text-2xl', 'text-xl', 'text-lg', 'text-base', 'text-sm'];
-        return `<h${level} class="${sizes[level - 1]} font-bold mt-8 mb-4 text-slate-800 dark:text-white">${text}</h${level}>`;
+        return `<h${level} class="${sizes[level - 1]} font-bold mt-6 mb-3 sm:mt-8 sm:mb-4 text-slate-800 dark:text-white">${text}</h${level}>`;
     }
 
     paragraph(token: Tokens.Paragraph): string {
         const text = this.parser.parseInline(token.tokens || []);
-        return `<p class="mb-4 text-slate-600 dark:text-slate-300 leading-relaxed">${text}</p>`;
+        return `<p class="mb-3 sm:mb-4 text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed">${text}</p>`;
     }
 
     list(token: Tokens.List): string {
@@ -52,7 +52,7 @@ class CustomRenderer extends marked.Renderer {
         const language = token.lang || 'bash';
         // Use the helper to escape HTML characters in the code.
         const escapedCode = token.escaped ? token.text : escape(token.text);
-        return `<pre class="bg-slate-100 dark:bg-slate-900 rounded-lg p-4 my-4"><code class="language-${language} text-sm font-mono whitespace-pre-wrap">${escapedCode}</code></pre>`;
+        return `<pre class="overflow-x-auto bg-slate-100 dark:bg-slate-900 rounded-lg p-3 sm:p-4 my-4"><code class="language-${language} text-xs sm:text-sm font-mono whitespace-pre">${escapedCode}</code></pre>`;
     }
 
     codespan(token: Tokens.Codespan): string {
@@ -92,13 +92,13 @@ class CustomRenderer extends marked.Renderer {
             }
             body += `<tr class="bg-white dark:bg-slate-800">${rowContent}</tr>`;
         }
-        return `<div class="overflow-x-auto my-6"><table class="min-w-full divide-y divide-slate-200 dark:divide-slate-700"><thead><tr class="bg-white dark:bg-slate-800">${header}</tr></thead><tbody class="divide-y divide-slate-200 dark:divide-slate-700">${body}</tbody></table></div>`;
+        return `<div class="overflow-x-auto my-4 sm:my-6"><table class="min-w-full divide-y divide-slate-200 dark:divide-slate-700"><thead><tr class="bg-white dark:bg-slate-800">${header}</tr></thead><tbody class="divide-y divide-slate-200 dark:divide-slate-700">${body}</tbody></table></div>`;
     }
 
     tablecell(token: Tokens.TableCell): string {
         const text = this.parser.parseInline(token.tokens || []);
         const tag = token.header ? 'th' : 'td';
-        const classes = `px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300 ${token.header ? 'font-bold text-slate-800 dark:text-white' : ''}`;
+        const classes = `px-3 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-slate-600 dark:text-slate-300 ${token.header ? 'font-bold text-slate-800 dark:text-white' : ''}`;
         return `<${tag} class="${classes}">${text}</${tag}>`;
     }
 }
@@ -127,16 +127,16 @@ const DocsPage: React.FC = () => {
     }, [selectedDoc]);
     
     return (
-        <div className="flex flex-col md:flex-row gap-8 max-w-7xl mx-auto">
-            <aside className="w-full md:w-64 flex-shrink-0">
-                <div className="sticky top-24">
-                    <h3 className="text-lg font-semibold mb-4 text-slate-800 dark:text-white">Documentation</h3>
-                    <nav className="flex flex-col space-y-1">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 md:flex-row md:gap-8">
+            <aside className="w-full flex-shrink-0 md:w-64">
+                <div className="md:sticky md:top-24">
+                    <h3 className="mb-2 text-base font-semibold text-slate-800 dark:text-white md:mb-4 md:text-lg">Documentation</h3>
+                    <nav className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 md:mx-0 md:flex-col md:space-y-1 md:overflow-visible md:px-0 md:pb-0">
                         {docs.map(doc => (
                             <button
                                 key={doc.slug}
                                 onClick={() => setSelectedDoc(doc)}
-                                className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                                className={`w-max flex-none rounded-md px-3 py-2 text-left text-xs font-medium transition-colors md:w-full md:text-sm ${
                                     selectedDoc.slug === doc.slug
                                     ? 'bg-brand-blue text-white shadow-sm'
                                     : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -150,7 +150,7 @@ const DocsPage: React.FC = () => {
             </aside>
             <article 
                 ref={contentRef}
-                className="flex-grow bg-white dark:bg-slate-800 p-6 sm:p-8 rounded-2xl shadow-lg min-h-[60vh] prose-p:text-red"
+                className="min-h-[55vh] flex-grow rounded-xl bg-white p-4 shadow-sm dark:bg-slate-800 sm:p-6 md:min-h-[60vh] md:rounded-2xl md:p-8 md:shadow-lg"
             >
                 {isLoading ? (
                     <div className="flex justify-center items-center h-full">

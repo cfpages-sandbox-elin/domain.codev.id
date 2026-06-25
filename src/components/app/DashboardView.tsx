@@ -44,9 +44,9 @@ const DashboardView = ({
   onExportRequest,
   onImportRequest,
 }: DashboardViewProps) => (
-  <div className="max-w-4xl mx-auto">
-    <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-lg dark:shadow-black/40">
-      <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-white">Tracked Domains</h2>
+  <div className="mx-auto max-w-4xl">
+    <div className="-mx-4 bg-white px-3 py-4 shadow-sm dark:bg-slate-900 dark:shadow-black/30 sm:mx-0 sm:rounded-xl sm:p-5 md:rounded-2xl md:p-6 md:shadow-lg">
+      <h2 className="mb-3 px-1 text-xl font-bold text-slate-800 dark:text-white sm:mb-4 sm:px-0 sm:text-2xl">Tracked Domains</h2>
       <DomainList
         domains={domains}
         isLoadingDomains={isDomainListLoading}
