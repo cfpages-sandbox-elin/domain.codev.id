@@ -20,7 +20,6 @@ import {
   applyKeywordFilter,
   applyStatusFilter,
   getFilterCounts,
-  getDaysUntilExpiry,
   getKeywordSuggestions,
   hasMissingData,
   readStoredBoolean,
@@ -29,7 +28,6 @@ import {
   readStoredString,
   sortDomains,
 } from './domain-list/domainListLogic';
-import { getWhoisSchedule } from '../utils/whoisSchedule';
 
 interface DomainListProps {
   dateRefreshTick: number;
@@ -78,12 +76,6 @@ const getCategoryGroupStyle = (categoryId: string, index: number) => {
   if (getCategoryKind(categoryId) === 'word-group') return 'border-blue-300 bg-blue-50/75 dark:border-blue-700 dark:bg-blue-950/35';
   return CATEGORY_GROUP_STYLES[index % CATEGORY_GROUP_STYLES.length];
 };
-const formatScheduleDateTime = (date: Date) => date.toLocaleString('en-GB', {
-  day: 'numeric',
-  month: 'short',
-  hour: '2-digit',
-  minute: '2-digit',
-});
 
 const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoadingDomains = false, categoryNameOverrides, categoryManualOverrides, categoryWordGroups, whoisDetailsByDomainId, onRemove, onShowInfo, onToggleTag, onSetTag, onRecheck, onRemoveDomainCategory, onCreateWordGroupCategory, autoRepairingDomainIds, pendingDomainIds, tagUpdatingDomainIds, onImportRequest, onExportRequest, isProcessing }) => {
   const now = useMemo(() => new Date(dateRefreshTick), [dateRefreshTick]);
@@ -495,76 +487,6 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
     () => categorization.categorizedDomains.filter(item => item.categoryIds.length === 0).length,
     [categorization.categorizedDomains],
   );
-  const whoisSchedule = useMemo(() => {
-    const endOfToday = new Date(now);
-    endOfToday.setHours(23, 59, 59, 999);
-    const next3Days = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
-    const next7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-
-    const scheduled = domains
-      .map(domain => ({ domain, schedule: getWhoisSchedule(domain, now) }))
-      .filter(item => item.schedule.nextCheckAt)
-      .sort((a, b) => {
-        if (a.schedule.isDue !== b.schedule.isDue) return a.schedule.isDue ? -1 : 1;
-        const timeDiff = a.schedule.nextCheckAt!.getTime() - b.schedule.nextCheckAt!.getTime();
-        return timeDiff || b.schedule.priority - a.schedule.priority || a.domain.domain_name.localeCompare(b.domain.domain_name);
-      });
-
-    return {
-      today: scheduled.filter(item => item.schedule.isDue || item.schedule.nextCheckAt! <= endOfToday),
-      next3: scheduled.filter(item => item.schedule.nextCheckAt! > endOfToday && item.schedule.nextCheckAt! <= next3Days),
-      next7: scheduled.filter(item => item.schedule.nextCheckAt! > next3Days && item.schedule.nextCheckAt! <= next7Days),
-      later: scheduled.filter(item => item.schedule.nextCheckAt! > next7Days),
-      skipped: domains.length - scheduled.length,
-    };
-  }, [domains, now]);
-
-  const renderScheduleBucket = (
-    label: string,
-    items: typeof whoisSchedule.today,
-    tone: 'red' | 'amber' | 'blue',
-  ) => {
-    const toneClasses = {
-      red: 'border-red-200 bg-red-50 text-red-950 dark:border-red-900/70 dark:bg-red-950/30 dark:text-red-100',
-      amber: 'border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-100',
-      blue: 'border-blue-200 bg-blue-50 text-blue-950 dark:border-blue-900/70 dark:bg-blue-950/30 dark:text-blue-100',
-    };
-
-    return (
-      <div className={`rounded-lg border p-3 ${toneClasses[tone]}`}>
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold">{label}</h3>
-          <span className="rounded-full bg-white/60 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-950/50 dark:text-slate-200">
-            {items.length}
-          </span>
-        </div>
-        {items.length === 0 ? (
-          <p className="text-xs opacity-75">No scheduled checks.</p>
-        ) : (
-          <ul className="space-y-1.5">
-            {items.slice(0, 4).map(({ domain, schedule }) => {
-              const daysLeft = getDaysUntilExpiry(domain, now);
-              return (
-                <li key={domain.id} className="min-w-0 rounded-md bg-white/55 px-2 py-1.5 text-xs dark:bg-slate-950/35">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="min-w-0 truncate font-semibold">{domain.domain_name}</span>
-                    <span className="flex-none opacity-80">{schedule.isDue ? 'Due now' : formatScheduleDateTime(schedule.nextCheckAt!)}</span>
-                  </div>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 opacity-75">
-                    <span>{schedule.cadence}</span>
-                    {daysLeft !== null && <span>{daysLeft < 0 ? `${Math.abs(daysLeft)}d expired` : `${daysLeft}d left`}</span>}
-                  </div>
-                </li>
-              );
-            })}
-            {items.length > 4 && (
-              <li className="text-xs font-semibold opacity-75">+{items.length - 4} more</li>
-            )}
-          </ul>
-        )}
-      </div>
-    );
-  };
 
   const renderDomainItem = (domain: Domain) => {
     const meta = categorizedDomainById.get(domain.id);
@@ -935,30 +857,6 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
           </div>
         </div>
       </div>
-
-      <section className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950/50">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">WHOIS update schedule</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Based on the same expiry windows used by automatic checks. {whoisSchedule.skipped} available/reserved domain{whoisSchedule.skipped === 1 ? '' : 's'} skipped.
-            </p>
-          </div>
-          <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-900 dark:text-slate-300">
-            {whoisSchedule.today.length + whoisSchedule.next3.length + whoisSchedule.next7.length} in 7 days
-          </span>
-        </div>
-        <div className="grid gap-2 md:grid-cols-3">
-          {renderScheduleBucket('Due today', whoisSchedule.today, 'red')}
-          {renderScheduleBucket('Next 3 days', whoisSchedule.next3, 'amber')}
-          {renderScheduleBucket('Next 7 days', whoisSchedule.next7, 'blue')}
-        </div>
-        {whoisSchedule.later.length > 0 && (
-          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-            {whoisSchedule.later.length} more scheduled later than 7 days.
-          </p>
-        )}
-      </section>
 
       <div className={`space-y-2 transition-opacity sm:space-y-3 ${isProcessing ? 'opacity-50' : 'opacity-100'}`}>
         {sortedDomains.length > 0 ? (

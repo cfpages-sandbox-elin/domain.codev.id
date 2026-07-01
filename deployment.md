@@ -22,7 +22,7 @@ This guide provides step-by-step instructions for deploying the Domain Codev app
 
 ## Setting Up Backend Functions (Post-Deployment)
 
-To enable both real-time domain lookups and automatic daily checks, you need to deploy the Supabase Edge Functions. This is a crucial step for the app's core functionality.
+To enable both real-time domain lookups and automatic targeted checks, you need to deploy the Supabase Edge Functions. This is a crucial step for the app's core functionality.
 
 Choose one of the following methods based on your comfort level.
 
@@ -33,7 +33,7 @@ Choose one of the following methods based on your comfort level.
 This method uses the Supabase website interface and is perfect if you are not comfortable with command-line tools.
 
 #### Step 1: Deploy the Edge Functions
-You will deploy two functions: `get-whois` (for real-time checks) and `check-domains` (for daily cron jobs).
+You will deploy two functions: `get-whois` (for real-time checks) and `check-domains` (for the 15-minute cron job).
 
 1.  Go to your project on the [Supabase Dashboard](https://app.supabase.com).
 2.  In the left sidebar, click on the **Edge Functions** icon (a lightning bolt).
@@ -76,8 +76,8 @@ Now you can schedule the `check-domains` job to run automatically.
 1.  On the Cron integration page, navigate to the **"Jobs"** tab.
 2.  Click **"Create job"**.
 3.  Fill out the form:
-    *   **Name**: `Daily Domain Check`.
-    *   **Schedule**: Use the preset for "Run once a day" (`0 0 * * *`).
+    *   **Name**: `Domain Drop Monitor`.
+    *   **Schedule**: Every 15 minutes (`*/15 * * * *`). This cadence is required for active drop-window monitoring and notification retries.
     *   **Type**: **Supabase Edge Function**.
     *   **Edge Function**: Choose `check-domains`.
     *   **HTTP Headers**:

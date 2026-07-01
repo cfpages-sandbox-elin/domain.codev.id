@@ -5,6 +5,7 @@ import Modal from './Modal';
 import Spinner from './Spinner';
 import Tooltip from './Tooltip';
 import { CheckCircleIcon, CommandLineIcon, CopyIcon, TrashIcon } from './icons';
+import NotificationChannelsPanel from './integration/NotificationChannelsPanel';
 
 interface IntegrationSettingsModalProps {
   isOpen: boolean;
@@ -225,6 +226,7 @@ Behavior rules:
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Integration API">
       <div className="space-y-5 text-sm text-slate-700 dark:text-slate-300">
+        <NotificationChannelsPanel addLog={addLog} />
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950">
           <div className="mb-2 flex items-center gap-2 font-semibold text-slate-900 dark:text-white">
             <CommandLineIcon className="h-5 w-5 text-brand-blue" />

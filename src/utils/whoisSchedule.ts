@@ -154,21 +154,22 @@ export const getWhoisSchedule = (domain: Domain, now = new Date()): WhoisSchedul
   if (daysSinceExpiry < 58) {
     return schedule(domain, now, 24, 'Target domain approaching estimated drop window.', 'Daily', 75);
   }
-  if (daysSinceExpiry <= 75) {
+  if (daysSinceExpiry >= 58) {
     const dropTiming = domain.expiration_date ? estimateDropTiming(domain.expiration_date, domain.registered_date) : null;
-    if (dropTiming && dropTiming.confidence !== 'date-only') {
-      const inExactDropWindow = now >= dropTiming.windowStart && now <= dropTiming.windowEnd;
+    if (dropTiming) {
+      const extendedWindowStart = addDays(dropTiming.windowStart, -1);
+      const extendedWindowEnd = addDays(dropTiming.windowEnd, 14);
+      const inActiveDropWindow = now >= extendedWindowStart && now <= extendedWindowEnd;
       return schedule(
         domain,
         now,
-        inExactDropWindow ? 1 : 24,
-        inExactDropWindow ? 'Target domain inside estimated drop-hour window.' : 'Target domain near drop date.',
-        inExactDropWindow ? 'Hourly' : 'Daily',
-        inExactDropWindow ? 100 : 85,
+        inActiveDropWindow ? 0.25 : 1,
+        inActiveDropWindow ? 'Target domain in active drop watch until availability is detected.' : 'Target domain expired and still unavailable.',
+        inActiveDropWindow ? 'Every 15 minutes' : 'Hourly',
+        inActiveDropWindow ? 110 : 100,
       );
     }
-    return schedule(domain, now, 3, 'Target domain near estimated drop date without exact hour.', 'Every 3 hours', 95);
   }
 
-  return schedule(domain, now, 24 * 7, 'Target domain is past estimated drop window but not available yet.', 'Weekly', 45);
+  return schedule(domain, now, 24, 'Target domain expired; monitoring continues until active drop watch.', 'Daily', 75);
 };

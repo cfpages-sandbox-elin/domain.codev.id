@@ -12,11 +12,12 @@ import {
 import { readCachedDomains, writeCachedDomains } from '../utils/appDataCache';
 import type { BulkAddResult, BulkDomain } from '../components/bulk-add/bulkAddLogic';
 
-type ViewName = 'dashboard' | 'docs' | 'categories' | 'settings';
+type ViewName = 'dashboard' | 'schedule' | 'docs' | 'categories' | 'settings';
 type AddDomainOptions = { optimistic?: boolean };
 
 const WHOIS_AUTO_REPAIR_CONCURRENCY = 6;
 const BULK_ADD_CONCURRENCY = 6;
+const DOMAIN_SERVER_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
 interface UseDomainActionsOptions {
   session: Session | null;
@@ -108,6 +109,35 @@ export const useDomainActions = ({
     if (!session || !hasHydratedDomainSnapshotRef.current) return;
     writeCachedDomains(session.user.id, domains);
   }, [domains, session]);
+
+  useEffect(() => {
+    if (!session) return;
+    let cancelled = false;
+
+    const refreshFromServer = async () => {
+      if (document.visibilityState !== 'visible') return;
+      const userDomains = await SupabaseService.getDomains({ silent: true });
+      if (cancelled || !userDomains) return;
+      setDomains(current => [
+        ...current.filter(domain => domain.id < 0),
+        ...userDomains,
+      ]);
+      writeCachedDomains(session.user.id, userDomains);
+    };
+
+    const intervalId = window.setInterval(() => void refreshFromServer(), DOMAIN_SERVER_REFRESH_INTERVAL_MS);
+    const refreshOnVisible = () => {
+      if (document.visibilityState === 'visible') void refreshFromServer();
+    };
+    document.addEventListener('visibilitychange', refreshOnVisible);
+    window.addEventListener('focus', refreshOnVisible);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', refreshOnVisible);
+      window.removeEventListener('focus', refreshOnVisible);
+    };
+  }, [session]);
 
   const markTagUpdateStart = useCallback((id: number) => {
     if (tagUpdatingDomainIdsRef.current.has(id)) return false;

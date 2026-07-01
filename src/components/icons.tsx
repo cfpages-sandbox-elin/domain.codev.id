@@ -3,6 +3,7 @@ export {
   ArrowLeftRight as SwitchHorizontalIcon,
   ArrowUpFromLine as ArrowUpOnSquareIcon,
   Bell as BellIcon,
+  CalendarClock as CalendarClockIcon,
   BookOpen as BookOpenIcon,
   CheckCircle2 as CheckCircleIcon,
   ChevronDown as ChevronDownIcon,

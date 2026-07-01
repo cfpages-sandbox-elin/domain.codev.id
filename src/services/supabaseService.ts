@@ -1,6 +1,6 @@
 
 import { createClient, Session, SupabaseClient } from '@supabase/supabase-js';
-import { Domain, DomainTag, DomainStatus, IntegrationClient, IntegrationScope, UserAppSettings, WhoisProviderCredentialInput } from '../types';
+import { Domain, DomainTag, DomainStatus, IntegrationClient, IntegrationScope, NotificationChannel, NotificationDelivery, UserAppSettings, WhoisProviderCredentialInput } from '../types';
 import { sanitizeAutoMineRules, sanitizeCategoryManualOverrides, sanitizeCategoryNameOverrides, sanitizeCategoryWordGroups } from '../utils/userSettingsStorage';
 
 // The type for inserting a new row. DB handles id, user_id, and created_at.
@@ -27,6 +27,18 @@ export interface Database {
           revoked_at?: string | null;
         };
         Update: Partial<Omit<IntegrationClient, 'id' | 'user_id' | 'created_at' | 'token_hash'>>;
+        Relationships: [];
+      };
+      notification_channels: {
+        Row: NotificationChannel;
+        Insert: Omit<NotificationChannel, 'id' | 'created_at'> & { id?: string; created_at?: string };
+        Update: Partial<Omit<NotificationChannel, 'id' | 'user_id' | 'created_at'>>;
+        Relationships: [];
+      };
+      notification_deliveries: {
+        Row: NotificationDelivery;
+        Insert: never;
+        Update: never;
         Relationships: [];
       };
       whois_provider_credentials: {
@@ -159,7 +171,7 @@ export const signOut = async () => {
 
 // --- Domain Data Functions ---
 
-export const getDomains = async (): Promise<Domain[] | null> => {
+export const getDomains = async (options: { silent?: boolean } = {}): Promise<Domain[] | null> => {
     if (!supabase) return null;
     const { data, error } = await supabase
         .from('domains')
@@ -168,7 +180,7 @@ export const getDomains = async (): Promise<Domain[] | null> => {
     
     if (error) {
         console.error("Error fetching domains:", error);
-        alert('Could not fetch your domains. Please check the console and refresh.');
+        if (!options.silent) alert('Could not fetch your domains. Please check the console and refresh.');
         return null;
     }
     return data;
@@ -296,6 +308,63 @@ export const revokeIntegrationClient = async (id: string): Promise<IntegrationCl
     }
 
     return data as IntegrationClient;
+};
+
+export const getNotificationChannels = async (): Promise<NotificationChannel[]> => {
+    if (!supabase) return [];
+    const { data, error } = await supabase
+        .from('notification_channels')
+        .select('*')
+        .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data as NotificationChannel[];
+};
+
+export const createNotificationChannel = async (input: {
+    name: string;
+    type: NotificationChannel['type'];
+    url: string;
+    secret: string;
+}): Promise<NotificationChannel> => {
+    if (!supabase) throw new Error('Supabase is not configured.');
+    const session = await getSession();
+    if (!session) throw new Error('Sign in before creating a notification channel.');
+    const { data, error } = await supabase
+        .from('notification_channels')
+        .insert([{
+            user_id: session.user.id,
+            name: input.name.trim(),
+            type: input.type,
+            config: { url: input.url.trim(), secret: input.secret },
+            enabled: true,
+        }] as never)
+        .select()
+        .single();
+    if (error) throw error;
+    return data as NotificationChannel;
+};
+
+export const setNotificationChannelEnabled = async (id: string, enabled: boolean): Promise<void> => {
+    if (!supabase) return;
+    const { error } = await supabase.from('notification_channels').update({ enabled } as never).eq('id', id);
+    if (error) throw error;
+};
+
+export const removeNotificationChannel = async (id: string): Promise<void> => {
+    if (!supabase) return;
+    const { error } = await supabase.from('notification_channels').delete().eq('id', id);
+    if (error) throw error;
+};
+
+export const getRecentNotificationDeliveries = async (): Promise<NotificationDelivery[]> => {
+    if (!supabase) return [];
+    const { data, error } = await supabase
+        .from('notification_deliveries')
+        .select('id, channel_id, event_type, status, attempt_count, last_error, created_at, sent_at, payload')
+        .order('created_at', { ascending: false })
+        .limit(10);
+    if (error) throw error;
+    return data as NotificationDelivery[];
 };
 
 // --- WHOIS Provider Credential Functions ---

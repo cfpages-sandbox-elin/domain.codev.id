@@ -4,6 +4,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getWhoisData } from '../_shared/whois-logic.ts'
 import { checkDecisionForDomain, Domain, DomainStatus, DomainTag } from './scheduler.ts'
+import { dispatchPendingNotifications, enqueueDropNotifications } from './notifications.ts'
 
 console.log('✅ "check-domains" function loaded');
 
@@ -57,7 +58,13 @@ serve(async (req) => {
 
     if (!domains || domains.length === 0) {
       console.log('No domains found.');
-      return new Response(JSON.stringify({ message: 'No domains to check.' }), {
+      let notificationResult = { sent: 0, failed: 0 };
+      try {
+        notificationResult = await dispatchPendingNotifications(supabaseAdmin);
+      } catch (notificationError) {
+        console.error('Notification dispatcher failed:', notificationError);
+      }
+      return new Response(JSON.stringify({ message: 'No domains to check.', notifications: notificationResult }), {
         headers: { 'Content-Type': 'application/json' },
         status: 200,
       });
@@ -74,17 +81,30 @@ serve(async (req) => {
 
     const dueDomains = decisions
       .filter(item => item.decision.due)
-      .sort((a, b) => b.decision.priority - a.decision.priority)
+      .sort((a, b) => {
+        const priorityDifference = b.decision.priority - a.decision.priority;
+        if (priorityDifference !== 0) return priorityDifference;
+        const aLastChecked = a.domain.last_checked ? new Date(a.domain.last_checked).getTime() : 0;
+        const bLastChecked = b.domain.last_checked ? new Date(b.domain.last_checked).getTime() : 0;
+        return aLastChecked - bLastChecked;
+      })
       .slice(0, Number.isFinite(maxChecks) && maxChecks > 0 ? maxChecks : 50);
 
     const skippedCount = domains.length - dueDomains.length;
 
     if (dueDomains.length === 0) {
       console.log(`No domains are due for targeted checking. Skipped ${domains.length} domain(s) to save quota.`);
+      let notificationResult = { sent: 0, failed: 0 };
+      try {
+        notificationResult = await dispatchPendingNotifications(supabaseAdmin);
+      } catch (notificationError) {
+        console.error('Notification dispatcher failed:', notificationError);
+      }
       return new Response(JSON.stringify({
         message: 'No domains are due for targeted checking.',
         scanned: domains.length,
         skipped: domains.length,
+        notifications: notificationResult,
       }), {
         headers: { 'Content-Type': 'application/json' },
         status: 200,
@@ -130,6 +150,7 @@ serve(async (req) => {
 
     const CHECK_CONCURRENCY = 6;
     const updatesToApply: Array<DomainUpdate & { id: number }> = [];
+    const detectedDrops: Array<{ domain: Domain; newStatus: DomainStatus; detectedAt: string }> = [];
     let nextIndex = 0;
 
     const workers = Array.from({ length: Math.min(CHECK_CONCURRENCY, dueDomains.length) }, async () => {
@@ -137,7 +158,21 @@ serve(async (req) => {
         const domain = dueDomains[nextIndex].domain as Domain;
         nextIndex += 1;
         const update = await checkDomain(domain);
-        if (update) updatesToApply.push(update);
+        if (update) {
+          updatesToApply.push(update);
+          if (
+            domain.tag === 'to-snatch'
+            && domain.status !== 'available'
+            && domain.status !== 'dropped'
+            && (update.status === 'available' || update.status === 'dropped')
+          ) {
+            detectedDrops.push({
+              domain,
+              newStatus: update.status,
+              detectedAt: update.last_checked || new Date().toISOString(),
+            });
+          }
+        }
       }
     });
 
@@ -145,6 +180,11 @@ serve(async (req) => {
 
     // Batch update the domains in the database
     if (updatesToApply.length > 0) {
+      for (const event of detectedDrops) {
+        const queued = await enqueueDropNotifications(supabaseAdmin, event.domain, event.newStatus, event.detectedAt);
+        console.log(`Queued ${queued} drop notification(s) for ${event.domain.domain_name}.`);
+      }
+
       console.log(`Applying ${updatesToApply.length} updates...`);
       const { error: updateError } = await supabaseAdmin
         .from('domains')
@@ -156,12 +196,21 @@ serve(async (req) => {
         console.log('No domains needed updates.');
     }
 
+    let notificationResult = { sent: 0, failed: 0 };
+    try {
+      notificationResult = await dispatchPendingNotifications(supabaseAdmin);
+      console.log(`Notification dispatch: ${notificationResult.sent} sent, ${notificationResult.failed} failed.`);
+    } catch (notificationError) {
+      console.error('Notification dispatcher failed:', notificationError);
+    }
+
     return new Response(JSON.stringify({
       message: `Checked ${dueDomains.length} due domain(s). Updated ${updatesToApply.length}. Skipped ${skippedCount}.`,
       scanned: domains.length,
       checked: dueDomains.length,
       updated: updatesToApply.length,
       skipped: skippedCount,
+      notifications: notificationResult,
     }), {
       headers: { 'Content-Type': 'application/json' },
       status: 200,

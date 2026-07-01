@@ -109,3 +109,25 @@ export interface IntegrationClient {
   revoked_at: string | null;
   created_at: string;
 }
+
+export interface NotificationChannel {
+  id: string;
+  user_id: string;
+  type: 'webhook' | 'hermes';
+  name: string;
+  config: { url?: string; secret?: string };
+  enabled: boolean;
+  created_at: string;
+}
+
+export interface NotificationDelivery {
+  id: string;
+  channel_id: string | null;
+  event_type: string;
+  status: 'pending' | 'sent' | 'failed' | 'acknowledged';
+  attempt_count: number;
+  last_error: string | null;
+  created_at: string;
+  sent_at: string | null;
+  payload: Record<string, unknown>;
+}

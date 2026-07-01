@@ -1,6 +1,6 @@
 # External Integrations Plan
 
-Last updated: 2026-06-04 WIB
+Last updated: 2026-07-02 WIB
 
 This document plans how Hermes Agent, WhatsApp, and future external apps should talk to this domain tracker.
 
@@ -11,9 +11,9 @@ This document plans how Hermes Agent, WhatsApp, and future external apps should 
 | ✅ Implemented | Integration tables | 2026-06-04 WIB | Added `integration_clients`, `integration_events`, `notification_channels`, and `notification_deliveries` migration. |
 | ✅ Implemented | App-owned API function | 2026-06-04 WIB | Added `supabase/functions/external-api` with scoped bearer-token auth, idempotency records, domain listing, domain add, WHOIS recheck, and computed due-alert read endpoints. |
 | ✅ Implemented | Dashboard token management | 2026-06-04 WIB | Added an Integration API modal for creating/revoking tokens. Raw tokens are generated in-browser and shown once; only SHA-256 hashes are stored. The modal also shows a copyable Hermes setup prompt with the API base URL and new token. |
-| 🟡 Partial | Alert support | 2026-06-05 WIB | `GET /api/v1/alerts/due` computes current expiry/drop alerts for polling clients like Hermes, and `GET /api/v1/alerts/drop/{domainName}` returns an exact-domain target drop alert. Durable queued delivery is still pending. |
+| ✅ Implemented | Alert support | 2026-07-02 WIB | Polling alert endpoints remain available; `check-domains` now queues deduplicated drop deliveries with detection timestamps and dispatches/retries them to enabled Hermes/webhook channels. |
 | ⬜ Pending | Webhook registration endpoints | 2026-06-04 WIB | Tables exist, but `/api/v1/webhooks` is not implemented yet. |
-| ⬜ Pending | Notification dispatcher | 2026-06-04 WIB | `dispatch-notifications` Edge Function is not implemented yet. |
+| ✅ Implemented | Notification dispatcher | 2026-07-02 WIB | `check-domains` dispatches pending/failed deliveries on every cron invocation with exponential retry. Channel setup and recent delivery status are exposed in Integration API settings. |
 | ⬜ Pending | Hermes-side skill/prompt | 2026-06-04 WIB | This app now exposes the API Hermes needs, but Hermes still needs tool/prompt configuration. |
 
 ## Goal
@@ -491,7 +491,7 @@ Extend `check-domains`:
 - do not send WhatsApp directly inside the WHOIS update loop
 - keep delivery state durable
 
-Status: ⬜ pending. Schema exists, but `check-domains` does not write notification deliveries yet.
+Status: ✅ implemented for confirmed `domain.dropped` transitions. Other expiry/reminder event types remain future work.
 
 ### Phase 4: Webhook Dispatcher
 

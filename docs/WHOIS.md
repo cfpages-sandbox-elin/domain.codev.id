@@ -81,9 +81,8 @@ The cron function may run often, but it does not spend WHOIS quota on every doma
 | `to-snatch`, final 7 days before expiry | Check at most daily. |
 | `to-snatch`, 0-44 days after expiry | Check at most weekly; likely grace/redemption period. |
 | `to-snatch`, 45-57 days after expiry | Check at most daily; approaching drop window. |
-| `to-snatch`, 58-75 days after expiry with precise expiry/registration hour | Check hourly only inside the estimated 24-hour drop window, otherwise daily. |
-| `to-snatch`, 58-75 days after expiry without precise hour | Check at most every 3 hours; likely drop date but no exact hour. |
-| `to-snatch`, past 75 days after expiry but still not available | Check at most weekly. |
+| `to-snatch`, 58+ days after expiry and within the extended estimated drop watch | Check every 15 minutes until availability is detected. |
+| `to-snatch`, outside the extended estimated drop watch but still unavailable | Continue hourly; never stop or downgrade to weekly after the estimated date. |
 | Already `available`, `dropped`, or `reserved` | Skip automatic checks. User can buy available/dropped domains or manually re-check if needed; reserved domains are not expected to become buyable. |
 | Missing expiry | Retry weekly if `unknown`, otherwise monthly. |
 

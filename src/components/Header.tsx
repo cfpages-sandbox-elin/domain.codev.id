@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import ModeToggle from './ModeToggle';
 import CompactModeToggle from './CompactModeToggle';
-import { BellIcon, BookOpenIcon, CommandLineIcon, DomainCodevIcon, LogOutIcon, SettingsIcon, TagIcon, UserCircleIcon } from './icons';
+import { BellIcon, BookOpenIcon, CalendarClockIcon, CommandLineIcon, DomainCodevIcon, LogOutIcon, SettingsIcon, TagIcon, UserCircleIcon } from './icons';
 import Tooltip from './Tooltip';
 import { Session } from '@supabase/supabase-js';
 import { signOut } from '../services/supabaseService';
@@ -10,8 +10,8 @@ interface HeaderProps {
     session: Session | null;
     notifications: string[];
     clearNotifications: () => void;
-    setView: (view: 'dashboard' | 'docs' | 'categories' | 'settings') => void;
-    onViewIntent?: (view: 'dashboard' | 'docs' | 'categories' | 'settings') => void;
+    setView: (view: 'dashboard' | 'schedule' | 'docs' | 'categories' | 'settings') => void;
+    onViewIntent?: (view: 'dashboard' | 'schedule' | 'docs' | 'categories' | 'settings') => void;
     onOpenIntegrations: () => void;
 }
 
@@ -65,6 +65,17 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
                     aria-label="Open categories"
                   >
                     <TagIcon className="h-5 w-5 sm:h-6 sm:w-6" />
+                  </button>
+                </Tooltip>
+                <Tooltip content="WHOIS update schedule">
+                  <button
+                    onMouseEnter={() => onViewIntent?.('schedule')}
+                    onFocus={() => onViewIntent?.('schedule')}
+                    onClick={() => setView('schedule')}
+                    className="rounded-full p-1.5 text-slate-600 transition-colors hover:bg-slate-200 hover:text-brand-blue dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white sm:p-2"
+                    aria-label="Open WHOIS update schedule"
+                  >
+                    <CalendarClockIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                   </button>
                 </Tooltip>
                 <Tooltip content="Integration API tokens">

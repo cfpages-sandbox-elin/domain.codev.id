@@ -12,6 +12,7 @@ Guidance for AI coding agents working in this repository.
 - Save tokens where practical: read targeted files, summarize long docs instead of pasting them, use `rg` for search, and avoid repeating unchanged context.
 - Do not sacrifice implementation quality for brevity. Token saving must not reduce code correctness, verification, or maintainability.
 - Before editing, inspect the relevant existing patterns and keep changes scoped.
+- Before placing a new feature in an existing screen, assess its information architecture and primary workflow. Give cross-cutting or operational features their own clearly named section/view when they do not belong in the main task flow; do not append UI to the nearest convenient component.
 - Before larger edits, check `docs/CODEBASE.md` for the current architecture map, then update it after the implementation if the map changed.
 - Before Supabase CLI work, check `docs/SUPABASE.md` for the current project ref, secret names, and command rules.
 - Do not revert user changes unless explicitly asked.

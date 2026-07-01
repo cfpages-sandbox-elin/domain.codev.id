@@ -24,7 +24,7 @@ import {
 } from './utils/appDomainLogic';
 import { splitCategoryWords } from './utils/userSettingsStorage';
 
-type View = 'dashboard' | 'docs' | 'categories' | 'settings';
+type View = 'dashboard' | 'schedule' | 'docs' | 'categories' | 'settings';
 type SettingsTab = 'whois' | 'auto-mine';
 
 type BulkDomain = { domainName: string; tag?: DomainTag };
@@ -36,6 +36,7 @@ const loadBulkAddModal = () => import('./components/BulkAddModal');
 const loadIntegrationSettingsModal = () => import('./components/IntegrationSettingsModal');
 const loadCategoriesPage = () => import('./components/CategoriesPage');
 const loadSettingsView = () => import('./components/app/SettingsView');
+const loadWhoisSchedulePage = () => import('./components/WhoisSchedulePage');
 
 const loadedViewChunks = new Set<View>(['dashboard']);
 const viewChunkModules = new Map<View, unknown>();
@@ -68,6 +69,7 @@ const BulkAddModal = React.lazy(loadBulkAddModal);
 const IntegrationSettingsModal = React.lazy(loadIntegrationSettingsModal);
 const CategoriesPage = React.lazy(() => trackViewChunk('categories', loadCategoriesPage));
 const SettingsView = React.lazy(() => trackViewChunk('settings', loadSettingsView));
+const WhoisSchedulePage = React.lazy(() => trackViewChunk('schedule', loadWhoisSchedulePage));
 
 const LazyChunkFallback = () => (
   <div className="flex min-h-[16rem] items-center justify-center">
@@ -83,6 +85,8 @@ const getViewLabel = (view: View) => {
       return 'Categories';
     case 'settings':
       return 'Settings';
+    case 'schedule':
+      return 'WHOIS Schedule';
     case 'dashboard':
     default:
       return 'Dashboard';
@@ -99,6 +103,9 @@ const preloadViewChunk = (view: View) => {
       break;
     case 'settings':
       void trackViewChunk('settings', loadSettingsView);
+      break;
+    case 'schedule':
+      void trackViewChunk('schedule', loadWhoisSchedulePage);
       break;
     case 'dashboard':
     default:
@@ -334,6 +341,7 @@ const App: React.FC = () => {
       void loadSettingsView();
       void loadDocsPage();
       void loadIntegrationSettingsModal();
+      void loadWhoisSchedulePage();
     };
 
     const idleWindow = window as Window & {
@@ -477,6 +485,8 @@ const App: React.FC = () => {
             addLog={addLog}
           />
         );
+      case 'schedule':
+        return <WhoisSchedulePage dateRefreshTick={dateRefreshTick} domains={domains} />;
       case 'dashboard':
       default:
         return (

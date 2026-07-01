@@ -42,4 +42,16 @@ describe('WHOIS schedule visibility', () => {
     expect(schedule.nextCheckAt).toBeNull();
     expect(schedule.cadence).toBe('Manual');
   });
+
+  it('continues hourly checks after the estimated drop window', () => {
+    const schedule = getWhoisSchedule(domain({
+      tag: 'to-snatch',
+      expiration_date: '2026-04-01T00:00:00.000Z',
+      registered_date: '2024-04-01T00:00:00.000Z',
+      last_checked: '2026-06-20T18:00:00.000Z',
+    }), new Date('2026-06-20T20:00:00.000Z'));
+
+    expect(schedule.isDue).toBe(true);
+    expect(schedule.cadence).toBe('Hourly');
+  });
 });

@@ -32,27 +32,27 @@ describe('targeted WHOIS cron scheduler', () => {
     expect(decision.priority).toBe(30);
   });
 
-  it('checks targets hourly inside a precise estimated drop-hour window', () => {
+  it('checks targets every 15 minutes inside the active drop window', () => {
     const decision = checkDecisionForDomain(domain({
       tag: 'to-snatch',
       expiration_date: '2026-04-01T00:00:00.000Z',
       registered_date: '2024-04-01T00:00:00.000Z',
-      last_checked: '2026-06-04T22:00:00.000Z',
+      last_checked: '2026-06-04T23:40:00.000Z',
     }), now);
 
     expect(decision.due).toBe(true);
-    expect(decision.priority).toBe(100);
+    expect(decision.priority).toBe(110);
   });
 
-  it('backs off targets that are outside the precise drop-hour window', () => {
+  it('keeps checking targets after the estimated drop date instead of backing off weekly', () => {
     const decision = checkDecisionForDomain(domain({
       tag: 'to-snatch',
       expiration_date: '2026-04-01T00:00:00.000Z',
       registered_date: '2024-04-01T00:00:00.000Z',
-      last_checked: '2026-06-06T02:30:00.000Z',
-    }), new Date('2026-06-06T20:00:00.000Z'));
+      last_checked: '2026-06-20T18:30:00.000Z',
+    }), new Date('2026-06-20T20:00:00.000Z'));
 
-    expect(decision.due).toBe(false);
-    expect(decision.priority).toBe(85);
+    expect(decision.due).toBe(true);
+    expect(decision.priority).toBe(100);
   });
 });

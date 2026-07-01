@@ -8,7 +8,7 @@ An aesthetically pleasing app to check domain availability and track domain expi
 
 *   **Secure User Accounts:** Sign in with your Google account to keep your domain list private and synced.
 *   **Secure & Resilient Domain Checks:** Real-time WHOIS lookups are proxied through a secure Supabase Edge Function. This resolves CORS issues and protects API keys by never exposing them to the browser. The backend uses a tiered approach with multiple WHOIS providers for high availability.
-*   **Automated Daily Checks:** A secure, server-side Supabase Edge Function (`check-domains`) runs daily to automatically update the status of your tracked domains, checking for expirations and drops.
+*   **Automated Targeted Checks:** A secure Supabase Edge Function (`check-domains`) is invoked every 15 minutes and only checks domains due under the expiry/drop schedule, including continuous target monitoring through the drop window.
 *   **Bulk Add, Import & Export:** Easily manage large lists of domains by pasting a list or importing/exporting in JSON/CSV format. Bulk additions are processed concurrently with rate-limiting to ensure speed and reliability.
 *   **Manual Re-check:** For any domain where the lookup failed, a simple "Re-check" button allows you to instantly try again via the secure backend proxy.
 *   **Direct Purchase Links:** For available domains, get quick links to recommended registrars to purchase the domain immediately.
@@ -140,7 +140,7 @@ pnpm run dev
 
 ## Setting Up Backend Functions
 
-To enable both real-time domain lookups and automatic daily checks, you need to deploy the Supabase Edge Functions. This is a crucial step for the app's core functionality.
+To enable both real-time domain lookups and automatic targeted checks, you need to deploy the Supabase Edge Functions. This is a crucial step for the app's core functionality.
 
 Choose one of the following methods based on your comfort level.
 
@@ -151,7 +151,7 @@ Choose one of the following methods based on your comfort level.
 This method uses the Supabase website interface and is perfect if you are not comfortable with command-line tools.
 
 #### Step 1: Deploy the Edge Functions
-You will deploy two functions: `get-whois` (for real-time checks) and `check-domains` (for daily cron jobs).
+You will deploy two functions: `get-whois` (for real-time checks) and `check-domains` (for the 15-minute cron job).
 
 1.  Go to your project on the [Supabase Dashboard](https://app.supabase.com).
 2.  In the left sidebar, click on the **Edge Functions** icon (a lightning bolt).
