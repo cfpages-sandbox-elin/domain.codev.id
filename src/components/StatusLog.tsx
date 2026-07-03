@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ChevronDownIcon, CommandLineIcon, CheckCircleIcon, XCircleIcon, ExclamationTriangleIcon, InformationCircleIcon } from './icons';
 import { useOutsideDismiss } from '../hooks/useOutsideDismiss';
-import { FLOATING_ACTION_ICON_CLASS, floatingActionButtonClass } from './floatingActionStyles';
+import { FLOATING_ACTION_ICON_CLASS, floatingActionButtonClass, floatingActionContainerClass } from './floatingActionStyles';
 
 interface StatusLogProps {
   logs: string[];
@@ -29,7 +29,7 @@ const StatusLog: React.FC<StatusLogProps> = ({ logs }) => {
   }
 
   return (
-    <div ref={statusLogRef} className="fixed bottom-3 left-3 z-50 font-sans sm:bottom-4 sm:left-4">
+    <div ref={statusLogRef} className={`${floatingActionContainerClass('left')} font-sans`}>
         {isExpanded ? (
             <div className="flex h-[min(400px,70vh)] w-[calc(100vw-1.5rem)] max-w-96 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white/90 shadow-2xl backdrop-blur-lg dark:border-slate-700 dark:bg-slate-800/90">
                 <header className="flex items-center justify-between p-3 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">

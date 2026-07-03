@@ -1,6 +1,7 @@
 import React from 'react';
 import { DomainTag } from '../../types';
 import { HomeIcon, TargetIcon, UsersIcon } from '../icons';
+import Tooltip from '../Tooltip';
 
 interface TagChoiceProps {
   id: string;
@@ -8,6 +9,7 @@ interface TagChoiceProps {
   tag: DomainTag;
   checked: boolean;
   disabled: boolean;
+  shortcut: string;
   onChange: () => void;
 }
 
@@ -23,14 +25,20 @@ export const getTagIconClass = (tag: DomainTag) => {
   return 'text-teal-500';
 };
 
-const TagChoice: React.FC<TagChoiceProps> = ({ id, name, tag, checked, disabled, onChange }) => {
+const TagChoice: React.FC<TagChoiceProps> = ({ id, name, tag, checked, disabled, shortcut, onChange }) => {
   const isMine = tag === 'mine';
   const isOthers = tag === 'others';
   const Icon = getTagIcon(tag);
   const label = isMine ? 'Mine' : isOthers ? 'Others' : 'To Snatch';
+  const meaning = isMine
+    ? 'A domain you own and need to renew.'
+    : isOthers
+      ? 'A client or third-party owned domain you monitor.'
+      : 'A target domain you want to watch and acquire.';
 
   return (
-    <div>
+    <Tooltip className="w-full" content={`${meaning} Keyboard shortcut: ${shortcut}.`} placement="top">
+    <div className="w-full">
       <input type="radio" id={id} name={name} value={tag} checked={checked} onChange={onChange} disabled={disabled} className="sr-only peer" />
       <label
         htmlFor={id}
@@ -46,6 +54,7 @@ const TagChoice: React.FC<TagChoiceProps> = ({ id, name, tag, checked, disabled,
         {label}
       </label>
     </div>
+    </Tooltip>
   );
 };
 

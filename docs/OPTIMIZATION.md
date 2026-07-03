@@ -18,6 +18,10 @@ This tracker exists because the dashboard now has around 675 domains and is star
 | Cursor consistency | Done | Interactive elements relied on mixed browser defaults and scattered `cursor-*` classes. | Buttons could show an arrow while labels/details showed a hand, making feedback look delayed or stuck. | Apply a CSS-only pointer cursor policy to enabled interactive controls and explicit disabled cursors. |
 | Hover prefetch | Done | Header and Add Domain controls started dynamic imports on mouse enter even though chunks are already prefetched on idle and loaded on click/focus. | Module download/parse work could compete with the first hover paint on slower devices. | Remove mouse-enter imports; retain idle warmup, keyboard focus intent, and click-time loading fallback. |
 | Floating actions | Done | System Status and Add Domain used different padding, responsive sizes, borders, icon sizes, and hover scaling. | The two persistent actions looked unrelated and their visual hit areas changed by viewport. | Use one fixed 48px shared button geometry and 20px icon size with neutral/primary tone variants. |
+| Floating action offsets | Done | The two circles still used separate bottom and horizontal viewport offsets after sharing button geometry. | Equal-size controls remained visibly misaligned and Add Domain moved differently across breakpoints. | Share bottom clearance and edge spacing; vary only left/right side and color tone. |
+| Tooltip first paint | Done | A tooltip first rendered with stale/default coordinates and relied on a layout-effect state update before reaching its final anchor; scroll also performed synchronous updates for every event. | Under main-thread pressure, tooltip appearance could feel late even though no delay timer existed. | Compute a cheap trigger-relative anchor before showing, perform one measured correction after portal mount, and coalesce scroll/resize repositioning to one animation frame. |
+| Tooltip overlap | Done | Large WHOIS tooltips were viewport-clamped without preserving a gap from their trigger. | A tooltip could move across and cover the domain name that opened it. | Constrain height to the selected side and flip to the side with room; never clamp through the trigger rectangle. |
+| Add-tag shortcuts | Done | Mine and To Snatch shortcuts existed only in surrounding tooltips, while Others had no shortcut. | Keyboard behavior was hard to discover and incomplete. | Put meaning plus shortcut on each tag choice and add Alt-based Others shortcuts for single/bulk entry. |
 
 ## Current Pass Tracker
 
@@ -33,7 +37,7 @@ This tracker exists because the dashboard now has around 675 domains and is star
 | Page/data cache strategy | Done | Do not wait on Supabase just to navigate. Use already-loaded React state first, hydrate domains from a user-scoped local stale cache after refresh, revalidate Supabase in the background, debounce category/settings writes while the user is tidying, and cache provider dashboard status for immediate settings paint. |
 | Tag update feedback | Done | Changing Mine / To Snatch / Others waits on Supabase and could feel stuck. Track per-domain tag updates and show a small spinner/disabled tag controls for only the row being changed. |
 | Verify with project checks | Done | `pnpm run lint`, `pnpm exec tsc --noEmit --pretty false`, and `pnpm run build` passed. |
-| Optimize hover/cursor interaction path | Done | Replaced tooltip listener fan-out, removed duplicate tooltip positioning and hover prefetch work, standardized cursor CSS, and unified floating actions. |
+| Optimize hover/cursor interaction path | Done | Replaced tooltip listener fan-out, standardized cursor CSS, removed hover prefetch work, anchored tooltip first paint, prevented trigger overlap, and unified floating actions and offsets. |
 
 ## Current Cache/Navigation Plan
 
@@ -51,6 +55,7 @@ This tracker exists because the dashboard now has around 675 domains and is star
 | Date/Time (WIB) | Status | Change | Notes |
 | --- | --- | --- | --- |
 | 2026-07-03 17:32 WIB | Done | Completed hover/cursor and floating-action pass. | Cursor changes are CSS-only; tooltip activation is O(1) instead of broadcasting to every mounted tooltip; persistent floating circles share one size/style system. |
+| 2026-07-03 17:32 WIB | Done | Completed tooltip placement and tag-shortcut follow-up. | Tooltips anchor before display, stay off their trigger, and tag choices expose working Mine/To Snatch/Others shortcuts. |
 | 2026-06-06 14:18 WIB | Done | Completed stale-cache and reduced-Supabase-call pass. | Added user-scoped local domain snapshots, session-cached provider statuses, debounced merged app-settings writes, immediate route switches for warmed chunks, and row-level tag-update spinners. |
 | 2026-06-06 08:11 WIB | Done | Started stale-cache and reduced-Supabase-call pass. | Focus: no Supabase wait on page change, cache domain/provider data locally, and debounce category/settings writes during cleanup. |
 | 2026-06-05 23:21 WIB | Done | Added instant route transition feedback. | Page navigation now paints a spinner/message immediately, prefetches route chunks on idle and nav intent, and mounts heavy pages after the browser has had a frame to respond. |

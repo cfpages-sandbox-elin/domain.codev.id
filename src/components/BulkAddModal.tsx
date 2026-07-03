@@ -13,6 +13,7 @@ import {
     findExistingDomainMatches,
     formatSkippedImportLog,
     getTagLabel,
+    getTagForSubmitShortcut,
     isDomainTag,
     isValidDomainName,
     normalizeDomainInput,
@@ -140,7 +141,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
     const handleSingleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
         if (event.key === 'Enter') {
             event.preventDefault();
-            handleSingleSubmit(event.shiftKey ? 'to-snatch' : 'mine');
+            handleSingleSubmit(getTagForSubmitShortcut(event));
         }
     };
 
@@ -170,7 +171,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
     const handleBulkPasteKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (event.key !== 'Enter' || (!event.ctrlKey && !event.metaKey)) return;
         event.preventDefault();
-        handlePasteSubmit(event.shiftKey ? 'to-snatch' : 'mine');
+        handlePasteSubmit(getTagForSubmitShortcut(event));
     };
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -292,7 +293,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
 
                 {activeTab === 'single' ? (
                     <div className="flex flex-col gap-4" role="tabpanel">
-                        <Tooltip content="Enter = save as Mine. Shift + Enter = save as To Snatch. Choose Others for client-owned domains. Available domains are always saved as To Snatch.">
+                        <Tooltip content="Enter = save as Mine. Shift + Enter = save as To Snatch. Alt + Enter = save as Others. Available domains are always saved as To Snatch.">
                             <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200" htmlFor="single-domain-input">
                                 Domain name
                             </label>
@@ -338,13 +339,13 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
 
                         <fieldset className="grid gap-2 sm:grid-cols-3">
                             <legend className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">Save as</legend>
-                            <TagChoice id="single-tag-mine" name="single-tag" tag="mine" checked={singleTag === 'mine'} disabled={isBusy} onChange={() => setSingleTag('mine')} />
-                            <TagChoice id="single-tag-snatch" name="single-tag" tag="to-snatch" checked={singleTag === 'to-snatch'} disabled={isBusy} onChange={() => setSingleTag('to-snatch')} />
-                            <TagChoice id="single-tag-others" name="single-tag" tag="others" checked={singleTag === 'others'} disabled={isBusy} onChange={() => setSingleTag('others')} />
+                            <TagChoice id="single-tag-mine" name="single-tag" tag="mine" checked={singleTag === 'mine'} disabled={isBusy} shortcut="Enter" onChange={() => setSingleTag('mine')} />
+                            <TagChoice id="single-tag-snatch" name="single-tag" tag="to-snatch" checked={singleTag === 'to-snatch'} disabled={isBusy} shortcut="Shift + Enter" onChange={() => setSingleTag('to-snatch')} />
+                            <TagChoice id="single-tag-others" name="single-tag" tag="others" checked={singleTag === 'others'} disabled={isBusy} shortcut="Alt + Enter" onChange={() => setSingleTag('others')} />
                         </fieldset>
 
                         <div className="flex justify-stretch border-t border-slate-200 pt-3 dark:border-slate-600 sm:justify-end sm:pt-4">
-                            <Tooltip content="Runs WHOIS first, then saves only if the result is usable. Enter saves as Mine; Shift + Enter saves as To Snatch. Use Others for client-owned domains.">
+                            <Tooltip content="Runs WHOIS first, then saves only if the result is usable. Enter saves as Mine; Shift + Enter saves as To Snatch; Alt + Enter saves as Others.">
                                 <button
                                     type="button"
                                     onClick={() => handleSingleSubmit(singleTag)}
@@ -382,7 +383,7 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                         {bulkEntryMode === 'paste' ? (
                             <div>
                                 <h4 className="mb-2 text-base font-semibold text-slate-800 dark:text-slate-200 sm:text-lg">Paste a List</h4>
-                                <Tooltip content="Ctrl + Enter = check as Mine. Ctrl + Shift + Enter = check as To Snatch.">
+                                <Tooltip content="Ctrl + Enter = check as Mine. Ctrl + Shift + Enter = check as To Snatch. Ctrl + Alt + Enter = check as Others.">
                                     <textarea
                                         ref={bulkInputRef}
                                         value={textValue}
@@ -425,15 +426,15 @@ const BulkAddModal: React.FC<BulkAddModalProps> = ({ isOpen, onClose, initialTab
                     <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">Imported available domains are always saved as To Snatch. This default is used when WHOIS says the domain is registered.</p>
                      <fieldset className="grid gap-2 sm:grid-cols-3">
                         <legend className="sr-only">Default tag selection</legend>
-                        <TagChoice id="tag-mine" name="default-tag" tag="mine" checked={defaultTag === 'mine'} disabled={isBusy} onChange={() => setDefaultTag('mine')} />
-                        <TagChoice id="tag-snatch" name="default-tag" tag="to-snatch" checked={defaultTag === 'to-snatch'} disabled={isBusy} onChange={() => setDefaultTag('to-snatch')} />
-                        <TagChoice id="tag-others" name="default-tag" tag="others" checked={defaultTag === 'others'} disabled={isBusy} onChange={() => setDefaultTag('others')} />
+                        <TagChoice id="tag-mine" name="default-tag" tag="mine" checked={defaultTag === 'mine'} disabled={isBusy} shortcut="Ctrl + Enter" onChange={() => setDefaultTag('mine')} />
+                        <TagChoice id="tag-snatch" name="default-tag" tag="to-snatch" checked={defaultTag === 'to-snatch'} disabled={isBusy} shortcut="Ctrl + Shift + Enter" onChange={() => setDefaultTag('to-snatch')} />
+                        <TagChoice id="tag-others" name="default-tag" tag="others" checked={defaultTag === 'others'} disabled={isBusy} shortcut="Ctrl + Alt + Enter" onChange={() => setDefaultTag('others')} />
                     </fieldset>
                 </div>
 
                 {bulkEntryMode === 'paste' && (
                     <div className="flex justify-stretch border-t border-slate-200 pt-3 dark:border-slate-600 sm:justify-end sm:pt-4">
-                        <Tooltip content="Each new valid domain runs WHOIS before saving. Invalid, repeated, and already tracked domains are skipped. Ctrl + Enter checks as Mine; Ctrl + Shift + Enter checks as To Snatch.">
+                        <Tooltip content="Each new valid domain runs WHOIS before saving. Invalid, repeated, and already tracked domains are skipped. Ctrl + Enter checks as Mine; Ctrl + Shift + Enter checks as To Snatch; Ctrl + Alt + Enter checks as Others.">
                         <button
                             onClick={() => handlePasteSubmit()}
                             disabled={isBusy || !textValue.trim() || parsedPaste.domains.length === 0}

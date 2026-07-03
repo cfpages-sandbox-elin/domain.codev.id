@@ -13,7 +13,7 @@ let activeTooltip: { id: string; hide: () => void } | null = null;
 
 const Tooltip: React.FC<TooltipProps> = ({ children, content, className = '', placement = 'bottom' }) => {
   const [isVisible, setIsVisible] = useState(false);
-  const [position, setPosition] = useState({ left: 0, top: 0, width: 320, transform: 'translateX(-50%)' });
+  const [position, setPosition] = useState({ left: 0, top: 0, width: 320, maxHeight: 320, transform: 'translateX(-50%)' });
   const tooltipIdRef = useRef(`tooltip-${++nextTooltipId}`);
   const triggerRef = useRef<HTMLSpanElement>(null);
   const tooltipRef = useRef<HTMLSpanElement>(null);
@@ -28,35 +28,43 @@ const Tooltip: React.FC<TooltipProps> = ({ children, content, className = '', pl
     const halfWidth = width / 2;
     const centeredLeft = rect.left + rect.width / 2;
     const left = Math.min(Math.max(centeredLeft, margin + halfWidth), window.innerWidth - margin - halfWidth);
-    const measuredHeight = tooltipRef.current?.offsetHeight || 0;
-    const spaceBelow = window.innerHeight - rect.bottom - margin;
-    const spaceAbove = rect.top - margin;
+    const measuredHeight = tooltipRef.current?.scrollHeight || 0;
+    const spaceBelow = Math.max(window.innerHeight - rect.bottom - margin - gap, 0);
+    const spaceAbove = Math.max(rect.top - margin - gap, 0);
     const shouldPlaceTop = placement === 'top'
-      || (placement === 'bottom' && measuredHeight > 0 && spaceBelow < measuredHeight + gap && spaceAbove > spaceBelow);
-    const unclampedTop = shouldPlaceTop ? rect.top - gap - measuredHeight : rect.bottom + gap;
-    const top = Math.min(
-      Math.max(unclampedTop, margin),
-      Math.max(margin, window.innerHeight - margin - measuredHeight),
-    );
+      ? spaceAbove >= Math.min(measuredHeight || 120, 120) || spaceAbove >= spaceBelow
+      : measuredHeight > 0 && spaceBelow < Math.min(measuredHeight, 120) && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(shouldPlaceTop ? spaceAbove : spaceBelow, 48);
+    const renderedHeight = measuredHeight > 0 ? Math.min(measuredHeight, maxHeight) : 0;
+    const top = shouldPlaceTop ? rect.top - gap - renderedHeight : rect.bottom + gap;
     const transform = measuredHeight > 0
       ? 'translateX(-50%)'
       : shouldPlaceTop
         ? 'translateX(-50%) translateY(-100%)'
         : 'translateX(-50%)';
 
-    setPosition({ left, top, width, transform });
+    setPosition({ left, top, width, maxHeight, transform });
   }, [placement]);
 
   useLayoutEffect(() => {
     if (!isVisible) return;
 
     updatePosition();
-    window.addEventListener('resize', updatePosition);
-    window.addEventListener('scroll', updatePosition, true);
+    let frameId: number | null = null;
+    const schedulePositionUpdate = () => {
+      if (frameId !== null) return;
+      frameId = window.requestAnimationFrame(() => {
+        frameId = null;
+        updatePosition();
+      });
+    };
+    window.addEventListener('resize', schedulePositionUpdate);
+    window.addEventListener('scroll', schedulePositionUpdate, true);
 
     return () => {
-      window.removeEventListener('resize', updatePosition);
-      window.removeEventListener('scroll', updatePosition, true);
+      if (frameId !== null) window.cancelAnimationFrame(frameId);
+      window.removeEventListener('resize', schedulePositionUpdate);
+      window.removeEventListener('scroll', schedulePositionUpdate, true);
     };
   }, [isVisible, updatePosition]);
 
@@ -72,8 +80,9 @@ const Tooltip: React.FC<TooltipProps> = ({ children, content, className = '', pl
       activeTooltip?.hide();
       activeTooltip = { id: tooltipIdRef.current, hide: hideTooltip };
     }
+    updatePosition();
     setIsVisible(true);
-  }, [hideTooltip]);
+  }, [hideTooltip, updatePosition]);
 
   useEffect(() => {
     const tooltipId = tooltipIdRef.current;
@@ -123,7 +132,7 @@ const Tooltip: React.FC<TooltipProps> = ({ children, content, className = '', pl
         top: position.top,
         width: position.width,
         maxWidth: 'calc(100vw - 2rem)',
-        maxHeight: 'calc(100vh - 2rem)',
+        maxHeight: position.maxHeight,
         overflowY: 'auto',
         transform: position.transform,
       }}

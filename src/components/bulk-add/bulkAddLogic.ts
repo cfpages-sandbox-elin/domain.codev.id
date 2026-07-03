@@ -88,6 +88,12 @@ export const getTagLabel = (tag: DomainTag) => {
   return 'To Snatch';
 };
 
+export const getTagForSubmitShortcut = (modifiers: { shiftKey: boolean; altKey: boolean }): DomainTag => {
+  if (modifiers.altKey) return 'others';
+  if (modifiers.shiftKey) return 'to-snatch';
+  return 'mine';
+};
+
 export const findExistingDomainMatches = (existingDomains: Domain[], normalizedDomain: string | null) => {
   if (!normalizedDomain || normalizedDomain.length < 2) return [];
   return existingDomains
