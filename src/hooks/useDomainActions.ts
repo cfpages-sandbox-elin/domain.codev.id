@@ -37,6 +37,7 @@ export const useDomainActions = ({
   onWhoisCheckFinished,
 }: UseDomainActionsOptions) => {
   const [isDomainListLoading, setIsDomainListLoading] = useState(true);
+  const [loadedDomainUserId, setLoadedDomainUserId] = useState<string | null>(null);
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
   const [domains, setDomains] = useState<Domain[]>([]);
   const [whoisDetailsByDomainId, setWhoisDetailsByDomainId] = useState<Record<number, WhoisData>>({});
@@ -59,6 +60,7 @@ export const useDomainActions = ({
     if (!session) {
       setDomains([]);
       setIsDomainListLoading(false);
+      setLoadedDomainUserId(null);
       setWhoisDetailsByDomainId({});
       setAutoRepairingDomainIds(new Set());
       setPendingDomainIds(new Set());
@@ -76,8 +78,8 @@ export const useDomainActions = ({
       if (cachedDomains && cachedDomains.length > 0) {
         hasHydratedDomainSnapshotRef.current = true;
         setDomains(cachedDomains);
-        setIsDomainListLoading(false);
-        addLog(`✅ Loaded ${cachedDomains.length} cached domains. Refreshing from Supabase in the background.`);
+        setIsDomainListLoading(true);
+        addLog(`✅ Hydrated ${cachedDomains.length} cached domains while confirming current data with Supabase.`);
       } else {
         setIsDomainListLoading(true);
         addLog('➡️ Fetching user domains...');
@@ -94,7 +96,10 @@ export const useDomainActions = ({
           addLog('❌ Failed to fetch domains.');
         }
       } finally {
-        if (!cancelled) setIsDomainListLoading(false);
+        if (!cancelled) {
+          setLoadedDomainUserId(session.user.id);
+          setIsDomainListLoading(false);
+        }
       }
     };
 
@@ -524,9 +529,13 @@ export const useDomainActions = ({
     };
   }, [session, view, domains, pendingDomainIds, isAutoRepairingWhois, isBulkProcessing, syncWhoisForDomain, addLog]);
 
+  const isInitialDomainLoad = session
+    ? loadedDomainUserId !== session.user.id
+    : false;
+
   return {
     domains,
-    isDomainListLoading,
+    isDomainListLoading: isInitialDomainLoad || isDomainListLoading,
     isBulkProcessing,
     whoisDetailsByDomainId,
     autoRepairingDomainIds,
