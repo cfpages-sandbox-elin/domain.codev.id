@@ -36,6 +36,8 @@ Supabase cron can wake every 15 minutes without calling a WHOIS provider every 1
 - `mine` and `others` renewal cadence remains conservative and code-defined; this page controls target/drop monitoring.
 - The global server cap `WHOIS_CRON_MAX_CHECKS` remains a final safety ceiling across all users.
 - The Schedule page uses the same user's persisted settings when projecting due times.
+- Every time setting has a minutes/hours/days display selector. Changing the selector does not change the stored policy; values are converted to canonical backend units only when edited.
+- Each setting has an in-app tooltip explaining lifecycle meaning, quota impact, and timing tradeoffs.
 
 ## Implementation Tracker
 
