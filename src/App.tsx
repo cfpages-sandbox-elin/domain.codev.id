@@ -23,6 +23,7 @@ import {
   getDomainNotificationMessage,
 } from './utils/appDomainLogic';
 import { splitCategoryWords } from './utils/userSettingsStorage';
+import { FLOATING_ACTION_ICON_CLASS, floatingActionButtonClass } from './components/floatingActionStyles';
 
 type View = 'dashboard' | 'schedule' | 'docs' | 'categories' | 'settings';
 type SettingsTab = 'whois' | 'monitoring' | 'auto-mine';
@@ -551,13 +552,12 @@ const App: React.FC = () => {
       {!loading && session && (
         <Tooltip content="Add new domain. Shortcut: Ctrl + N; fallback: Alt + N if the browser captures Ctrl + N." className="fixed bottom-20 right-4 z-40 sm:bottom-8 sm:right-8" placement="top">
           <button
-            onMouseEnter={() => void loadBulkAddModal()}
             onFocus={() => void loadBulkAddModal()}
             onClick={() => openDomainEntryModal('single')}
-            className="rounded-full bg-brand-blue p-3 text-white shadow-lg transition-transform hover:scale-110 hover:bg-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800 sm:p-4"
+            className={floatingActionButtonClass('primary')}
             aria-label="Add new domain"
           >
-            <PlusIcon className="h-5 w-5 sm:h-6 sm:w-6" />
+            <PlusIcon className={FLOATING_ACTION_ICON_CLASS} />
           </button>
         </Tooltip>
       )}

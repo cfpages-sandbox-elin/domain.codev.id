@@ -9,13 +9,7 @@ interface TooltipProps {
 }
 
 let nextTooltipId = 0;
-let activeTooltipId: string | null = null;
-const activeTooltipListeners = new Set<(id: string | null) => void>();
-
-const setActiveTooltip = (id: string | null) => {
-  activeTooltipId = id;
-  activeTooltipListeners.forEach(listener => listener(id));
-};
+let activeTooltip: { id: string; hide: () => void } | null = null;
 
 const Tooltip: React.FC<TooltipProps> = ({ children, content, className = '', placement = 'bottom' }) => {
   const [isVisible, setIsVisible] = useState(false);
@@ -68,30 +62,24 @@ const Tooltip: React.FC<TooltipProps> = ({ children, content, className = '', pl
 
   const hideTooltip = useCallback(() => {
     setIsVisible(false);
-    if (activeTooltipId === tooltipIdRef.current) {
-      setActiveTooltip(null);
+    if (activeTooltip?.id === tooltipIdRef.current) {
+      activeTooltip = null;
     }
   }, []);
 
-  const showTooltip = () => {
-    setActiveTooltip(tooltipIdRef.current);
+  const showTooltip = useCallback(() => {
+    if (activeTooltip?.id !== tooltipIdRef.current) {
+      activeTooltip?.hide();
+      activeTooltip = { id: tooltipIdRef.current, hide: hideTooltip };
+    }
     setIsVisible(true);
-    updatePosition();
-  };
+  }, [hideTooltip]);
 
   useEffect(() => {
     const tooltipId = tooltipIdRef.current;
-    const handleActiveTooltipChange = (id: string | null) => {
-      if (id !== tooltipId) {
-        setIsVisible(false);
-      }
-    };
-
-    activeTooltipListeners.add(handleActiveTooltipChange);
     return () => {
-      activeTooltipListeners.delete(handleActiveTooltipChange);
-      if (activeTooltipId === tooltipId) {
-        setActiveTooltip(null);
+      if (activeTooltip?.id === tooltipId) {
+        activeTooltip = null;
       }
     };
   }, []);

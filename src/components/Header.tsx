@@ -27,7 +27,6 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
         <div className="flex h-14 items-center justify-between gap-1 sm:h-16">
           <Tooltip content="Domain Codev dashboard">
             <button
-              onMouseEnter={() => onViewIntent?.('dashboard')}
               onFocus={() => onViewIntent?.('dashboard')}
               onClick={() => setView('dashboard')}
               className="inline-flex min-w-0 items-center gap-2 rounded-lg p-1.5 text-brand-blue hover:bg-blue-50 dark:hover:bg-slate-700 sm:p-2"
@@ -50,7 +49,6 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
                 </Tooltip>
                 <Tooltip content="Documentation">
                   <button
-                    onMouseEnter={() => onViewIntent?.('docs')}
                     onFocus={() => onViewIntent?.('docs')}
                     onClick={() => setView('docs')}
                     className={`${headerControlClass()} hidden sm:inline-flex`}
@@ -61,7 +59,6 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
                 </Tooltip>
                 <Tooltip content="Categories">
                   <button
-                    onMouseEnter={() => onViewIntent?.('categories')}
                     onFocus={() => onViewIntent?.('categories')}
                     onClick={() => setView('categories')}
                     className={headerControlClass()}
@@ -72,7 +69,6 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
                 </Tooltip>
                 <Tooltip content="WHOIS update schedule">
                   <button
-                    onMouseEnter={() => onViewIntent?.('schedule')}
                     onFocus={() => onViewIntent?.('schedule')}
                     onClick={() => setView('schedule')}
                     className={headerControlClass()}
@@ -92,7 +88,6 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
                 </Tooltip>
                 <Tooltip content="Settings">
                   <button
-                    onMouseEnter={() => onViewIntent?.('settings')}
                     onFocus={() => onViewIntent?.('settings')}
                     onClick={() => setView('settings')}
                     className={headerControlClass()}

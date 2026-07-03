@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ChevronDownIcon, CommandLineIcon, CheckCircleIcon, XCircleIcon, ExclamationTriangleIcon, InformationCircleIcon } from './icons';
 import { useOutsideDismiss } from '../hooks/useOutsideDismiss';
+import { FLOATING_ACTION_ICON_CLASS, floatingActionButtonClass } from './floatingActionStyles';
 
 interface StatusLogProps {
   logs: string[];
@@ -58,10 +59,10 @@ const StatusLog: React.FC<StatusLogProps> = ({ logs }) => {
         ) : (
             <button
                 onClick={() => setIsExpanded(true)}
-                className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white shadow-lg transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 sm:h-12 sm:w-12"
+                className={floatingActionButtonClass('neutral')}
                 aria-label="Expand status log"
             >
-                <CommandLineIcon className="h-5 w-5 text-slate-600 dark:text-slate-300 sm:h-6 sm:w-6" />
+                <CommandLineIcon className={FLOATING_ACTION_ICON_CLASS} />
                 <span className={`absolute top-1 right-1 block h-3 w-3 rounded-full ${latestLogDot} ring-2 ring-white dark:ring-slate-800`}></span>
             </button>
         )}

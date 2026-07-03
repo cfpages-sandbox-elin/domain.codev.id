@@ -1,6 +1,6 @@
 # UI Performance Optimization
 
-Last updated: 2026-06-06 14:18 WIB.
+Last updated: 2026-07-03 17:32 WIB.
 
 This tracker exists because the dashboard now has around 675 domains and is starting to feel sluggish.
 
@@ -14,6 +14,10 @@ This tracker exists because the dashboard now has around 675 domains and is star
 | Category groups | Done | Overlapping categories were not intentionally ordered together. | Related groups could be visually separated. | Render category groups by overlap-connected clusters. |
 | Tag switching | Done | Row tag action cycled one step at a time. | Changing `Mine` to `Others` required multiple clicks. | Show the other two tag targets on hover/focus and switch directly. |
 | List windowing | Done | The first no-dependency render window started at 180 rows, then the second pass used 30-row chunks plus browser render containment. The browser viewport currently shows about 10 rows. | 180+ mounted rows was too much, but `content-visibility` could show blank reserved boxes during fast scrolling. | Use 60-row initial/increment chunks and a larger 1800px preload margin so rows are appended before the user reaches them without deferring row paint. |
+| Tooltip hover dispatch | Done | Every mounted tooltip subscribed to a global listener set, so opening one tooltip notified every row tooltip. | Hover cost grew with mounted tooltip count and could delay pointer/paint feedback on dense lists. | Keep one active-tooltip reference and dismiss only the previously active tooltip. |
+| Cursor consistency | Done | Interactive elements relied on mixed browser defaults and scattered `cursor-*` classes. | Buttons could show an arrow while labels/details showed a hand, making feedback look delayed or stuck. | Apply a CSS-only pointer cursor policy to enabled interactive controls and explicit disabled cursors. |
+| Hover prefetch | Done | Header and Add Domain controls started dynamic imports on mouse enter even though chunks are already prefetched on idle and loaded on click/focus. | Module download/parse work could compete with the first hover paint on slower devices. | Remove mouse-enter imports; retain idle warmup, keyboard focus intent, and click-time loading fallback. |
+| Floating actions | Done | System Status and Add Domain used different padding, responsive sizes, borders, icon sizes, and hover scaling. | The two persistent actions looked unrelated and their visual hit areas changed by viewport. | Use one fixed 48px shared button geometry and 20px icon size with neutral/primary tone variants. |
 
 ## Current Pass Tracker
 
@@ -29,6 +33,7 @@ This tracker exists because the dashboard now has around 675 domains and is star
 | Page/data cache strategy | Done | Do not wait on Supabase just to navigate. Use already-loaded React state first, hydrate domains from a user-scoped local stale cache after refresh, revalidate Supabase in the background, debounce category/settings writes while the user is tidying, and cache provider dashboard status for immediate settings paint. |
 | Tag update feedback | Done | Changing Mine / To Snatch / Others waits on Supabase and could feel stuck. Track per-domain tag updates and show a small spinner/disabled tag controls for only the row being changed. |
 | Verify with project checks | Done | `pnpm run lint`, `pnpm exec tsc --noEmit --pretty false`, and `pnpm run build` passed. |
+| Optimize hover/cursor interaction path | Done | Replaced tooltip listener fan-out, removed duplicate tooltip positioning and hover prefetch work, standardized cursor CSS, and unified floating actions. |
 
 ## Current Cache/Navigation Plan
 
@@ -45,6 +50,7 @@ This tracker exists because the dashboard now has around 675 domains and is star
 
 | Date/Time (WIB) | Status | Change | Notes |
 | --- | --- | --- | --- |
+| 2026-07-03 17:32 WIB | Done | Completed hover/cursor and floating-action pass. | Cursor changes are CSS-only; tooltip activation is O(1) instead of broadcasting to every mounted tooltip; persistent floating circles share one size/style system. |
 | 2026-06-06 14:18 WIB | Done | Completed stale-cache and reduced-Supabase-call pass. | Added user-scoped local domain snapshots, session-cached provider statuses, debounced merged app-settings writes, immediate route switches for warmed chunks, and row-level tag-update spinners. |
 | 2026-06-06 08:11 WIB | Done | Started stale-cache and reduced-Supabase-call pass. | Focus: no Supabase wait on page change, cache domain/provider data locally, and debounce category/settings writes during cleanup. |
 | 2026-06-05 23:21 WIB | Done | Added instant route transition feedback. | Page navigation now paints a spinner/message immediately, prefetches route chunks on idle and nav intent, and mounts heavy pages after the browser has had a frame to respond. |
