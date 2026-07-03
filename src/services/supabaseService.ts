@@ -1,6 +1,6 @@
 
 import { createClient, Session, SupabaseClient } from '@supabase/supabase-js';
-import { Domain, DomainTag, DomainStatus, IntegrationClient, IntegrationScope, NotificationChannel, NotificationDelivery, UserAppSettings, WhoisProviderCredentialInput } from '../types';
+import { Domain, DomainMonitoringSettings, DomainMonitoringSettingsInput, DomainTag, DomainStatus, IntegrationClient, IntegrationScope, NotificationChannel, NotificationDelivery, UserAppSettings, WhoisProviderCredentialInput } from '../types';
 import { sanitizeAutoMineRules, sanitizeCategoryManualOverrides, sanitizeCategoryNameOverrides, sanitizeCategoryWordGroups } from '../utils/userSettingsStorage';
 
 // The type for inserting a new row. DB handles id, user_id, and created_at.
@@ -39,6 +39,12 @@ export interface Database {
         Row: NotificationDelivery;
         Insert: never;
         Update: never;
+        Relationships: [];
+      };
+      domain_monitoring_settings: {
+        Row: DomainMonitoringSettings;
+        Insert: DomainMonitoringSettingsInput & { user_id: string; created_at?: string; updated_at?: string };
+        Update: Partial<DomainMonitoringSettingsInput> & { updated_at?: string };
         Relationships: [];
       };
       whois_provider_credentials: {
@@ -365,6 +371,30 @@ export const getRecentNotificationDeliveries = async (): Promise<NotificationDel
         .limit(10);
     if (error) throw error;
     return data as NotificationDelivery[];
+};
+
+export const getDomainMonitoringSettings = async (): Promise<DomainMonitoringSettingsInput | null> => {
+    if (!supabase) return null;
+    const { data, error } = await supabase
+        .from('domain_monitoring_settings')
+        .select('enabled, max_checks_per_run, grace_interval_hours, pre_drop_start_days, pre_drop_interval_hours, estimated_drop_days, active_window_before_hours, active_window_after_hours, active_interval_minutes, post_window_interval_hours')
+        .maybeSingle();
+    if (error) throw error;
+    return data as DomainMonitoringSettingsInput | null;
+};
+
+export const saveDomainMonitoringSettings = async (settings: DomainMonitoringSettingsInput): Promise<void> => {
+    if (!supabase) throw new Error('Supabase is not configured.');
+    const session = await getSession();
+    if (!session) throw new Error('Sign in before saving monitoring settings.');
+    const { error } = await supabase
+        .from('domain_monitoring_settings')
+        .upsert([{
+            user_id: session.user.id,
+            ...settings,
+            updated_at: new Date().toISOString(),
+        }] as never, { onConflict: 'user_id' });
+    if (error) throw error;
 };
 
 // --- WHOIS Provider Credential Functions ---

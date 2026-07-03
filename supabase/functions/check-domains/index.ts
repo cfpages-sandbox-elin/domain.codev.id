@@ -5,6 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getWhoisData } from '../_shared/whois-logic.ts'
 import { checkDecisionForDomain, Domain, DomainStatus, DomainTag } from './scheduler.ts'
 import { dispatchPendingNotifications, enqueueDropNotifications } from './notifications.ts'
+import { DEFAULT_MONITORING_SETTINGS, MonitoringSettings, normalizeMonitoringSettings } from '../_shared/monitoring-settings.ts'
 
 console.log('✅ "check-domains" function loaded');
 
@@ -76,9 +77,24 @@ serve(async (req) => {
       10,
     );
 
-    const decisions = domains
-      .map((domain: Domain) => ({ domain, decision: checkDecisionForDomain(domain, now) }));
+    const userIds = Array.from(new Set((domains as Domain[]).map(domain => domain.user_id)));
+    const { data: settingsRows, error: settingsError } = await supabaseAdmin
+      .from('domain_monitoring_settings')
+      .select('user_id, enabled, max_checks_per_run, grace_interval_hours, pre_drop_start_days, pre_drop_interval_hours, estimated_drop_days, active_window_before_hours, active_window_after_hours, active_interval_minutes, post_window_interval_hours')
+      .in('user_id', userIds);
+    if (settingsError) throw settingsError;
+    const settingsByUserId = new Map<string, MonitoringSettings>(
+      (settingsRows || []).map((row: MonitoringSettings & { user_id: string }) => [row.user_id, normalizeMonitoringSettings(row)]),
+    );
+    const getSettings = (userId: string) => settingsByUserId.get(userId) || DEFAULT_MONITORING_SETTINGS;
 
+    const decisions = domains
+      .map((domain: Domain) => ({
+        domain,
+        decision: checkDecisionForDomain(domain, now, getSettings(domain.user_id)),
+      }));
+
+    const perUserSelections = new Map<string, number>();
     const dueDomains = decisions
       .filter(item => item.decision.due)
       .sort((a, b) => {
@@ -87,6 +103,12 @@ serve(async (req) => {
         const aLastChecked = a.domain.last_checked ? new Date(a.domain.last_checked).getTime() : 0;
         const bLastChecked = b.domain.last_checked ? new Date(b.domain.last_checked).getTime() : 0;
         return aLastChecked - bLastChecked;
+      })
+      .filter(item => {
+        const selected = perUserSelections.get(item.domain.user_id) || 0;
+        if (selected >= getSettings(item.domain.user_id).max_checks_per_run) return false;
+        perUserSelections.set(item.domain.user_id, selected + 1);
+        return true;
       })
       .slice(0, Number.isFinite(maxChecks) && maxChecks > 0 ? maxChecks : 50);
 

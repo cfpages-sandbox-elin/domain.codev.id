@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { WhoisProviderStatus } from '../types';
 import { ChevronDownIcon, ChevronUpIcon, RefreshIcon } from './icons';
 import Tooltip from './Tooltip';
+import { useOutsideDismiss } from '../hooks/useOutsideDismiss';
 
 interface WhoisProviderPanelProps {
   providers: WhoisProviderStatus[];
@@ -44,6 +45,7 @@ const CREDENTIAL_PROVIDER_IDS = new Set(['oti-labs', 'domainduck', 'rdap-api']);
 
 const WhoisProviderPanel: React.FC<WhoisProviderPanelProps> = ({ providers, isLoading, onRefresh, onSaveCredential, onRemoveCredential, defaultExpanded = false }) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const panelRef = useOutsideDismiss<HTMLElement>(isExpanded, () => setIsExpanded(false));
   const [apiKeysByProviderId, setApiKeysByProviderId] = useState<Record<string, string>>({});
   const [savingProviderId, setSavingProviderId] = useState<string | null>(null);
   const activeCount = providers.filter(provider => provider.status === 'active').length;
@@ -77,7 +79,7 @@ const WhoisProviderPanel: React.FC<WhoisProviderPanelProps> = ({ providers, isLo
   };
 
   return (
-    <section className="mb-6 border-y border-slate-200 py-4 dark:border-slate-700">
+    <section ref={panelRef} className="mb-6 border-y border-slate-200 py-4 dark:border-slate-700">
         <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"

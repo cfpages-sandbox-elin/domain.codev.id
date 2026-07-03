@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Domain } from '../types';
 import { getWhoisSchedule } from './whoisSchedule';
+import { DEFAULT_MONITORING_SETTINGS } from './monitoringSettings';
 
 const domain = (overrides: Partial<Domain>): Domain => ({
   id: 1,
@@ -43,15 +44,33 @@ describe('WHOIS schedule visibility', () => {
     expect(schedule.cadence).toBe('Manual');
   });
 
-  it('continues hourly checks after the estimated drop window', () => {
+  it('continues checks at the configured post-window cadence', () => {
     const schedule = getWhoisSchedule(domain({
       tag: 'to-snatch',
       expiration_date: '2026-04-01T00:00:00.000Z',
       registered_date: '2024-04-01T00:00:00.000Z',
-      last_checked: '2026-06-20T18:00:00.000Z',
+      last_checked: '2026-06-20T12:00:00.000Z',
     }), new Date('2026-06-20T20:00:00.000Z'));
 
     expect(schedule.isDue).toBe(true);
-    expect(schedule.cadence).toBe('Hourly');
+    expect(schedule.cadence).toBe('Every 6 hours');
+  });
+
+  it('projects custom active cadence and paused monitoring', () => {
+    const target = domain({
+      tag: 'to-snatch',
+      expiration_date: '2026-04-01T00:00:00.000Z',
+      last_checked: '2026-06-04T23:40:00.000Z',
+    });
+    const aggressive = getWhoisSchedule(target, new Date('2026-06-05T00:00:00.000Z'), {
+      ...DEFAULT_MONITORING_SETTINGS,
+      active_interval_minutes: 15,
+    });
+    const paused = getWhoisSchedule(target, now, { ...DEFAULT_MONITORING_SETTINGS, enabled: false });
+
+    expect(aggressive.cadence).toBe('Every 15 minutes');
+    expect(aggressive.isDue).toBe(true);
+    expect(paused.cadence).toBe('Paused');
+    expect(paused.nextCheckAt).toBeNull();
   });
 });

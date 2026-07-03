@@ -1,6 +1,6 @@
 # Codebase Map
 
-Last audited: 2026-06-06 WIB.
+Last audited: 2026-07-03 WIB.
 
 ## Overview
 
@@ -68,16 +68,18 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `src/utils/appDataCache.ts` | User-scoped browser cache for domain snapshots and session-scoped WHOIS provider dashboard status. Lets the UI paint cached data immediately after refresh while Supabase revalidates in the background. |
 | `src/utils/appDomainLogic.ts` | Pure app-level domain helpers for `App.tsx`: WHOIS failure reason/advice, missing-WHOIS predicate, expiry/drop notification message selection, reusable expired-domain lifecycle estimates for grace/redemption/drop timing, estimated drop timeline HTML, and JSON/CSV export serialization. |
 | `src/utils/appDomainLogic.test.ts` | Vitest regression tests for expired-domain lifecycle phase boundaries and invalid expiry handling. |
-| `src/utils/whoisSchedule.ts` | Frontend WHOIS schedule visibility helper. Mirrors automatic cadence for the dedicated Schedule page, including continuous hourly monitoring and 15-minute active drop watch for targets until availability is detected. |
+| `src/utils/whoisSchedule.ts` | Frontend schedule projection using the signed-in user's pause, target-phase, drop-window, active-cadence, and post-window settings. |
+| `src/utils/monitoringSettings.ts` | Frontend balanced defaults and quota-saver/aggressive monitoring presets shared by settings UI and schedule projection. |
 | `src/utils/whoisSchedule.test.ts` | Vitest regression tests for schedule visibility, including owned-domain final renewal daily cadence and available-domain schedule skipping. |
 | `src/App.tsx` | Main app shell. Handles Supabase session bootstrap, auth state reset, notifications, modal state, mobile-constrained toast placement, small WHOIS-complete toast notifications after background checks, integration settings modal state, unified Add Domains modal state with initial single/bulk tab selection, Add Domains chunk prefetch on idle/intent plus an immediate loading modal fallback, route chunk prefetch on idle/nav intent, instant route switches for already-loaded lazy chunks, instant route transition fallback before still-cold heavy dashboard/categories/docs/settings mounts, view routing for dashboard/categories/settings/docs, settings tab state for WHOIS Providers vs Auto Mine, dashboard row category remove/create-word-group callbacks, capture-phase Add Domains shortcuts (`Ctrl+N` plus `Alt+N` fallback), export downloads, daily/focus date-refresh ticks for stale expiry labels, responsive main spacing/FAB placement, and lazy-loading for docs, categories, settings, Add Domains, and Integration API chunks. Delegates status log state to `useStatusLog.ts`, synced user settings to `useSyncedUserSettings.ts`, provider dashboard state to `useWhoisProviders.ts`, domain list/actions/WHOIS repair to `useDomainActions.ts`, reusable notification/drop/export decisions to `appDomainLogic.ts`, and dashboard/settings rendering to `components/app/*`. |
 | `src/hooks/useDarkMode.ts` | Reads/stores theme in `localStorage`, applies/removes `dark` class on `<html>`, returns `[theme, toggleTheme]`. |
+| `src/hooks/useOutsideDismiss.ts` | Shared pointer-outside and Escape dismissal behavior for expandable panels, popovers, and controlled details elements. |
 | `src/hooks/useDomainActions.ts` | Owns domain list state, Supabase fetch/cache, five-minute and focus/visibility server refreshes for cron updates, transient WHOIS details, optimistic pending rows, bulk actions, tags, rechecks, and automatic missing-WHOIS repair. Open tabs receive server-side drop/status changes without issuing browser WHOIS calls. |
 | `src/hooks/useStatusLog.ts` | Small status-log state hook. Prepends timestamped log entries and keeps the latest 100 messages. |
 | `src/hooks/useSyncedUserSettings.ts` | Owns user app settings state. Reads local fallback/cache, fetches synced Supabase settings after login, writes local cache on change, debounces/merges changed category name overrides, manual category overrides, word groups, and Auto Mine rules back to Supabase after settings load, and exposes a reset helper for sign-out. |
 | `src/hooks/useWhoisProviders.ts` | Owns WHOIS provider dashboard state. Hydrates cached provider statuses from session storage, fetches provider statuses in the background, merges live quota/error telemetry into existing panel state, writes refreshed status cache, and wraps save/remove operations for optional per-user provider credentials. |
 | `src/contexts/CompactModeContext.tsx` | Provides compact mode state, persists it in `localStorage`, and toggles a `compact` class on `<html>`. |
-| `src/services/supabaseService.ts` | Creates Supabase client, exposes config error, wraps auth (`getSession`, Google sign-in, sign-out), domain CRUD functions, integration client token-list/create/revoke helpers, write/delete helpers for user-entered WHOIS provider credentials, and get/save helpers for synced user app settings. Defines Supabase-ish database types manually. |
+| `src/services/supabaseService.ts` | Creates the typed Supabase client and wraps auth, domain CRUD, integrations, notifications, provider credentials, user settings, and per-user domain monitoring policy read/write operations. |
 | `src/services/whoisService.ts` | Client-side WHOIS proxy wrapper. Calls `get-whois`, fetches `get-whois-providers`, normalizes failures to `unknown`, and logs provider usage. |
 
 ## Components
@@ -86,9 +88,11 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | --- | --- |
 | `src/components/AutoMinePanel.tsx` | Auto Mine rules panel. Edits app-level synced name-server combination rules, requires at least two unique name servers per rule, normalizes server names, matches only non-available/non-reserved domains whose stored `name_servers` contain every server in a rule, auto-applies matches by asking `App` to update matching rows to `mine`, provides manual apply, enable/disable, remove, matched-domain preview controls, and mobile-friendly grid rule rows. |
 | `src/components/app/DashboardView.tsx` | Dashboard view shell. Owns the responsive page chrome around `DomainList`, using lighter edge-to-edge mobile spacing and framed card styling from small screens upward, and passes through list state/actions plus the app-level date-refresh tick from `App`. |
-| `src/components/WhoisSchedulePage.tsx` | Dedicated operational view for due-today, next-3-day, next-7-day, and later WHOIS checks. Keeps schedule tracking out of the primary domain-list workflow. |
+| `src/components/WhoisSchedulePage.tsx` | Dedicated operational view for due-today, next-3-day, next-7-day, and later WHOIS checks. Loads the signed-in user's monitoring policy so projected due times match backend configuration. |
 | `src/components/integration/NotificationChannelsPanel.tsx` | Configures enabled Hermes/webhook drop-alert channels and displays recent durable delivery attempts/failures. |
-| `src/components/app/SettingsView.tsx` | Lazy settings view shell. Owns responsive WHOIS Providers vs Auto Mine tabs and renders `WhoisProviderPanel` or `AutoMinePanel` with state/actions passed from `App`. |
+| `src/components/app/SettingsView.tsx` | Lazy settings shell with WHOIS Providers, Monitoring, and Auto Mine tabs. |
+| `src/components/MonitoringSettingsPanel.tsx` | Per-user quota-aware monitoring controls. Offers saver/balanced/aggressive presets, validated advanced numeric policy fields, usage estimate, explicit save, and revert. |
+| `src/components/headerStyles.ts` | Shared navbar control geometry, icon sizing, neutral colors, and danger styling used by Header, theme, and compact-mode controls. |
 | `src/components/Auth.tsx` | Login screen with Google sign-in button calling Supabase OAuth. |
 | `src/components/BulkAddModal.tsx` | Unified Add Domains modal. Contains compact responsive tabs for single-domain and bulk entry, accepts an initial tab and existing domain list from `App`, focuses the active input on open and after successful add/reset, clears submitted single-domain input immediately to avoid duplicate-warning flashes, uses Tab/Shift+Tab to switch tabs, shows shortcut tooltips, suggests existing matching domains while typing, blocks exact duplicate single-domain adds before submit, separates bulk entry into Paste List or Upload File mode, supports paste shortcuts (`Ctrl+Enter` as Mine, `Ctrl+Shift+Enter` as To Snatch), parses uploaded CSV/JSON, keeps the modal open after add submission, shows immediate saving feedback plus in-modal success feedback once rows are inserted, and hands valid entries to `App` for background WHOIS processing. Uses `bulk-add` modules for parsing, normalization, duplicate summaries, and tag-choice UI. |
 | `src/components/bulk-add/bulkAddLogic.ts` | Pure Add Domains helpers: domain input normalization/validation, bulk splitting/parsing, skipped-entry log formatting, tag guard/labels, and existing-domain suggestion matching. |
@@ -134,8 +138,9 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `supabase/functions/get-whois-providers/index.ts` | Authenticated edge function for WHOIS dashboard. Uses service-role telemetry/credential access and returns provider registry/runtime status without exposing secret values. |
 | `supabase/functions/check-domains/index.ts` | Cron edge function. Requires `Authorization: Bearer CRON_SECRET`, selects priority checks, updates WHOIS fields, detects target transitions to available/dropped, queues deduplicated alerts, and dispatches pending/failed notifications even when no domain check is due. |
 | `supabase/functions/check-domains/notifications.ts` | Durable drop-notification queue and dispatcher. Signs Hermes/webhook payloads, includes the availability detection timestamp, marks sent attempts, and retries failures with exponential backoff. |
-| `supabase/functions/check-domains/scheduler.ts` | Pure cron scheduling module. Applies low-noise owner/client checks, ramps targets through expiry, polls every 15 minutes around estimated drop, and continues hourly after the estimated window until a terminal status is detected. |
-| `supabase/functions/check-domains/scheduler.test.ts` | Regression tests for terminal skipping, owned expiry cadence, 15-minute target drop watch, and continued monitoring after the estimated drop date. |
+| `supabase/functions/_shared/monitoring-settings.ts` | Backend defaults, bounds, and normalization for persisted per-user monitoring policy rows. Balanced defaults use hourly active polling and six-hour post-window polling. |
+| `supabase/functions/check-domains/scheduler.ts` | Pure cron scheduling module. Applies per-user pause/cadence/drop-estimate/window settings while retaining conservative code-defined owned-domain renewal checks. |
+| `supabase/functions/check-domains/scheduler.test.ts` | Regression tests for terminal skipping, owned expiry cadence, balanced active/post-window monitoring, aggressive 15-minute polling, and pause behavior. |
 | `supabase/functions/external-api/index.ts` | Scoped external REST API bootstrap for Hermes/n8n/scripts/future apps. Handles CORS preflight, creates the service-role Supabase client, authenticates integration clients, and dispatches `/api/v1` routes to focused route handlers without exposing Supabase service-role keys. |
 | `supabase/functions/external-api/types.ts` | External API route types for integration clients, domain rows/payloads, scopes, tags, and statuses. |
 | `supabase/functions/external-api/domain-utils.ts` | External API domain helpers for name/tag normalization, available-like status checks, missing-WHOIS detection, `daysUntil`, and public domain response formatting. |
@@ -159,6 +164,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `supabase/migrations/20260605090000_add_reserved_domain_status.sql` | Adds `reserved` to `domain_status_type` so government/registry-reserved domains can be listed without being treated as buyable or due for automatic rechecks. |
 | `supabase/migrations/20260702090000_fix_notification_delivery_dedupe.sql` | Changes drop-delivery deduplication to one delivery per channel and event so multiple configured channels can each receive the alert. |
 | `supabase/migrations/20260702093000_increase_domain_check_cron_frequency.sql` | Finds existing `check-domains` pg_cron jobs and changes their schedule to every 15 minutes while preserving the existing command and authorization header. |
+| `supabase/migrations/20260703150000_add_domain_monitoring_settings.sql` | Adds RLS-protected per-user quota-aware monitoring policy, including run cap, target phases, estimated drop timing, and active/post-window cadence. |
 
 ## Documentation Files
 
@@ -187,6 +193,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `docs/UI.md` | UI/UX audit and improvement plan. |
 | `docs/WHOIS.md` | Current WHOIS implementation study, quota behavior, and expanded provider research covering the 8 implemented providers plus more than 10 RDAP/WHOIS backup candidates. |
 | `docs/WHOIS_CHECKING_REFINEMENT.md` | Progress tracker and decision record for optional name-server completeness, reserved domains, precise drop-window scheduling, and exact-domain drop alert API. |
+| `docs/MONITORING_CONFIGURATION.md` | Implemented settings inventory, balanced defaults, presets, runtime rules, and completion tracker for configurable WHOIS scheduling. |
 | `docs/WHOIS_DASHBOARD.md` | Requirements and implementation guide for provider quota/status dashboard, current provider implementation status, and expanded backup-provider registry. |
 | `docs/AUTH.md` | Current Supabase Auth notes and Better Auth migration guide. |
 

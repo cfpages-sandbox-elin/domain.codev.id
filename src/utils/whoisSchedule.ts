@@ -1,4 +1,5 @@
-import { Domain } from '../types';
+import { Domain, DomainMonitoringSettingsInput } from '../types';
+import { DEFAULT_MONITORING_SETTINGS } from './monitoringSettings';
 
 const HOUR_MS = 1000 * 60 * 60;
 const DAY_MS = HOUR_MS * 24;
@@ -35,11 +36,11 @@ const nextByInterval = (lastChecked: string | null, now: Date, intervalHours: nu
 
 const hasTimeComponent = (dateString: string | null) => Boolean(dateString && /T\d{2}:\d{2}/.test(dateString));
 
-const estimateDropTiming = (expirationDate: string, registeredDate: string | null) => {
+const estimateDropTiming = (expirationDate: string, registeredDate: string | null, settings: DomainMonitoringSettingsInput) => {
   const expiry = parseDate(expirationDate);
   if (!expiry) return null;
 
-  const dropAt = addDays(expiry, 65);
+  const dropAt = addDays(expiry, settings.estimated_drop_days);
   let confidence: 'expiry-time' | 'registration-hour' | 'date-only' = hasTimeComponent(expirationDate)
     ? 'expiry-time'
     : 'date-only';
@@ -59,8 +60,8 @@ const estimateDropTiming = (expirationDate: string, registeredDate: string | nul
 
   return {
     dropAt,
-    windowStart: addHours(dropAt, -12),
-    windowEnd: addHours(dropAt, 12),
+    windowStart: addHours(dropAt, -settings.active_window_before_hours),
+    windowEnd: addHours(dropAt, settings.active_window_after_hours),
     confidence,
   };
 };
@@ -83,7 +84,11 @@ const schedule = (
   };
 };
 
-export const getWhoisSchedule = (domain: Domain, now = new Date()): WhoisSchedule => {
+export const getWhoisSchedule = (
+  domain: Domain,
+  now = new Date(),
+  settings: DomainMonitoringSettingsInput = DEFAULT_MONITORING_SETTINGS,
+): WhoisSchedule => {
   if (domain.status === 'reserved') {
     return {
       nextCheckAt: null,
@@ -99,6 +104,16 @@ export const getWhoisSchedule = (domain: Domain, now = new Date()): WhoisSchedul
       nextCheckAt: null,
       reason: 'Already marked available; use manual re-check before buying.',
       cadence: 'Manual',
+      priority: 0,
+      isDue: false,
+    };
+  }
+
+  if (!settings.enabled) {
+    return {
+      nextCheckAt: null,
+      reason: 'Automatic monitoring is paused in settings.',
+      cadence: 'Paused',
       priority: 0,
       isDue: false,
     };
@@ -148,28 +163,17 @@ export const getWhoisSchedule = (domain: Domain, now = new Date()): WhoisSchedul
   }
 
   const daysSinceExpiry = Math.abs(daysUntilExpiry);
-  if (daysSinceExpiry < 45) {
-    return schedule(domain, now, 24 * 7, 'Target domain likely in grace/redemption period.', 'Weekly', 55);
+  const dropTiming = domain.expiration_date ? estimateDropTiming(domain.expiration_date, domain.registered_date, settings) : null;
+  if (dropTiming && now >= dropTiming.windowStart && now <= dropTiming.windowEnd) {
+    return schedule(domain, now, settings.active_interval_minutes / 60, 'Target domain in active drop watch until availability is detected.', `Every ${settings.active_interval_minutes} minutes`, 110);
   }
-  if (daysSinceExpiry < 58) {
-    return schedule(domain, now, 24, 'Target domain approaching estimated drop window.', 'Daily', 75);
-  }
-  if (daysSinceExpiry >= 58) {
-    const dropTiming = domain.expiration_date ? estimateDropTiming(domain.expiration_date, domain.registered_date) : null;
-    if (dropTiming) {
-      const extendedWindowStart = addDays(dropTiming.windowStart, -1);
-      const extendedWindowEnd = addDays(dropTiming.windowEnd, 14);
-      const inActiveDropWindow = now >= extendedWindowStart && now <= extendedWindowEnd;
-      return schedule(
-        domain,
-        now,
-        inActiveDropWindow ? 0.25 : 1,
-        inActiveDropWindow ? 'Target domain in active drop watch until availability is detected.' : 'Target domain expired and still unavailable.',
-        inActiveDropWindow ? 'Every 15 minutes' : 'Hourly',
-        inActiveDropWindow ? 110 : 100,
-      );
-    }
+  if (dropTiming && now > dropTiming.windowEnd) {
+    return schedule(domain, now, settings.post_window_interval_hours, 'Target domain past estimated drop window but still unavailable.', `Every ${settings.post_window_interval_hours} hours`, 100);
   }
 
-  return schedule(domain, now, 24, 'Target domain expired; monitoring continues until active drop watch.', 'Daily', 75);
+  if (daysSinceExpiry < settings.pre_drop_start_days) {
+    return schedule(domain, now, settings.grace_interval_hours, 'Target domain likely in grace/redemption period.', `Every ${settings.grace_interval_hours} hours`, 55);
+  }
+
+  return schedule(domain, now, settings.pre_drop_interval_hours, 'Target domain approaching active drop watch.', `Every ${settings.pre_drop_interval_hours} hours`, 75);
 };

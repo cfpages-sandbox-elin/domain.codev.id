@@ -1,3 +1,5 @@
+import { DEFAULT_MONITORING_SETTINGS, MonitoringSettings } from '../_shared/monitoring-settings.ts';
+
 export type DomainTag = 'mine' | 'to-snatch' | 'others';
 export type DomainStatus = 'available' | 'registered' | 'expired' | 'dropped' | 'reserved' | 'unknown';
 
@@ -44,11 +46,11 @@ const addDays = (date: Date, days: number) => {
   return next;
 };
 
-const estimateDropTiming = (expirationDate: string, registeredDate: string | null) => {
+const estimateDropTiming = (expirationDate: string, registeredDate: string | null, settings: MonitoringSettings) => {
   const expiry = new Date(expirationDate);
   if (!Number.isFinite(expiry.getTime())) return null;
 
-  const dropAt = addDays(expiry, 65);
+  const dropAt = addDays(expiry, settings.estimated_drop_days);
   let confidence: 'expiry-time' | 'registration-hour' | 'date-only' = hasTimeComponent(expirationDate)
     ? 'expiry-time'
     : 'date-only';
@@ -66,12 +68,16 @@ const estimateDropTiming = (expirationDate: string, registeredDate: string | nul
     }
   }
 
-  const windowStart = new Date(dropAt.getTime() - 12 * 60 * 60 * 1000);
-  const windowEnd = new Date(dropAt.getTime() + 12 * 60 * 60 * 1000);
+  const windowStart = new Date(dropAt.getTime() - settings.active_window_before_hours * 60 * 60 * 1000);
+  const windowEnd = new Date(dropAt.getTime() + settings.active_window_after_hours * 60 * 60 * 1000);
   return { dropAt, windowStart, windowEnd, confidence };
 };
 
-export const checkDecisionForDomain = (domain: Domain, now: Date): CheckDecision => {
+export const checkDecisionForDomain = (
+  domain: Domain,
+  now: Date,
+  settings: MonitoringSettings = DEFAULT_MONITORING_SETTINGS,
+): CheckDecision => {
   const lastCheckedHours = hoursSince(domain.last_checked, now);
   const daysUntilExpiry = daysUntil(domain.expiration_date, now);
 
@@ -83,6 +89,10 @@ export const checkDecisionForDomain = (domain: Domain, now: Date): CheckDecision
         : 'already marked available; manual buy/re-check is enough',
       priority: 0,
     };
+  }
+
+  if (!settings.enabled) {
+    return { due: false, reason: 'automatic monitoring is paused by user settings', priority: 0 };
   }
 
   if (daysUntilExpiry === null) {
@@ -164,41 +174,35 @@ export const checkDecisionForDomain = (domain: Domain, now: Date): CheckDecision
   }
 
   const daysSinceExpiry = Math.abs(daysUntilExpiry);
-  if (daysSinceExpiry < 45) {
-    return {
-      due: lastCheckedHours >= 24 * 7,
-      reason: 'target domain likely in grace/redemption period; weekly check until drop window gets closer',
-      priority: 55,
-    };
-  }
-
-  if (daysSinceExpiry < 58) {
-    return {
-      due: lastCheckedHours >= 24,
-      reason: 'target domain approaching estimated drop window; daily check',
-      priority: 75,
-    };
-  }
-
-  if (daysSinceExpiry >= 58) {
-    const dropTiming = estimateDropTiming(domain.expiration_date, domain.registered_date);
-    if (dropTiming) {
-      const extendedWindowStart = addDays(dropTiming.windowStart, -1);
-      const extendedWindowEnd = addDays(dropTiming.windowEnd, 14);
-      const inActiveDropWindow = now >= extendedWindowStart && now <= extendedWindowEnd;
+  const dropTiming = estimateDropTiming(domain.expiration_date, domain.registered_date, settings);
+  if (dropTiming) {
+    if (now >= dropTiming.windowStart && now <= dropTiming.windowEnd) {
       return {
-        due: lastCheckedHours >= (inActiveDropWindow ? 0.25 : 1),
-        reason: inActiveDropWindow
-          ? `target domain in active drop watch (${dropTiming.confidence}); check every 15 minutes until availability is detected`
-          : 'target domain expired and still unavailable; continue hourly monitoring',
-        priority: inActiveDropWindow ? 110 : 100,
+        due: lastCheckedHours >= settings.active_interval_minutes / 60,
+        reason: `target domain in active drop watch (${dropTiming.confidence}); check every ${settings.active_interval_minutes} minutes`,
+        priority: 110,
+      };
+    }
+    if (now > dropTiming.windowEnd) {
+      return {
+        due: lastCheckedHours >= settings.post_window_interval_hours,
+        reason: `target domain past estimated window but still unavailable; check every ${settings.post_window_interval_hours} hours`,
+        priority: 100,
       };
     }
   }
 
+  if (daysSinceExpiry < settings.pre_drop_start_days) {
+    return {
+      due: lastCheckedHours >= settings.grace_interval_hours,
+      reason: `target domain likely in grace/redemption period; check every ${settings.grace_interval_hours} hours`,
+      priority: 55,
+    };
+  }
+
   return {
-    due: lastCheckedHours >= 24,
-    reason: 'target domain expired; continue daily monitoring until the active drop watch begins',
+    due: lastCheckedHours >= settings.pre_drop_interval_hours,
+    reason: `target domain approaching active drop watch; check every ${settings.pre_drop_interval_hours} hours`,
     priority: 75,
   };
 };

@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Domain } from '../types';
+import { Domain, DomainMonitoringSettingsInput } from '../types';
 import { getWhoisSchedule } from '../utils/whoisSchedule';
 import { getDaysUntilExpiry } from './domain-list/domainListLogic';
+import { DEFAULT_MONITORING_SETTINGS } from '../utils/monitoringSettings';
+import { getDomainMonitoringSettings } from '../services/supabaseService';
 
 interface WhoisSchedulePageProps {
   dateRefreshTick: number;
@@ -17,6 +19,14 @@ const formatDateTime = (date: Date) => date.toLocaleString('en-GB', {
 
 const WhoisSchedulePage = ({ dateRefreshTick, domains }: WhoisSchedulePageProps) => {
   const [clockTick, setClockTick] = useState(dateRefreshTick);
+  const [monitoringSettings, setMonitoringSettings] = useState<DomainMonitoringSettingsInput>(DEFAULT_MONITORING_SETTINGS);
+  useEffect(() => {
+    let cancelled = false;
+    void getDomainMonitoringSettings().then(settings => {
+      if (!cancelled && settings) setMonitoringSettings(settings);
+    });
+    return () => { cancelled = true; };
+  }, []);
   useEffect(() => {
     setClockTick(Date.now());
     const intervalId = window.setInterval(() => setClockTick(Date.now()), 60 * 1000);
@@ -29,7 +39,7 @@ const WhoisSchedulePage = ({ dateRefreshTick, domains }: WhoisSchedulePageProps)
     const next3Days = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
     const next7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     const scheduled = domains
-      .map(domain => ({ domain, schedule: getWhoisSchedule(domain, now) }))
+      .map(domain => ({ domain, schedule: getWhoisSchedule(domain, now, monitoringSettings) }))
       .filter(item => item.schedule.nextCheckAt)
       .sort((a, b) => {
         if (a.schedule.isDue !== b.schedule.isDue) return a.schedule.isDue ? -1 : 1;
@@ -43,7 +53,7 @@ const WhoisSchedulePage = ({ dateRefreshTick, domains }: WhoisSchedulePageProps)
       { label: 'Next 7 days', items: scheduled.filter(item => item.schedule.nextCheckAt! > next3Days && item.schedule.nextCheckAt! <= next7Days), tone: 'blue' },
       { label: 'Later', items: scheduled.filter(item => item.schedule.nextCheckAt! > next7Days), tone: 'slate' },
     ] as const;
-  }, [domains, now]);
+  }, [domains, monitoringSettings, now]);
 
   const scheduledCount = buckets.reduce((total, bucket) => total + bucket.items.length, 0);
   const toneClasses = {

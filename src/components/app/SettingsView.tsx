@@ -2,8 +2,9 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { AutoMineRule, Domain, WhoisProviderStatus } from '../../types';
 import AutoMinePanel from '../AutoMinePanel';
 import WhoisProviderPanel from '../WhoisProviderPanel';
+import MonitoringSettingsPanel from '../MonitoringSettingsPanel';
 
-type SettingsTab = 'whois' | 'auto-mine';
+type SettingsTab = 'whois' | 'monitoring' | 'auto-mine';
 
 type SettingsViewProps = {
   domains: Domain[];
@@ -46,9 +47,12 @@ const SettingsView = ({
       <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Manage provider fallback behavior and ownership automation.</p>
     </div>
 
-    <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-5 sm:flex sm:flex-wrap sm:justify-center">
+    <div className="mb-4 grid grid-cols-3 gap-2 sm:mb-5 sm:flex sm:flex-wrap sm:justify-center">
       <button type="button" onClick={() => setSettingsTab('whois')} className={tabClassName(settingsTab === 'whois')}>
         WHOIS Providers
+      </button>
+      <button type="button" onClick={() => setSettingsTab('monitoring')} className={tabClassName(settingsTab === 'monitoring')}>
+        Monitoring
       </button>
       <button type="button" onClick={() => setSettingsTab('auto-mine')} className={tabClassName(settingsTab === 'auto-mine')}>
         Auto Mine
@@ -65,7 +69,7 @@ const SettingsView = ({
           onRemoveCredential={onRemoveWhoisProviderCredential}
           defaultExpanded
         />
-      ) : (
+      ) : settingsTab === 'auto-mine' ? (
         <AutoMinePanel
           domains={domains}
           rules={autoMineRules}
@@ -73,6 +77,8 @@ const SettingsView = ({
           onApplyMatches={onApplyAutoMineMatches}
           addLog={addLog}
         />
+      ) : (
+        <MonitoringSettingsPanel addLog={addLog} />
       )}
     </div>
   </div>

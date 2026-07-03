@@ -8,6 +8,7 @@ Guidance for AI coding agents working in this repository.
 - `docs/SUGGESTION.md` is for agent-originated suggestions based on codebase analysis. Do not use it as a changelog for user-requested changes or as a place to restate the user's own product suggestions.
 - Keep `docs/CODEBASE.md` current when changing file responsibilities, runtime flow, database schema, Edge Function behavior, or major UI/data logic. Treat it as the quick project map for future context.
 - Keep user-facing progress reports short. Prefer finishing the task, verifying it, then reporting the result.
+- Frontend deployment is owned by the user: edit and verify frontend code only. The user pushes to GitHub, and Cloudflare Pages deploys automatically from that push. Do not run Wrangler or attempt a frontend deployment. Backend deployments remain in scope when required.
 - Focus on finishing the requested task end-to-end before reporting back. Avoid frequent progress narration unless work is long-running, blocked, or needs authorization/user input.
 - Save tokens where practical: read targeted files, summarize long docs instead of pasting them, use `rg` for search, and avoid repeating unchanged context.
 - Do not sacrifice implementation quality for brevity. Token saving must not reduce code correctness, verification, or maintainability.

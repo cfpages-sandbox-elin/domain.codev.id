@@ -4,6 +4,7 @@ import { DomainCategorizationResult, applyCategoryManualOverrides, applyCategory
 import { splitCategoryWords } from '../utils/userSettingsStorage';
 import { ChevronDownIcon, ChevronUpIcon, PencilIcon, PlusIcon, RefreshIcon, TagIcon, TrashIcon, XCircleIcon } from './icons';
 import Tooltip from './Tooltip';
+import { useOutsideDismiss } from '../hooks/useOutsideDismiss';
 
 interface CategoriesPageProps {
   domains: Domain[];
@@ -41,6 +42,7 @@ const CategoriesPage: React.FC<CategoriesPageProps> = ({
 }) => {
   const [selectedDomainByCategoryId, setSelectedDomainByCategoryId] = useState<Record<string, string>>({});
   const [isAutoCategoriesOpen, setIsAutoCategoriesOpen] = useState(false);
+  const autoCategoriesRef = useOutsideDismiss<HTMLElement>(isAutoCategoriesOpen, () => setIsAutoCategoriesOpen(false));
   const [editingWordGroupId, setEditingWordGroupId] = useState<string | null>(null);
   const [wordGroupLabel, setWordGroupLabel] = useState('');
   const [wordGroupWords, setWordGroupWords] = useState('');
@@ -330,7 +332,7 @@ const CategoriesPage: React.FC<CategoriesPageProps> = ({
         )}
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <section ref={autoCategoriesRef} className="rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <button
           type="button"
           onClick={() => setIsAutoCategoriesOpen(current => !current)}

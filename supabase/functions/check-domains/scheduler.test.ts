@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { checkDecisionForDomain, Domain } from './scheduler';
+import { DEFAULT_MONITORING_SETTINGS } from '../_shared/monitoring-settings';
 
 const now = new Date('2026-06-05T00:00:00.000Z');
 
@@ -32,12 +33,12 @@ describe('targeted WHOIS cron scheduler', () => {
     expect(decision.priority).toBe(30);
   });
 
-  it('checks targets every 15 minutes inside the active drop window', () => {
+  it('uses the balanced hourly cadence inside the active drop window', () => {
     const decision = checkDecisionForDomain(domain({
       tag: 'to-snatch',
       expiration_date: '2026-04-01T00:00:00.000Z',
       registered_date: '2024-04-01T00:00:00.000Z',
-      last_checked: '2026-06-04T23:40:00.000Z',
+      last_checked: '2026-06-04T22:30:00.000Z',
     }), now);
 
     expect(decision.due).toBe(true);
@@ -49,10 +50,31 @@ describe('targeted WHOIS cron scheduler', () => {
       tag: 'to-snatch',
       expiration_date: '2026-04-01T00:00:00.000Z',
       registered_date: '2024-04-01T00:00:00.000Z',
-      last_checked: '2026-06-20T18:30:00.000Z',
+      last_checked: '2026-06-20T12:30:00.000Z',
     }), new Date('2026-06-20T20:00:00.000Z'));
 
     expect(decision.due).toBe(true);
     expect(decision.priority).toBe(100);
+  });
+
+  it('supports aggressive 15-minute active polling and pausing', () => {
+    const target = domain({
+      tag: 'to-snatch',
+      expiration_date: '2026-04-01T00:00:00.000Z',
+      last_checked: '2026-06-04T23:40:00.000Z',
+    });
+    const aggressive = checkDecisionForDomain(target, now, {
+      ...DEFAULT_MONITORING_SETTINGS,
+      active_interval_minutes: 15,
+    });
+    const paused = checkDecisionForDomain(target, now, {
+      ...DEFAULT_MONITORING_SETTINGS,
+      enabled: false,
+    });
+
+    expect(aggressive.due).toBe(true);
+    expect(aggressive.reason).toContain('15 minutes');
+    expect(paused.due).toBe(false);
+    expect(paused.reason).toContain('paused');
   });
 });

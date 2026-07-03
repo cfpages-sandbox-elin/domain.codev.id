@@ -8,7 +8,7 @@ An aesthetically pleasing app to check domain availability and track domain expi
 
 *   **Secure User Accounts:** Sign in with your Google account to keep your domain list private and synced.
 *   **Secure & Resilient Domain Checks:** Real-time WHOIS lookups are proxied through a secure Supabase Edge Function. This resolves CORS issues and protects API keys by never exposing them to the browser. The backend uses a tiered approach with multiple WHOIS providers for high availability.
-*   **Automated Targeted Checks:** A secure Supabase Edge Function (`check-domains`) is invoked every 15 minutes and only checks domains due under the expiry/drop schedule, including continuous target monitoring through the drop window.
+*   **Automated Targeted Checks:** A secure Supabase Edge Function (`check-domains`) is invoked every 15 minutes, while per-user quota-aware settings decide which domains are actually due for WHOIS calls.
 *   **Bulk Add, Import & Export:** Easily manage large lists of domains by pasting a list or importing/exporting in JSON/CSV format. Bulk additions are processed concurrently with rate-limiting to ensure speed and reliability.
 *   **Manual Re-check:** For any domain where the lookup failed, a simple "Re-check" button allows you to instantly try again via the secure backend proxy.
 *   **Direct Purchase Links:** For available domains, get quick links to recommended registrars to purchase the domain immediately.

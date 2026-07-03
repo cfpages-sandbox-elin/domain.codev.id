@@ -6,6 +6,7 @@ import Spinner from './Spinner';
 import Tooltip from './Tooltip';
 import { CheckCircleIcon, CommandLineIcon, CopyIcon, TrashIcon } from './icons';
 import NotificationChannelsPanel from './integration/NotificationChannelsPanel';
+import { useOutsideDismiss } from '../hooks/useOutsideDismiss';
 
 interface IntegrationSettingsModalProps {
   isOpen: boolean;
@@ -64,6 +65,8 @@ const IntegrationSettingsModal: React.FC<IntegrationSettingsModalProps> = ({ isO
   const [newToken, setNewToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [isRevokedClientsOpen, setIsRevokedClientsOpen] = useState(false);
+  const revokedClientsRef = useOutsideDismiss<HTMLDetailsElement>(isRevokedClientsOpen, () => setIsRevokedClientsOpen(false));
 
   const apiBaseUrl = useMemo(getApiBaseUrl, []);
 
@@ -359,7 +362,12 @@ Behavior rules:
         </div>
 
         {revokedClients.length > 0 && (
-          <details className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+          <details
+            ref={revokedClientsRef}
+            open={isRevokedClientsOpen}
+            onToggle={event => setIsRevokedClientsOpen(event.currentTarget.open)}
+            className="rounded-lg border border-slate-200 p-3 dark:border-slate-700"
+          >
             <summary className="cursor-pointer font-semibold text-slate-900 dark:text-white">Revoked clients</summary>
             <div className="mt-2 space-y-2">
               {revokedClients.map(client => (

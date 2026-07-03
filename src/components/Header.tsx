@@ -5,6 +5,8 @@ import { BellIcon, BookOpenIcon, CalendarClockIcon, CommandLineIcon, DomainCodev
 import Tooltip from './Tooltip';
 import { Session } from '@supabase/supabase-js';
 import { signOut } from '../services/supabaseService';
+import { useOutsideDismiss } from '../hooks/useOutsideDismiss';
+import { HEADER_ICON_CLASS, headerControlClass } from './headerStyles';
 
 interface HeaderProps {
     session: Session | null;
@@ -17,6 +19,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotifications, setView, onViewIntent, onOpenIntegrations }) => {
   const [showNotifications, setShowNotifications] = useState(false);
+  const notificationRef = useOutsideDismiss<HTMLDivElement>(showNotifications, () => setShowNotifications(false));
 
   return (
     <header className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-lg sticky top-0 z-40 shadow-sm dark:shadow-slate-700/[.7]">
@@ -34,15 +37,15 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
               <span className="hidden text-xl font-bold md:inline">Domain Codev</span>
             </button>
           </Tooltip>
-          <div className="flex min-w-0 items-center gap-0.5 sm:gap-2 md:gap-4">
+          <div className="flex min-w-0 items-center gap-0.5 sm:gap-1 md:gap-1.5">
             {session && (
               <>
                 <Tooltip content={session.user.email || 'Signed in account'}>
                   <span
-                    className="hidden rounded-full p-2 text-slate-600 dark:text-slate-400 md:inline-flex"
+                    className={`${headerControlClass()} hidden md:inline-flex`}
                     aria-label={session.user.email || 'Signed in account'}
                   >
-                    <UserCircleIcon className="h-6 w-6" />
+                    <UserCircleIcon className={HEADER_ICON_CLASS} />
                   </span>
                 </Tooltip>
                 <Tooltip content="Documentation">
@@ -50,10 +53,10 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
                     onMouseEnter={() => onViewIntent?.('docs')}
                     onFocus={() => onViewIntent?.('docs')}
                     onClick={() => setView('docs')}
-                    className="hidden rounded-full p-1.5 text-slate-600 transition-colors hover:bg-slate-200 hover:text-brand-blue dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white sm:inline-flex sm:p-2"
+                    className={`${headerControlClass()} hidden sm:inline-flex`}
                     aria-label="Open documentation"
                   >
-                    <BookOpenIcon className="h-5 w-5 sm:h-6 sm:w-6" />
+                    <BookOpenIcon className={HEADER_ICON_CLASS} />
                   </button>
                 </Tooltip>
                 <Tooltip content="Categories">
@@ -61,10 +64,10 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
                     onMouseEnter={() => onViewIntent?.('categories')}
                     onFocus={() => onViewIntent?.('categories')}
                     onClick={() => setView('categories')}
-                    className="rounded-full p-1.5 text-slate-600 transition-colors hover:bg-slate-200 hover:text-brand-blue dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white sm:p-2"
+                    className={headerControlClass()}
                     aria-label="Open categories"
                   >
-                    <TagIcon className="h-5 w-5 sm:h-6 sm:w-6" />
+                    <TagIcon className={HEADER_ICON_CLASS} />
                   </button>
                 </Tooltip>
                 <Tooltip content="WHOIS update schedule">
@@ -72,19 +75,19 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
                     onMouseEnter={() => onViewIntent?.('schedule')}
                     onFocus={() => onViewIntent?.('schedule')}
                     onClick={() => setView('schedule')}
-                    className="rounded-full p-1.5 text-slate-600 transition-colors hover:bg-slate-200 hover:text-brand-blue dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white sm:p-2"
+                    className={headerControlClass()}
                     aria-label="Open WHOIS update schedule"
                   >
-                    <CalendarClockIcon className="h-5 w-5 sm:h-6 sm:w-6" />
+                    <CalendarClockIcon className={HEADER_ICON_CLASS} />
                   </button>
                 </Tooltip>
                 <Tooltip content="Integration API tokens">
                   <button
                     onClick={onOpenIntegrations}
-                    className="hidden rounded-full p-1.5 text-slate-600 transition-colors hover:bg-slate-200 hover:text-brand-blue dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white sm:inline-flex sm:p-2"
+                    className={`${headerControlClass()} hidden sm:inline-flex`}
                     aria-label="Open integration API tokens"
                   >
-                    <CommandLineIcon className="h-5 w-5 sm:h-6 sm:w-6" />
+                    <CommandLineIcon className={HEADER_ICON_CLASS} />
                   </button>
                 </Tooltip>
                 <Tooltip content="Settings">
@@ -92,20 +95,20 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
                     onMouseEnter={() => onViewIntent?.('settings')}
                     onFocus={() => onViewIntent?.('settings')}
                     onClick={() => setView('settings')}
-                    className="rounded-full p-1.5 text-slate-600 transition-colors hover:bg-slate-200 hover:text-brand-blue dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white sm:p-2"
+                    className={headerControlClass()}
                     aria-label="Open settings"
                   >
-                    <SettingsIcon className="h-5 w-5 sm:h-6 sm:w-6" />
+                    <SettingsIcon className={HEADER_ICON_CLASS} />
                   </button>
                 </Tooltip>
-                <div className="relative">
+                <div className="relative" ref={notificationRef}>
                   <Tooltip content="Notifications">
                     <button
                       onClick={() => setShowNotifications(!showNotifications)}
-                      className="relative rounded-full p-1.5 text-slate-600 transition-colors hover:bg-slate-200 hover:text-brand-blue dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white sm:p-2"
+                      className={`${headerControlClass()} relative`}
                       aria-label="Toggle notifications"
                     >
-                      <BellIcon className="h-5 w-5 sm:h-6 sm:w-6" />
+                      <BellIcon className={HEADER_ICON_CLASS} />
                       {notifications.length > 0 && (
                         <span className="absolute -top-1 -right-1 flex h-4 w-4">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -146,10 +149,10 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
               <Tooltip content="Log out">
                 <button
                   onClick={signOut}
-                  className="rounded-full p-1.5 text-brand-red transition-colors hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-900/50 sm:p-2"
+                  className={headerControlClass('danger')}
                   aria-label="Log out"
                 >
-                  <LogOutIcon className="h-5 w-5 sm:h-6 sm:w-6" />
+                  <LogOutIcon className={HEADER_ICON_CLASS} />
                 </button>
               </Tooltip>
             )}

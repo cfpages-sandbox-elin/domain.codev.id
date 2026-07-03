@@ -4,6 +4,7 @@ import * as SupabaseService from '../../services/supabaseService';
 import { BellIcon, CheckCircleIcon, ExclamationTriangleIcon, TrashIcon } from '../icons';
 import Spinner from '../Spinner';
 import Tooltip from '../Tooltip';
+import { useOutsideDismiss } from '../../hooks/useOutsideDismiss';
 
 const generateSecret = () => {
   const bytes = new Uint8Array(24);
@@ -17,6 +18,8 @@ const NotificationChannelsPanel = ({ addLog }: { addLog: (message: string) => vo
   const [name, setName] = useState('Hermes WhatsApp');
   const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeliveryHistoryOpen, setIsDeliveryHistoryOpen] = useState(false);
+  const deliveryHistoryRef = useOutsideDismiss<HTMLDetailsElement>(isDeliveryHistoryOpen, () => setIsDeliveryHistoryOpen(false));
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
@@ -110,7 +113,11 @@ const NotificationChannelsPanel = ({ addLog }: { addLog: (message: string) => vo
       )}
 
       {deliveries.length > 0 && (
-        <details>
+        <details
+          ref={deliveryHistoryRef}
+          open={isDeliveryHistoryOpen}
+          onToggle={event => setIsDeliveryHistoryOpen(event.currentTarget.open)}
+        >
           <summary className="cursor-pointer text-xs font-semibold text-slate-700 dark:text-slate-300">Recent delivery attempts ({deliveries.length})</summary>
           <ul className="mt-2 space-y-1.5">
             {deliveries.map(delivery => (

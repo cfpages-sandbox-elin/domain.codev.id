@@ -131,3 +131,21 @@ export interface NotificationDelivery {
   sent_at: string | null;
   payload: Record<string, unknown>;
 }
+
+export interface DomainMonitoringSettings {
+  user_id: string;
+  enabled: boolean;
+  max_checks_per_run: number;
+  grace_interval_hours: number;
+  pre_drop_start_days: number;
+  pre_drop_interval_hours: number;
+  estimated_drop_days: number;
+  active_window_before_hours: number;
+  active_window_after_hours: number;
+  active_interval_minutes: number;
+  post_window_interval_hours: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type DomainMonitoringSettingsInput = Omit<DomainMonitoringSettings, 'user_id' | 'created_at' | 'updated_at'>;

@@ -3,6 +3,7 @@ import { AutoMineRule, Domain } from '../types';
 import { ChevronDownIcon, ChevronUpIcon, HomeIcon, PlusIcon, TrashIcon } from './icons';
 import Tooltip from './Tooltip';
 import { normalizeNameServer, splitNameServers } from '../utils/userSettingsStorage';
+import { useOutsideDismiss } from '../hooks/useOutsideDismiss';
 
 interface AutoMinePanelProps {
   domains: Domain[];
@@ -39,6 +40,7 @@ const findRuleMatches = (domains: Domain[], rules: AutoMineRule[]) => {
 
 const AutoMinePanel: React.FC<AutoMinePanelProps> = ({ domains, rules, onRulesChange, onApplyMatches, addLog }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const panelRef = useOutsideDismiss<HTMLElement>(isExpanded, () => setIsExpanded(false));
   const [label, setLabel] = useState('');
   const [nameServerInput, setNameServerInput] = useState('');
   const [isApplying, setIsApplying] = useState(false);
@@ -106,7 +108,7 @@ const AutoMinePanel: React.FC<AutoMinePanelProps> = ({ domains, rules, onRulesCh
   };
 
   return (
-    <section className="mb-6 border-b border-slate-200 pb-4 dark:border-slate-700">
+    <section ref={panelRef} className="mb-6 border-b border-slate-200 pb-4 dark:border-slate-700">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"

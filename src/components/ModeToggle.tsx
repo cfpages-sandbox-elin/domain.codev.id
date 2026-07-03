@@ -3,6 +3,7 @@
 import React from 'react';
 import { useDarkMode } from '../hooks/useDarkMode';
 import { SunIcon, MoonIcon } from './icons';
+import { HEADER_ICON_CLASS, headerControlClass } from './headerStyles';
 
 const ModeToggle: React.FC = () => {
   const [theme, toggleTheme] = useDarkMode();
@@ -10,13 +11,13 @@ const ModeToggle: React.FC = () => {
   return (
     <button
       onClick={toggleTheme}
-      className="rounded-full p-1.5 text-slate-600 transition-colors hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700 sm:p-2"
+      className={headerControlClass()}
       aria-label="Toggle dark mode"
     >
       {theme === 'light' ? (
-        <MoonIcon className="h-5 w-5 sm:h-6 sm:w-6" />
+        <MoonIcon className={HEADER_ICON_CLASS} />
       ) : (
-        <SunIcon className="h-5 w-5 sm:h-6 sm:w-6" />
+        <SunIcon className={HEADER_ICON_CLASS} />
       )}
     </button>
   );

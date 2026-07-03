@@ -25,7 +25,7 @@ import {
 import { splitCategoryWords } from './utils/userSettingsStorage';
 
 type View = 'dashboard' | 'schedule' | 'docs' | 'categories' | 'settings';
-type SettingsTab = 'whois' | 'auto-mine';
+type SettingsTab = 'whois' | 'monitoring' | 'auto-mine';
 
 type BulkDomain = { domainName: string; tag?: DomainTag };
 type DomainEntryTab = 'single' | 'bulk';

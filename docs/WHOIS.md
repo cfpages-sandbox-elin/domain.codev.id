@@ -81,12 +81,13 @@ The cron function may run often, but it does not spend WHOIS quota on every doma
 | `to-snatch`, final 7 days before expiry | Check at most daily. |
 | `to-snatch`, 0-44 days after expiry | Check at most weekly; likely grace/redemption period. |
 | `to-snatch`, 45-57 days after expiry | Check at most daily; approaching drop window. |
-| `to-snatch`, 58+ days after expiry and within the extended estimated drop watch | Check every 15 minutes until availability is detected. |
-| `to-snatch`, outside the extended estimated drop watch but still unavailable | Continue hourly; never stop or downgrade to weekly after the estimated date. |
+| `to-snatch`, inside configured active drop watch | Use the user's active cadence. Balanced defaults to hourly; aggressive is 15 minutes. |
+| `to-snatch`, past configured active drop watch but still unavailable | Continue at the user's post-window cadence. Balanced defaults to every 6 hours. |
 | Already `available`, `dropped`, or `reserved` | Skip automatic checks. User can buy available/dropped domains or manually re-check if needed; reserved domains are not expected to become buyable. |
 | Missing expiry | Retry weekly if `unknown`, otherwise monthly. |
 
 The cron run is capped by `WHOIS_CRON_MAX_CHECKS`, default `50`, and processes due domains with concurrency `6`.
+Each user also has a configurable lower run cap, default `25`, under Settings → Monitoring.
 
 ## Current Implementation Risks
 
