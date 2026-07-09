@@ -1,8 +1,33 @@
 # UI Performance Optimization
 
-Last updated: 2026-07-03 17:32 WIB.
+Last updated: 2026-07-10 WIB.
 
 This tracker exists because the dashboard now has around 675 domains and is starting to feel sluggish.
+
+**Related plan (hover lag root causes + next pass design):**  
+`docs/PERFORMANCE_AND_RANK_TRACKING_PLAN.md`
+
+**Related product (rank tracking MVP — implement after list feels smooth):**  
+`docs/SERP_RANK_TRACKING.md`
+
+---
+
+## Next pass (2026-07-10) — hover / list lag
+
+User report: cursor traversal feels laggy; hover show/hide controls suspected.
+
+| Task | Status | Implementation note |
+| --- | --- | --- |
+| Shared single `TooltipHost` portal | 🟡 In progress | Rewrite triggers to lightweight enter/leave; mount host once in App. May be partially on disk — finish and verify. |
+| Reduce DomainItem tooltip count | 🟡 In progress | Rich tooltip only for WHOIS domain details (+ buy/drop where needed); actions use title/aria-label. |
+| Flatten nested tooltips | 🟡 In progress | Site link must not sit inside domain-name tooltip host. |
+| Cheaper row paint | 🟡 In progress | `transition-colors` only; drop grayscale/saturate; mute with opacity. |
+| Desktop XOR mobile tag alternate UI | 🟡 In progress | `isDesktopLayout` / matchMedia; do not mount both trees. |
+| Stable categoryLabels map | ❌ Not started | Precompute Map in DomainList; pass stable array refs. |
+| Sliding window (unmount offscreen rows) | ❌ Not started | Replace top-N append with start/end range + spacers. |
+| dateRefreshTick only on day change | ❌ Not started | Avoid full filter recompute on every window focus. |
+| Domain refresh referential equality | ❌ Not started | Optional: keep domains array ref when server snapshot unchanged. |
+| Verify lint/tsc/build + manual cursor scrub | ❌ Not started | Required before calling the pass Done. |
 
 ## Current Audit
 
@@ -54,6 +79,7 @@ This tracker exists because the dashboard now has around 675 domains and is star
 
 | Date/Time (WIB) | Status | Change | Notes |
 | --- | --- | --- | --- |
+| 2026-07-10 | Planned / WIP | Started next hover/list lag pass; paused to lock plans in markdown. | Full checklist in this file + `PERFORMANCE_AND_RANK_TRACKING_PLAN.md`. Rank work tracked in `SERP_RANK_TRACKING.md`. |
 | 2026-07-03 17:32 WIB | Done | Completed hover/cursor and floating-action pass. | Cursor changes are CSS-only; tooltip activation is O(1) instead of broadcasting to every mounted tooltip; persistent floating circles share one size/style system. |
 | 2026-07-03 17:32 WIB | Done | Completed tooltip placement and tag-shortcut follow-up. | Tooltips anchor before display, stay off their trigger, and tag choices expose working Mine/To Snatch/Others shortcuts. |
 | 2026-06-06 14:18 WIB | Done | Completed stale-cache and reduced-Supabase-call pass. | Added user-scoped local domain snapshots, session-cached provider statuses, debounced merged app-settings writes, immediate route switches for warmed chunks, and row-level tag-update spinners. |

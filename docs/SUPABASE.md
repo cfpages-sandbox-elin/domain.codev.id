@@ -57,4 +57,11 @@ Domainduck specifically uses `DOMAINDUCK_API_KEY`; per-user browser-entered cred
 - `check-domains`: cron-style scheduled checks; `verify_jwt = false` because it checks `CRON_SECRET` itself.
 - `external-api`: scoped external API; `verify_jwt = false` because it validates integration bearer tokens itself.
 
+### Planned (see `docs/SERP_RANK_TRACKING.md`)
+
+- `get-serp-providers`: authenticated SERP provider registry/status (no raw keys returned).
+- `check-ranks`: keyword SERP checks (cron via `CRON_SECRET` and/or user JWT for manual single-keyword check).
+- Tables: `rank_keywords`, `rank_keyword_domains`, `rank_checks`, `rank_positions`, `serp_provider_credentials`.
+- User-pasted SERP API keys live in `serp_provider_credentials` (same RLS pattern as WHOIS: write from browser, read only with service role).
+
 After changing shared WHOIS modules or function entrypoints, deploy affected functions with `npx supabase@latest functions deploy ... --use-api`.

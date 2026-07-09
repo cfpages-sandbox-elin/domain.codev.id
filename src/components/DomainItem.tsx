@@ -35,15 +35,32 @@ interface DomainItemProps {
   isTagUpdating?: boolean;
   categoryLabels?: Array<{ id: string; label: string; kind: 'word-group' | 'auto' }>;
   tld?: string;
+  isDesktopLayout?: boolean;
 }
 
-const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove, onShowInfo, onToggleTag, onSetTag, onRecheck, onRemoveCategory, onCreateWordGroupCategory, isAutoRefreshing = false, isPending = false, isTagUpdating = false, categoryLabels = [], tld }) => {
+const DomainItem: React.FC<DomainItemProps> = ({
+  domain,
+  whoisDetails,
+  onRemove,
+  onShowInfo,
+  onToggleTag,
+  onSetTag,
+  onRecheck,
+  onRemoveCategory,
+  onCreateWordGroupCategory,
+  isAutoRefreshing = false,
+  isPending = false,
+  isTagUpdating = false,
+  categoryLabels = [],
+  tld,
+  isDesktopLayout = true,
+}) => {
   const [selectedRegistrar, setSelectedRegistrar] = useState<string>('');
   const [isRechecking, setIsRechecking] = useState(false);
   const [pendingCategoryRemovalIds, setPendingCategoryRemovalIds] = useState<Set<string>>(() => new Set());
   const categoryRemovalTimeoutsRef = useRef<number[]>([]);
   const { isCompact } = useCompactMode();
-  
+
   const registrars = useMemo(() => registrarOptionsForDomain(domain.domain_name), [domain.domain_name]);
 
   useEffect(() => {
@@ -131,35 +148,11 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
   const tagIconClass = `h-5 w-5 ${tagColorClass}`;
   const leadingTagIconClass = `mt-0.5 h-4 w-4 flex-none ${tagColorClass}`;
   const selectedRegistrarName = registrars[selectedRegistrar] || selectedRegistrar;
-  const buyTooltip = (
-    <PlainTooltipText
-      title={`Open ${selectedRegistrarName}`}
-      body="Confirm availability at the registrar before buying. WHOIS providers can return stale or unsupported-TLD results."
-    />
-  );
-  const purchaseControls = (
-    <div className="flex items-center gap-1.5">
-      <select
-        value={selectedRegistrar}
-        onChange={(e) => setSelectedRegistrar(e.target.value)}
-        className="min-w-0 w-full max-w-[132px] px-2 py-1.5 text-xs bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-brand-blue focus:border-brand-blue"
-        aria-label={`Select registrar for ${domain.domain_name}`}
-      >
-        {Object.entries(registrars).map(([value, name]) => (
-          <option key={value} value={value}>{name}</option>
-        ))}
-      </select>
-      <Tooltip content={buyTooltip}>
-        <button
-          onClick={handleBuyClick}
-          className="inline-flex h-8 w-8 flex-none items-center justify-center text-white bg-brand-green hover:bg-green-600 rounded-md transition-colors"
-          aria-label={`Open registrar page for ${domain.domain_name} on ${selectedRegistrarName}`}
-        >
-          <ShoppingCartIcon className="w-4 h-4" />
-        </button>
-      </Tooltip>
-    </div>
-  );
+  const mutedRowClass = isRegisteredTarget
+    ? 'opacity-60'
+    : isWhoisIncomplete
+      ? 'opacity-75'
+      : '';
 
   const tooltipContent = useMemo(() => (
     <DomainTooltipContent
@@ -180,8 +173,37 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
     />
   ), [categoryLabels, domain, dropLifecycleEstimate, expiredStatusLabel, nameServers, registryStatuses, tagLabel, tld, whoisDetails?.providerLabel]);
 
+  const alternateTags = useMemo(
+    () => (['mine', 'to-snatch', 'others'] as DomainTag[]).filter(tag => tag !== effectiveTag),
+    [effectiveTag],
+  );
+
+  const purchaseControls = (
+    <div className="flex items-center gap-1.5">
+      <select
+        value={selectedRegistrar}
+        onChange={(e) => setSelectedRegistrar(e.target.value)}
+        className="min-w-0 w-full max-w-[132px] px-2 py-1.5 text-xs bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-brand-blue focus:border-brand-blue"
+        aria-label={`Select registrar for ${domain.domain_name}`}
+      >
+        {Object.entries(registrars).map(([value, name]) => (
+          <option key={value} value={value}>{name}</option>
+        ))}
+      </select>
+      <Tooltip content={<PlainTooltipText title={`Open ${selectedRegistrarName}`} body="Confirm availability at the registrar before buying." />}>
+        <button
+          onClick={handleBuyClick}
+          className="inline-flex h-8 w-8 flex-none items-center justify-center text-white bg-brand-green transition-colors hover:bg-green-600 rounded-md"
+          aria-label={`Open registrar page for ${domain.domain_name} on ${selectedRegistrarName}`}
+        >
+          <ShoppingCartIcon className="w-4 h-4" />
+        </button>
+      </Tooltip>
+    </div>
+  );
+
   return (
-    <div className={`relative overflow-hidden rounded-md border transition-all ${rowStyles} ${isRegisteredTarget ? 'saturate-50 opacity-[0.55] grayscale-[35%]' : ''} ${isWhoisIncomplete ? 'grayscale opacity-75' : ''} ${isCompact ? 'px-3 py-2' : 'px-3 py-2.5 sm:px-4 sm:py-3'}`}>
+    <div className={`relative overflow-hidden rounded-md border transition-colors ${rowStyles} ${mutedRowClass} ${isCompact ? 'px-3 py-2' : 'px-3 py-2.5 sm:px-4 sm:py-3'}`}>
       {(isWhoisIncomplete || isWhoisProcessing) && (
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center">
           <span className="rounded-b-md bg-slate-800/90 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white dark:bg-slate-100/90 dark:text-slate-900">
@@ -191,11 +213,11 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
       )}
       <div className={`grid grid-cols-1 gap-2 sm:gap-3 md:grid-cols-[minmax(180px,1.5fr)_minmax(110px,0.7fr)_minmax(120px,0.8fr)_minmax(160px,0.9fr)_auto] md:items-center ${(isWhoisIncomplete || isWhoisProcessing) ? 'pt-4' : ''}`}>
         <div className="min-w-0">
-          <Tooltip content={tooltipContent}>
-            <span className="flex min-w-0 items-start gap-2">
-              <TagIconComponent className={leadingTagIconClass} />
-              <span className="min-w-0">
-                <span className="inline-flex max-w-full items-center gap-1.5 align-top">
+          <span className="flex min-w-0 items-start gap-2">
+            <TagIconComponent className={leadingTagIconClass} />
+            <span className="min-w-0">
+              <span className="inline-flex max-w-full items-center gap-1.5 align-top">
+                <Tooltip content={tooltipContent}>
                   <a
                     href={whoisUrl}
                     target="_blank"
@@ -204,28 +226,28 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
                   >
                     {domain.domain_name}
                   </a>
-                  {effectiveTag === 'mine' && (
-                    <Tooltip content={<PlainTooltipText title="Open site" body={`Open ${domain.domain_name} in a new tab.`} />}>
-                      <a
-                        href={siteUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-white/70 hover:text-brand-blue dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-                        aria-label={`Open ${domain.domain_name} site in a new tab`}
-                      >
-                        <ExternalLinkIcon className="h-3.5 w-3.5" />
-                      </a>
-                    </Tooltip>
-                  )}
-                </span>
-                {(categoryLabels.length > 0 || tld) && (
-                  <span className="mt-1 flex flex-wrap items-center gap-1">
-                    {categoryLabels.slice(0, 2).map(({ id, label, kind }) => {
-                      const isRemovingCategory = pendingCategoryRemovalIds.has(id);
-                      return (
+                </Tooltip>
+                {effectiveTag === 'mine' && (
+                  <a
+                    href={siteUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-white/70 hover:text-brand-blue dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                    aria-label={`Open ${domain.domain_name} site in a new tab`}
+                    title="Open site"
+                  >
+                    <ExternalLinkIcon className="h-3.5 w-3.5" />
+                  </a>
+                )}
+              </span>
+              {(categoryLabels.length > 0 || tld) && (
+                <span className="mt-1 flex flex-wrap items-center gap-1">
+                  {categoryLabels.slice(0, 2).map(({ id, label, kind }) => {
+                    const isRemovingCategory = pendingCategoryRemovalIds.has(id);
+                    return (
                       <span
                         key={id}
-                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-opacity ${
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                           isRemovingCategory ? 'opacity-80' : ''
                         } ${
                           kind === 'word-group'
@@ -234,57 +256,54 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
                         }`}
                       >
                         {label}
-                        <Tooltip content={`Remove ${label} from ${domain.domain_name}`}>
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              handleRemoveCategory(id);
-                            }}
-                            disabled={isRemovingCategory}
-                            className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-slate-400 transition-colors hover:text-red-600 disabled:cursor-wait disabled:hover:text-slate-400 dark:text-slate-500 dark:hover:text-red-300"
-                            aria-label={`Remove ${label} category from ${domain.domain_name}`}
-                          >
-                            {isRemovingCategory ? (
-                              <span className="h-3 w-3 animate-spin rounded-full border-b-2 border-brand-blue" aria-hidden="true" />
-                            ) : (
-                              <XCircleIcon className="h-3 w-3" />
-                            )}
-                          </button>
-                        </Tooltip>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            handleRemoveCategory(id);
+                          }}
+                          disabled={isRemovingCategory}
+                          className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-slate-400 transition-colors hover:text-red-600 disabled:cursor-wait disabled:hover:text-slate-400 dark:text-slate-500 dark:hover:text-red-300"
+                          aria-label={`Remove ${label} category from ${domain.domain_name}`}
+                          title={`Remove ${label}`}
+                        >
+                          {isRemovingCategory ? (
+                            <span className="h-3 w-3 animate-spin rounded-full border-b-2 border-brand-blue" aria-hidden="true" />
+                          ) : (
+                            <XCircleIcon className="h-3 w-3" />
+                          )}
+                        </button>
                       </span>
-                      );
-                    })}
-                    {categoryLabels.length > 2 && (
-                      <span className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-900/70 dark:text-slate-300">
-                        +{categoryLabels.length - 2}
-                      </span>
-                    )}
-                    {tld && (
-                      <span className="rounded-full bg-slate-900/10 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-white/10 dark:text-slate-300">
-                        {tld}
-                      </span>
-                    )}
-                    <Tooltip content="Create a word-group category from this domain">
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          onCreateWordGroupCategory();
-                        }}
-                        className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-blue-700 ring-1 ring-blue-200 transition-colors hover:bg-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:ring-blue-800 dark:hover:bg-blue-900"
-                        aria-label={`Create word-group category for ${domain.domain_name}`}
-                      >
-                        <PlusIcon className="h-3 w-3" />
-                      </button>
-                    </Tooltip>
-                  </span>
-                )}
-              </span>
+                    );
+                  })}
+                  {categoryLabels.length > 2 && (
+                    <span className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-900/70 dark:text-slate-300">
+                      +{categoryLabels.length - 2}
+                    </span>
+                  )}
+                  {tld && (
+                    <span className="rounded-full bg-slate-900/10 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-white/10 dark:text-slate-300">
+                      {tld}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      onCreateWordGroupCategory();
+                    }}
+                    className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-blue-700 ring-1 ring-blue-200 transition-colors hover:bg-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:ring-blue-800 dark:hover:bg-blue-900"
+                    aria-label={`Create word-group category for ${domain.domain_name}`}
+                    title="Create word-group category"
+                  >
+                    <PlusIcon className="h-3 w-3" />
+                  </button>
+                </span>
+              )}
             </span>
-          </Tooltip>
+          </span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -321,123 +340,116 @@ const DomainItem: React.FC<DomainItemProps> = ({ domain, whoisDetails, onRemove,
           )}
         </div>
 
-        <div className="hidden min-h-[32px] md:block">
-        </div>
+        <div className="hidden min-h-[32px] md:block" />
 
         <div className="flex items-center justify-between gap-1 border-t border-black/5 pt-2 dark:border-white/10 md:justify-end md:border-0 md:pt-0">
           {isPending ? (
             <Spinner size="sm" color="border-brand-blue" />
           ) : (
             <>
-          <Tooltip content={<PlainTooltipText title="Re-check WHOIS data" body="Refresh status, expiry, registry status, and name servers." />}>
-            <button
-              onClick={handleRecheck}
-              disabled={isRechecking}
-              className={actionButtonClass}
-              aria-label={`Re-check WHOIS data for ${domain.domain_name}`}
-            >
-              {isRechecking ? <Spinner size="sm" color="border-brand-blue" /> : <RefreshIcon className="w-5 h-5" />}
-            </button>
-          </Tooltip>
-          {canShowDropTimeline && (
-            <Tooltip content={dropLifecycleEstimate ? <DropTimelineTooltip estimate={dropLifecycleEstimate} /> : <PlainTooltipText title="Show drop timeline" body="Estimate grace, redemption, and release timing." />}>
               <button
-                onClick={() => onShowInfo(domain)}
+                onClick={handleRecheck}
+                disabled={isRechecking}
                 className={actionButtonClass}
-                aria-label={`Show drop timeline for ${domain.domain_name}`}
+                aria-label={`Re-check WHOIS data for ${domain.domain_name}`}
+                title="Re-check WHOIS"
               >
-                <InfoIcon className="w-5 h-5" />
+                {isRechecking ? <Spinner size="sm" color="border-brand-blue" /> : <RefreshIcon className="w-5 h-5" />}
               </button>
-            </Tooltip>
-          )}
-          {isAvailableStatus ? (
-            <Tooltip content={<PlainTooltipText title="To Snatch" body="Available domains are treated as target domains. Re-check before buying." />}>
-              <span
-                className="inline-flex h-8 w-8 cursor-default items-center justify-center"
-                aria-label={`${domain.domain_name} is marked To Snatch because it is available`}
-              >
-                <TargetIcon className={tagIconClass} />
-              </span>
-            </Tooltip>
-          ) : isReservedStatus ? (
-            <Tooltip content={<PlainTooltipText title="Reserved domain" body="Reserved domains are not buyable and are skipped by automatic refresh." />}>
-              <span
-                className="inline-flex h-8 w-8 cursor-default items-center justify-center"
-                aria-label={`${domain.domain_name} is reserved and skipped by automatic refresh`}
-              >
-                <InfoIcon className="h-5 w-5 text-amber-700 dark:text-amber-300" />
-              </span>
-            </Tooltip>
-          ) : (
-            <div className="group/tag relative inline-flex items-center gap-1 rounded-md focus-within:bg-slate-200 hover:bg-slate-200 dark:focus-within:bg-slate-700 dark:hover:bg-slate-700">
-              {isTagUpdating && (
-                <span className="absolute inset-0 z-30 flex items-center justify-center rounded-md bg-white/80 dark:bg-slate-900/80">
-                  <Spinner size="sm" color="border-brand-blue" />
-                </span>
+              {canShowDropTimeline && (
+                <Tooltip content={dropLifecycleEstimate ? <DropTimelineTooltip estimate={dropLifecycleEstimate} /> : <PlainTooltipText title="Show drop timeline" body="Estimate grace, redemption, and release timing." />}>
+                  <button
+                    onClick={() => onShowInfo(domain)}
+                    className={actionButtonClass}
+                    aria-label={`Show drop timeline for ${domain.domain_name}`}
+                  >
+                    <InfoIcon className="w-5 h-5" />
+                  </button>
+                </Tooltip>
               )}
-              <span className="hidden pointer-events-none absolute right-8 top-0 z-20 h-8 items-center gap-1 rounded-md bg-white/95 px-1 opacity-0 shadow-sm ring-1 ring-slate-200 transition-opacity group-hover/tag:pointer-events-auto group-hover/tag:opacity-100 group-focus-within/tag:pointer-events-auto group-focus-within/tag:opacity-100 dark:bg-slate-900/95 dark:ring-slate-700 md:inline-flex">
-                {(['mine', 'to-snatch', 'others'] as DomainTag[])
-                  .filter(tag => tag !== effectiveTag)
-                  .map(tag => {
-                    const OptionIcon = getTagIcon(tag);
-                    const optionLabel = getTagLabel(tag);
-                    return (
-                      <Tooltip key={tag} content={<PlainTooltipText title={`Set ${optionLabel}`} body={`Change this domain tag to ${optionLabel}.`} />}>
-                        <button
-                          type="button"
-                          onClick={() => onSetTag(domain.id, tag)}
-                          disabled={isTagUpdating}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-white/70 dark:hover:bg-slate-800"
-                          aria-label={`Set ${domain.domain_name} tag to ${optionLabel}`}
-                        >
-                          <OptionIcon className={`h-5 w-5 ${getTagColorClass(tag)}`} />
-                        </button>
-                      </Tooltip>
-                    );
-                  })}
-                  </span>
-              <Tooltip content={<PlainTooltipText title={`Current tag: ${tagLabel}`} body="Hover to choose Mine, To Snatch, or Others directly." />}>
-                <button
-                  onClick={() => onToggleTag(domain.id)}
-                  disabled={isTagUpdating}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors"
-                  aria-label={`Current tag for ${domain.domain_name}: ${tagLabel}`}
+              {isAvailableStatus ? (
+                <span
+                  className="inline-flex h-8 w-8 cursor-default items-center justify-center"
+                  aria-label={`${domain.domain_name} is marked To Snatch because it is available`}
+                  title="To Snatch"
                 >
-                  <TagIconComponent className={tagIconClass} />
-                </button>
-              </Tooltip>
-              <span className="inline-flex items-center gap-0.5 md:hidden">
-                {(['mine', 'to-snatch', 'others'] as DomainTag[])
-                  .filter(tag => tag !== effectiveTag)
-                  .map(tag => {
-                    const OptionIcon = getTagIcon(tag);
-                    const optionLabel = getTagLabel(tag);
-                    return (
-                      <Tooltip key={tag} content={<PlainTooltipText title={`Set ${optionLabel}`} body={`Change this domain tag to ${optionLabel}.`} />}>
-                        <button
-                          type="button"
-                          onClick={() => onSetTag(domain.id, tag)}
-                          disabled={isTagUpdating}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-white/70 disabled:opacity-50 dark:hover:bg-slate-800"
-                          aria-label={`Set ${domain.domain_name} tag to ${optionLabel}`}
-                        >
-                          <OptionIcon className={`h-4 w-4 ${getTagColorClass(tag)}`} />
-                        </button>
-                      </Tooltip>
-                    );
-                  })}
-              </span>
-            </div>
-          )}
-          <Tooltip content={<PlainTooltipText title="Remove domain" body="Delete this domain from your tracking list." />}>
-            <button
-              onClick={() => onRemove(domain.id)}
-              className="p-1.5 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-md transition-colors"
-              aria-label={`Remove ${domain.domain_name} from tracking list`}
-            >
-              <TrashIcon className="w-5 h-5" />
-            </button>
-          </Tooltip>
+                  <TargetIcon className={tagIconClass} />
+                </span>
+              ) : isReservedStatus ? (
+                <span
+                  className="inline-flex h-8 w-8 cursor-default items-center justify-center"
+                  aria-label={`${domain.domain_name} is reserved and skipped by automatic refresh`}
+                  title="Reserved domain"
+                >
+                  <InfoIcon className="h-5 w-5 text-amber-700 dark:text-amber-300" />
+                </span>
+              ) : (
+                <div className="group/tag relative inline-flex items-center gap-1 rounded-md focus-within:bg-slate-200 hover:bg-slate-200 dark:focus-within:bg-slate-700 dark:hover:bg-slate-700">
+                  {isTagUpdating && (
+                    <span className="absolute inset-0 z-30 flex items-center justify-center rounded-md bg-white/80 dark:bg-slate-900/80">
+                      <Spinner size="sm" color="border-brand-blue" />
+                    </span>
+                  )}
+                  {isDesktopLayout ? (
+                    <span className="pointer-events-none absolute right-8 top-0 z-20 hidden h-8 items-center gap-1 rounded-md bg-white/95 px-1 shadow-sm ring-1 ring-slate-200 group-hover/tag:pointer-events-auto group-hover/tag:inline-flex group-focus-within/tag:pointer-events-auto group-focus-within/tag:inline-flex dark:bg-slate-900/95 dark:ring-slate-700 md:flex">
+                      {alternateTags.map(tag => {
+                        const OptionIcon = getTagIcon(tag);
+                        const optionLabel = getTagLabel(tag);
+                        return (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() => onSetTag(domain.id, tag)}
+                            disabled={isTagUpdating}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-white/70 dark:hover:bg-slate-800"
+                            aria-label={`Set ${domain.domain_name} tag to ${optionLabel}`}
+                            title={`Set ${optionLabel}`}
+                          >
+                            <OptionIcon className={`h-5 w-5 ${getTagColorClass(tag)}`} />
+                          </button>
+                        );
+                      })}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-0.5">
+                      {alternateTags.map(tag => {
+                        const OptionIcon = getTagIcon(tag);
+                        const optionLabel = getTagLabel(tag);
+                        return (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() => onSetTag(domain.id, tag)}
+                            disabled={isTagUpdating}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-white/70 disabled:opacity-50 dark:hover:bg-slate-800"
+                            aria-label={`Set ${domain.domain_name} tag to ${optionLabel}`}
+                            title={`Set ${optionLabel}`}
+                          >
+                            <OptionIcon className={`h-4 w-4 ${getTagColorClass(tag)}`} />
+                          </button>
+                        );
+                      })}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => onToggleTag(domain.id)}
+                    disabled={isTagUpdating}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors"
+                    aria-label={`Current tag for ${domain.domain_name}: ${tagLabel}`}
+                    title={`Current tag: ${tagLabel}`}
+                  >
+                    <TagIconComponent className={tagIconClass} />
+                  </button>
+                </div>
+              )}
+              <button
+                onClick={() => onRemove(domain.id)}
+                className="p-1.5 text-red-500 transition-colors hover:bg-red-100 dark:hover:bg-red-900/50 rounded-md"
+                aria-label={`Remove ${domain.domain_name} from tracking list`}
+                title="Remove domain"
+              >
+                <TrashIcon className="w-5 h-5" />
+              </button>
             </>
           )}
         </div>
@@ -465,8 +477,10 @@ export default memo(DomainItem, (prev, next) => (
   && prev.isPending === next.isPending
   && prev.isTagUpdating === next.isTagUpdating
   && prev.tld === next.tld
+  && prev.isDesktopLayout === next.isDesktopLayout
+  && prev.categoryLabels === next.categoryLabels
   && areStringArraysEqual(
-    prev.categoryLabels?.map(item => `${item.kind}:${item.label}`),
-    next.categoryLabels?.map(item => `${item.kind}:${item.label}`),
+    prev.categoryLabels?.map(item => `${item.kind}:${item.id}:${item.label}`),
+    next.categoryLabels?.map(item => `${item.kind}:${item.id}:${item.label}`),
   )
 ));

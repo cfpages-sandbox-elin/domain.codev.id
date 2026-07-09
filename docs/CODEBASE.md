@@ -188,6 +188,8 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `docs/INTEGRATIONS.md` | Progress tracker and plan for a versioned external REST/webhook integration layer so Hermes Agent, WhatsApp, n8n, scripts, and future apps can add domains, trigger WHOIS checks, and receive expiry alerts securely. |
 | `docs/MIGRATION.md` | Supabase vs Better Auth + D1 decision guide and current auth-last migration recommendation. |
 | `docs/OPTIMIZATION.md` | UI performance audit, optimization plan, and progress tracker for keeping the dashboard responsive with hundreds of domains. |
+| `docs/PERFORMANCE_AND_RANK_TRACKING_PLAN.md` | Performance audit (hover/tooltip/list lag), implementation checklist, and links to rank tracking. |
+| `docs/SERP_RANK_TRACKING.md` | Rank-tracking MVP plan: keyword-first model, schema, R2/`serp_json` storage, ~10 free-tier SERP provider research/rotation, Edge Function + Settings + Ranks UI checklist. |
 | `docs/OPTMIZATION.md` | Bundle-size optimization tracker created under the user-requested filename. Records the lazy route/modal chunk plan and build-size result for removing Vite's 500 kB JS warning. |
 | `docs/RAPIDAPI_WHOIS_PROVIDERS.md` | RapidAPI WHOIS/domain provider research for 20 marketplace listings, including parsed Basic/free-tier status, host names, endpoint capabilities, fit ranking, and implementation notes for separate RapidAPI-backed provider ids. |
 | `docs/REFACTOR.md` | Refactor audit and progress tracker for splitting oversized files into focused modules while preserving behavior. |
