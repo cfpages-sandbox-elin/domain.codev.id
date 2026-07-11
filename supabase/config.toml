@@ -3,5 +3,8 @@ project_id = "gfnjestxjgkfujzubiqr"
 [functions.check-domains]
 verify_jwt = false
 
+[functions.check-ranks]
+verify_jwt = false
+
 [functions.external-api]
 verify_jwt = false

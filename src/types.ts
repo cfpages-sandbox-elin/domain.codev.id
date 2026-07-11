@@ -149,3 +149,90 @@ export interface DomainMonitoringSettings {
 }
 
 export type DomainMonitoringSettingsInput = Omit<DomainMonitoringSettings, 'user_id' | 'created_at' | 'updated_at'>;
+
+export type SerpProviderId =
+  | 'serper'
+  | 'serpapi'
+  | 'searchapi'
+  | 'valueserp'
+  | 'scaleserp'
+  | 'zenserp'
+  | 'serpwow'
+  | 'serpstack'
+  | 'scrapingdog'
+  | 'hasdata';
+
+export type RankMatchMode = 'domain' | 'subdomain' | 'exact_url' | 'prefix';
+export type RankDevice = 'desktop' | 'mobile';
+
+export interface SerpProviderStatus {
+  id: SerpProviderId;
+  label: string;
+  priority: number;
+  freeTierLabel: string;
+  monthlyFreeEstimate: number | null;
+  notes: string;
+  signupUrl: string;
+  configured: boolean;
+  enabled: boolean;
+  status: 'active' | 'missing-key' | 'blocked';
+  estimatedMonthUsed?: number;
+  blockedUntil?: string | null;
+  lastErrorMessage?: string | null;
+  lastUsedAt?: string | null;
+}
+
+export interface RankKeyword {
+  id: string;
+  user_id: string;
+  keyword: string;
+  keyword_key: string;
+  engine: string;
+  locale: string;
+  device: RankDevice;
+  location: string | null;
+  enabled: boolean;
+  check_interval_hours: number;
+  last_checked_at: string | null;
+  next_check_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RankKeywordDomain {
+  keyword_id: string;
+  domain_id: number;
+  user_id: string;
+  match_mode: RankMatchMode;
+  target_url: string | null;
+  created_at: string;
+}
+
+export interface RankPosition {
+  id: number;
+  check_id: string;
+  keyword_id: string;
+  domain_id: number;
+  user_id: string;
+  position: number | null;
+  rank_url: string | null;
+  rank_title: string | null;
+  found: boolean;
+  created_at: string;
+}
+
+export interface RankKeywordWithLinks extends RankKeyword {
+  domainIds: number[];
+  latestPositions: Array<{
+    domain_id: number;
+    position: number | null;
+    found: boolean;
+    rank_url: string | null;
+    created_at: string;
+  }>;
+}
+
+export interface SerpProviderCredentialInput {
+  providerId: SerpProviderId;
+  apiKey: string;
+}

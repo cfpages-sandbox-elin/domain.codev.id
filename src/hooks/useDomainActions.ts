@@ -123,10 +123,27 @@ export const useDomainActions = ({
       if (document.visibilityState !== 'visible') return;
       const userDomains = await SupabaseService.getDomains({ silent: true });
       if (cancelled || !userDomains) return;
-      setDomains(current => [
-        ...current.filter(domain => domain.id < 0),
-        ...userDomains,
-      ]);
+      setDomains(current => {
+        const pending = current.filter(domain => domain.id < 0);
+        const next = [...pending, ...userDomains];
+        if (
+          pending.length === 0
+          && current.length === userDomains.length
+          && current.every((domain, index) => {
+            const server = userDomains[index];
+            return server
+              && domain.id === server.id
+              && domain.tag === server.tag
+              && domain.status === server.status
+              && domain.expiration_date === server.expiration_date
+              && domain.last_checked === server.last_checked
+              && domain.registrar === server.registrar;
+          })
+        ) {
+          return current;
+        }
+        return next;
+      });
       writeCachedDomains(session.user.id, userDomains);
     };
 

@@ -10,13 +10,14 @@ import Auth from './components/Auth';
 import Spinner from './components/Spinner';
 import ConfigErrorScreen from './components/ConfigErrorScreen';
 import StatusLog from './components/StatusLog';
-import Tooltip from './components/Tooltip';
+import Tooltip, { TooltipHost } from './components/Tooltip';
 import { CheckCircleIcon, ExclamationTriangleIcon, PlusIcon } from './components/icons';
 import DashboardView from './components/app/DashboardView';
 import { useDomainActions } from './hooks/useDomainActions';
 import { useStatusLog } from './hooks/useStatusLog';
 import { useSyncedUserSettings } from './hooks/useSyncedUserSettings';
 import { useWhoisProviders } from './hooks/useWhoisProviders';
+import { useSerpProviders } from './hooks/useSerpProviders';
 import {
   buildDomainExport,
   buildDropTimelineHtml,
@@ -25,8 +26,8 @@ import {
 import { splitCategoryWords } from './utils/userSettingsStorage';
 import { FLOATING_ACTION_ICON_CLASS, floatingActionButtonClass, floatingActionContainerClass } from './components/floatingActionStyles';
 
-type View = 'dashboard' | 'schedule' | 'docs' | 'categories' | 'settings';
-type SettingsTab = 'whois' | 'monitoring' | 'auto-mine';
+type View = 'dashboard' | 'schedule' | 'docs' | 'categories' | 'settings' | 'ranks';
+type SettingsTab = 'whois' | 'monitoring' | 'auto-mine' | 'serp';
 
 type BulkDomain = { domainName: string; tag?: DomainTag };
 type DomainEntryTab = 'single' | 'bulk';
@@ -38,6 +39,7 @@ const loadIntegrationSettingsModal = () => import('./components/IntegrationSetti
 const loadCategoriesPage = () => import('./components/CategoriesPage');
 const loadSettingsView = () => import('./components/app/SettingsView');
 const loadWhoisSchedulePage = () => import('./components/WhoisSchedulePage');
+const loadRanksPage = () => import('./components/RanksPage');
 
 const loadedViewChunks = new Set<View>(['dashboard']);
 const viewChunkModules = new Map<View, unknown>();
@@ -71,6 +73,7 @@ const IntegrationSettingsModal = React.lazy(loadIntegrationSettingsModal);
 const CategoriesPage = React.lazy(() => trackViewChunk('categories', loadCategoriesPage));
 const SettingsView = React.lazy(() => trackViewChunk('settings', loadSettingsView));
 const WhoisSchedulePage = React.lazy(() => trackViewChunk('schedule', loadWhoisSchedulePage));
+const RanksPage = React.lazy(() => trackViewChunk('ranks', loadRanksPage));
 
 const LazyChunkFallback = () => (
   <div className="flex min-h-[16rem] items-center justify-center">
@@ -88,6 +91,8 @@ const getViewLabel = (view: View) => {
       return 'Settings';
     case 'schedule':
       return 'WHOIS Schedule';
+    case 'ranks':
+      return 'Rank Tracking';
     case 'dashboard':
     default:
       return 'Dashboard';
@@ -107,6 +112,9 @@ const preloadViewChunk = (view: View) => {
       break;
     case 'schedule':
       void trackViewChunk('schedule', loadWhoisSchedulePage);
+      break;
+    case 'ranks':
+      void trackViewChunk('ranks', loadRanksPage);
       break;
     case 'dashboard':
     default:
@@ -150,18 +158,21 @@ const App: React.FC = () => {
   const [isIntegrationSettingsOpen, setIsIntegrationSettingsOpen] = useState(false);
 
   useEffect(() => {
+    let lastLocalDay = new Date().toDateString();
     let intervalId: number | null = null;
-    const timeoutId = window.setTimeout(() => {
+    const bumpIfDayChanged = () => {
+      const day = new Date().toDateString();
+      if (day === lastLocalDay) return;
+      lastLocalDay = day;
       setDateRefreshTick(Date.now());
-      intervalId = window.setInterval(() => {
-        setDateRefreshTick(Date.now());
-      }, 24 * 60 * 60 * 1000);
+    };
+    const timeoutId = window.setTimeout(() => {
+      bumpIfDayChanged();
+      intervalId = window.setInterval(bumpIfDayChanged, 60 * 60 * 1000);
     }, millisecondsUntilNextLocalDay());
 
     const refreshOnVisible = () => {
-      if (document.visibilityState === 'visible') {
-        setDateRefreshTick(Date.now());
-      }
+      if (document.visibilityState === 'visible') bumpIfDayChanged();
     };
     document.addEventListener('visibilitychange', refreshOnVisible);
     window.addEventListener('focus', refreshOnVisible);
@@ -232,6 +243,13 @@ const App: React.FC = () => {
     handleSaveWhoisProviderCredential,
     handleRemoveWhoisProviderCredential,
   } = useWhoisProviders(addLog);
+  const {
+    serpProviders,
+    isSerpProviderLoading,
+    refreshSerpProviders,
+    handleSaveSerpProviderCredential,
+    handleRemoveSerpProviderCredential,
+  } = useSerpProviders(addLog);
 
   useEffect(() => {
     addLog('ℹ️ Application initializing...');
@@ -361,8 +379,9 @@ const App: React.FC = () => {
   useEffect(() => {
     if (session) {
       void refreshWhoisProviders();
+      void refreshSerpProviders();
     }
-  }, [session, refreshWhoisProviders]);
+  }, [session, refreshWhoisProviders, refreshSerpProviders]);
 
   useEffect(() => {
     if (session && domains.length > 0) {
@@ -477,10 +496,15 @@ const App: React.FC = () => {
             setSettingsTab={setSettingsTab}
             whoisProviders={whoisProviders}
             isWhoisProviderLoading={isWhoisProviderLoading}
+            serpProviders={serpProviders}
+            isSerpProviderLoading={isSerpProviderLoading}
             autoMineRules={autoMineRules}
             onRefreshWhoisProviders={refreshWhoisProviders}
             onSaveWhoisProviderCredential={handleSaveWhoisProviderCredential}
             onRemoveWhoisProviderCredential={handleRemoveWhoisProviderCredential}
+            onRefreshSerpProviders={() => void refreshSerpProviders()}
+            onSaveSerpProviderCredential={handleSaveSerpProviderCredential}
+            onRemoveSerpProviderCredential={handleRemoveSerpProviderCredential}
             onAutoMineRulesChange={setAutoMineRules}
             onApplyAutoMineMatches={markDomainsAsMine}
             addLog={addLog}
@@ -488,6 +512,8 @@ const App: React.FC = () => {
         );
       case 'schedule':
         return <WhoisSchedulePage dateRefreshTick={dateRefreshTick} domains={domains} />;
+      case 'ranks':
+        return <RanksPage domains={domains} addLog={addLog} />;
       case 'dashboard':
       default:
         return (
@@ -519,6 +545,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <TooltipHost />
       <Header
         session={session}
         notifications={notifications}

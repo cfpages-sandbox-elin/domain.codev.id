@@ -9,14 +9,15 @@ import { DomainListLoadingState, EmptyDomainListState, NoDomainMatchesState } fr
 import KeywordDomainFilter from './domain-list/KeywordDomainFilter';
 import {
   CATEGORY_FILTER_STORAGE_KEY,
+  ESTIMATED_ROW_HEIGHT,
   FILTER_STORAGE_KEY,
   FilterType,
   HIDE_REGISTERED_TARGETS_STORAGE_KEY,
-  INITIAL_RENDERED_DOMAINS,
-  RENDER_INCREMENT,
   SORT_STORAGE_KEY,
   SortOption,
   TLD_FILTER_STORAGE_KEY,
+  WINDOW_OVERSCAN,
+  WINDOW_ROWS,
   applyKeywordFilter,
   applyStatusFilter,
   getFilterCounts,
@@ -28,6 +29,8 @@ import {
   readStoredString,
   sortDomains,
 } from './domain-list/domainListLogic';
+
+type CategoryLabel = { id: string; label: string; kind: 'word-group' | 'auto' };
 
 interface DomainListProps {
   dateRefreshTick: number;
@@ -91,13 +94,18 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
   const deferredKeywordFilter = useDeferredValue(keywordFilter);
   const [isKeywordSuggestionsOpen, setIsKeywordSuggestionsOpen] = useState(false);
   const [recheckProgress, setRecheckProgress] = useState<RecheckProgress | null>(null);
-  const [visibleDomainLimit, setVisibleDomainLimit] = useState(INITIAL_RENDERED_DOMAINS);
+  const [windowRange, setWindowRange] = useState({ start: 0, end: WINDOW_ROWS + WINDOW_OVERSCAN * 2 });
+  const [isDesktopLayout, setIsDesktopLayout] = useState(() => (
+    typeof window !== 'undefined' ? window.matchMedia('(min-width: 768px)').matches : true
+  ));
   const [isFloatingFilterVisible, setIsFloatingFilterVisible] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const recheckMenuRef = useRef<HTMLDivElement>(null);
   const keywordFilterRef = useRef<HTMLDivElement>(null);
   const floatingFilterRef = useRef<HTMLDivElement>(null);
-  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const listAnchorRef = useRef<HTMLDivElement>(null);
+  const windowRangeRef = useRef(windowRange);
+  windowRangeRef.current = windowRange;
   const recheckProgressTimeoutRef = useRef<number | null>(null);
   const isFloatingFilterVisibleRef = useRef(false);
 
@@ -161,8 +169,17 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
   }, [hideRegisteredTargets]);
 
   useEffect(() => {
-    setVisibleDomainLimit(INITIAL_RENDERED_DOMAINS);
+    setWindowRange({ start: 0, end: WINDOW_ROWS + WINDOW_OVERSCAN * 2 });
   }, [categoryFilter, deferredKeywordFilter, filter, hideRegisteredTargets, sortOption, tldFilter]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const media = window.matchMedia('(min-width: 768px)');
+    const onChange = () => setIsDesktopLayout(media.matches);
+    onChange();
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+  }, []);
 
   const categorization = useMemo(
     () => applyCategoryManualOverrides(
@@ -332,33 +349,90 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
     return orderedGroups;
   }, [categorizedDomainById, categorization.categories, categoryFilter, categoryNames, sortedDomains]);
 
-  const shouldWindowDomains = sortedDomains.length > INITIAL_RENDERED_DOMAINS;
-  const renderedDomainLimit = shouldWindowDomains ? visibleDomainLimit : sortedDomains.length;
+  const categoryLabelsByDomainId = useMemo(() => {
+    const map = new Map<number, CategoryLabel[]>();
+    for (const item of categorization.categorizedDomains) {
+      const labels = item.categoryIds.map(categoryId => ({
+        id: categoryId,
+        label: categoryNames[categoryId] || categoryId,
+        kind: getCategoryKind(categoryId),
+      }));
+      map.set(item.domain.id, labels);
+    }
+    return map;
+  }, [categorization.categorizedDomains, categoryNames]);
+
+  const totalSorted = sortedDomains.length;
+  const shouldWindowDomains = totalSorted > WINDOW_ROWS + WINDOW_OVERSCAN;
+  const windowStart = shouldWindowDomains ? Math.min(windowRange.start, Math.max(0, totalSorted - 1)) : 0;
+  const windowEnd = shouldWindowDomains
+    ? Math.min(totalSorted, Math.max(windowRange.end, windowStart + 1))
+    : totalSorted;
+
+  useEffect(() => {
+    if (!shouldWindowDomains) {
+      setWindowRange(current => (
+        current.start === 0 && current.end >= totalSorted
+          ? current
+          : { start: 0, end: totalSorted }
+      ));
+      return;
+    }
+
+    let frameId: number | null = null;
+    const updateWindow = () => {
+      frameId = null;
+      const anchorTop = listAnchorRef.current?.getBoundingClientRect().top ?? 0;
+      const viewportTop = Math.max(0, -anchorTop);
+      const estimatedIndex = Math.floor(viewportTop / ESTIMATED_ROW_HEIGHT);
+      const start = Math.max(0, estimatedIndex - WINDOW_OVERSCAN);
+      const end = Math.min(totalSorted, start + WINDOW_ROWS + WINDOW_OVERSCAN * 2);
+      const current = windowRangeRef.current;
+      if (current.start === start && current.end === end) return;
+      setWindowRange({ start, end });
+    };
+
+    const schedule = () => {
+      if (frameId !== null) return;
+      frameId = window.requestAnimationFrame(updateWindow);
+    };
+
+    updateWindow();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    return () => {
+      if (frameId !== null) window.cancelAnimationFrame(frameId);
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+    };
+  }, [shouldWindowDomains, totalSorted, categoryFilter, filter, sortOption, deferredKeywordFilter]);
+
   const renderedDomains = useMemo(
-    () => sortedDomains.slice(0, renderedDomainLimit),
-    [renderedDomainLimit, sortedDomains],
+    () => sortedDomains.slice(windowStart, windowEnd),
+    [sortedDomains, windowEnd, windowStart],
   );
+  const topSpacerHeight = shouldWindowDomains ? windowStart * ESTIMATED_ROW_HEIGHT : 0;
+  const bottomSpacerHeight = shouldWindowDomains
+    ? Math.max(0, totalSorted - windowEnd) * ESTIMATED_ROW_HEIGHT
+    : 0;
+
   const renderedCategoryGroups = useMemo(() => {
     if (categoryGroups.length === 0) return [];
-    let remaining = renderedDomainLimit;
-    const groups = [];
-
-    for (const group of categoryGroups) {
-      if (remaining <= 0) break;
-      const domainsForGroup = group.domains.slice(0, remaining);
-      if (domainsForGroup.length > 0) {
-        groups.push({
+    const visibleIds = new Set(renderedDomains.map(domain => domain.id));
+    return categoryGroups
+      .map(group => {
+        const domainsForGroup = group.domains.filter(domain => visibleIds.has(domain.id));
+        if (domainsForGroup.length === 0) return null;
+        return {
           ...group,
           domains: domainsForGroup,
           renderedCount: domainsForGroup.length,
           totalCount: group.domains.length,
-        });
-        remaining -= domainsForGroup.length;
-      }
-    }
+        };
+      })
+      .filter((group): group is NonNullable<typeof group> => Boolean(group));
+  }, [categoryGroups, renderedDomains]);
 
-    return groups;
-  }, [categoryGroups, renderedDomainLimit]);
   const renderedCategoryBlocks = useMemo(() => {
     if (renderedCategoryGroups.length === 0) return [];
 
@@ -410,23 +484,6 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
       groups: typeof renderedCategoryGroups;
     } => Boolean(block));
   }, [renderedCategoryGroups]);
-  const renderedCount = Math.min(renderedDomainLimit, sortedDomains.length);
-  const hasMoreDomainsToRender = renderedCount < sortedDomains.length;
-
-  const loadMoreDomains = useCallback(() => {
-    setVisibleDomainLimit(current => Math.min(current + RENDER_INCREMENT, sortedDomains.length));
-  }, [sortedDomains.length]);
-
-  useEffect(() => {
-    if (!hasMoreDomainsToRender || !loadMoreRef.current || typeof IntersectionObserver === 'undefined') return;
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some(entry => entry.isIntersecting)) {
-        loadMoreDomains();
-      }
-    }, { rootMargin: '1800px 0px' });
-    observer.observe(loadMoreRef.current);
-    return () => observer.disconnect();
-  }, [hasMoreDomainsToRender, loadMoreDomains]);
 
   const filterIcons: Record<FilterType, React.ReactNode> = {
     all: <DomainCodevIcon className="h-4 w-4" />,
@@ -488,13 +545,11 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
     [categorization.categorizedDomains],
   );
 
+  const emptyCategoryLabels = useMemo<CategoryLabel[]>(() => [], []);
+
   const renderDomainItem = (domain: Domain) => {
     const meta = categorizedDomainById.get(domain.id);
-    const labels = meta?.categoryIds.map(categoryId => ({
-      id: categoryId,
-      label: categoryNames[categoryId] || categoryId,
-      kind: getCategoryKind(categoryId),
-    })) || [];
+    const labels = categoryLabelsByDomainId.get(domain.id) || emptyCategoryLabels;
     return (
       <DomainItem
         key={domain.id}
@@ -518,6 +573,7 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
         isTagUpdating={tagUpdatingDomainIds?.has(domain.id)}
         categoryLabels={labels}
         tld={meta?.parts.tld}
+        isDesktopLayout={isDesktopLayout}
       />
     );
   };
@@ -858,39 +914,37 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
         </div>
       </div>
 
-      <div className={`space-y-2 transition-opacity sm:space-y-3 ${isProcessing ? 'opacity-50' : 'opacity-100'}`}>
+      <div
+        ref={listAnchorRef}
+        className={`space-y-2 transition-opacity sm:space-y-3 ${isProcessing ? 'opacity-50' : 'opacity-100'}`}
+      >
         {sortedDomains.length > 0 ? (
-          categoryGroups.length > 0 ? (
-            renderedCategoryBlocks.map(block => (
-              block.isOverlapBlock ? (
-                <div key={block.id} className="rounded-xl border-2 border-dashed border-brand-blue/70 bg-white/45 p-1.5 shadow-sm dark:border-blue-400/70 dark:bg-slate-900/35 sm:p-2">
-                  <div className="space-y-2">
-                    {block.groups.map(renderCategorySection)}
+          <>
+            {topSpacerHeight > 0 && <div style={{ height: topSpacerHeight }} aria-hidden="true" />}
+            {categoryGroups.length > 0 ? (
+              renderedCategoryBlocks.map(block => (
+                block.isOverlapBlock ? (
+                  <div key={block.id} className="rounded-xl border-2 border-dashed border-brand-blue/70 bg-white/45 p-1.5 shadow-sm dark:border-blue-400/70 dark:bg-slate-900/35 sm:p-2">
+                    <div className="space-y-2">
+                      {block.groups.map(renderCategorySection)}
+                    </div>
                   </div>
-                </div>
-              ) : (
-                renderCategorySection(block.groups[0])
-              )
-            ))
-          ) : (
-            renderedDomains.map(renderDomainItem)
-          )
+                ) : (
+                  renderCategorySection(block.groups[0])
+                )
+              ))
+            ) : (
+              renderedDomains.map(renderDomainItem)
+            )}
+            {bottomSpacerHeight > 0 && <div style={{ height: bottomSpacerHeight }} aria-hidden="true" />}
+            {shouldWindowDomains && (
+              <p className="py-2 text-center text-xs font-medium text-slate-500 dark:text-slate-400">
+                Showing {windowStart + 1}–{windowEnd} of {totalSorted} domains
+              </p>
+            )}
+          </>
         ) : (
-            <NoDomainMatchesState />
-        )}
-        {hasMoreDomainsToRender && (
-          <div ref={loadMoreRef} className="flex flex-col items-center gap-2 py-4">
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-              Showing {renderedCount} of {sortedDomains.length} domains
-            </p>
-            <button
-              type="button"
-              onClick={loadMoreDomains}
-              className="rounded-full bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
-            >
-              Load more
-            </button>
-          </div>
+          <NoDomainMatchesState />
         )}
       </div>
 

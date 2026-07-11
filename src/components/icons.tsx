@@ -4,6 +4,7 @@ export {
   ArrowUpFromLine as ArrowUpOnSquareIcon,
   Bell as BellIcon,
   CalendarClock as CalendarClockIcon,
+  ChartNoAxesColumn as ChartNoAxesColumnIcon,
   BookOpen as BookOpenIcon,
   CheckCircle2 as CheckCircleIcon,
   ChevronDown as ChevronDownIcon,

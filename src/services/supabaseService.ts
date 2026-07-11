@@ -1,6 +1,6 @@
 
 import { createClient, Session, SupabaseClient } from '@supabase/supabase-js';
-import { Domain, DomainMonitoringSettings, DomainMonitoringSettingsInput, DomainTag, DomainStatus, IntegrationClient, IntegrationScope, NotificationChannel, NotificationDelivery, UserAppSettings, WhoisProviderCredentialInput } from '../types';
+import { Domain, DomainMonitoringSettings, DomainMonitoringSettingsInput, DomainTag, DomainStatus, IntegrationClient, IntegrationScope, NotificationChannel, NotificationDelivery, SerpProviderCredentialInput, UserAppSettings, WhoisProviderCredentialInput } from '../types';
 import { sanitizeAutoMineRules, sanitizeCategoryManualOverrides, sanitizeCategoryNameOverrides, sanitizeCategoryWordGroups } from '../utils/userSettingsStorage';
 
 // The type for inserting a new row. DB handles id, user_id, and created_at.
@@ -436,6 +436,46 @@ export const removeWhoisProviderCredential = async (providerId: string): Promise
         return false;
     }
 
+    return true;
+};
+
+// --- SERP Provider Credential Functions ---
+
+export const saveSerpProviderCredential = async (input: SerpProviderCredentialInput): Promise<boolean> => {
+    if (!supabase) return false;
+    const session = await getSession();
+    if (!session) return false;
+
+    const { error } = await supabase
+        .from('serp_provider_credentials')
+        .upsert([{
+            user_id: session.user.id,
+            provider_id: input.providerId,
+            api_key: input.apiKey.trim(),
+            updated_at: new Date().toISOString(),
+        }] as never, { onConflict: 'user_id,provider_id' });
+
+    if (error) {
+        console.error('Error saving SERP provider credential:', error);
+        alert('Could not save the SERP provider key. Apply the rank-tracking migration if you have not yet.');
+        return false;
+    }
+    return true;
+};
+
+export const removeSerpProviderCredential = async (providerId: string): Promise<boolean> => {
+    if (!supabase) return false;
+
+    const { error } = await supabase
+        .from('serp_provider_credentials')
+        .delete()
+        .eq('provider_id', providerId);
+
+    if (error) {
+        console.error('Error removing SERP provider credential:', error);
+        alert('Could not remove the SERP provider key.');
+        return false;
+    }
     return true;
 };
 
