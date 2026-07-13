@@ -18,16 +18,16 @@ User report: cursor traversal feels laggy; hover show/hide controls suspected.
 
 | Task | Status | Implementation note |
 | --- | --- | --- |
-| Shared single `TooltipHost` portal | 🟡 In progress | Rewrite triggers to lightweight enter/leave; mount host once in App. May be partially on disk — finish and verify. |
-| Reduce DomainItem tooltip count | 🟡 In progress | Rich tooltip only for WHOIS domain details (+ buy/drop where needed); actions use title/aria-label. |
-| Flatten nested tooltips | 🟡 In progress | Site link must not sit inside domain-name tooltip host. |
-| Cheaper row paint | 🟡 In progress | `transition-colors` only; drop grayscale/saturate; mute with opacity. |
-| Desktop XOR mobile tag alternate UI | 🟡 In progress | `isDesktopLayout` / matchMedia; do not mount both trees. |
-| Stable categoryLabels map | ❌ Not started | Precompute Map in DomainList; pass stable array refs. |
-| Sliding window (unmount offscreen rows) | ❌ Not started | Replace top-N append with start/end range + spacers. |
-| dateRefreshTick only on day change | ❌ Not started | Avoid full filter recompute on every window focus. |
-| Domain refresh referential equality | ❌ Not started | Optional: keep domains array ref when server snapshot unchanged. |
-| Verify lint/tsc/build + manual cursor scrub | ❌ Not started | Required before calling the pass Done. |
+| Shared single `TooltipHost` portal | ✅ Done | Lightweight triggers; single portal via `TooltipHost` mounted in `App`. |
+| Reduce DomainItem tooltip count | ✅ Done | Rich tooltips only for WHOIS details, buy, drop timeline; actions use title/aria-label. |
+| Flatten nested tooltips | ✅ Done | Site link is outside domain-name tooltip host. |
+| Cheaper row paint | ✅ Done | `transition-colors`; mute registered/incomplete rows with opacity only. |
+| Desktop XOR mobile tag alternate UI | ✅ Done | `isDesktopLayout` from matchMedia; one tag alternate tree. |
+| Stable categoryLabels map | ✅ Done | `categoryLabelsByDomainId` Map in DomainList; stable empty array fallback. |
+| Sliding window (unmount offscreen rows) | ✅ Done | Window start/end + top/bottom spacers; ~50 rows + overscan; unmounts offscreen. |
+| dateRefreshTick only on day change | ✅ Done | Focus/visibility only bumps tick when local calendar day changes. |
+| Domain refresh referential equality | ✅ Done | 5‑min refresh keeps previous array when core fields unchanged. |
+| Verify lint/tsc/build + manual cursor scrub | ✅ Done | `pnpm run lint`, `tsc`, `test:regression`, and `pnpm run build` passed (2026-07-13). |
 
 ## Current Audit
 
@@ -79,6 +79,7 @@ User report: cursor traversal feels laggy; hover show/hide controls suspected.
 
 | Date/Time (WIB) | Status | Change | Notes |
 | --- | --- | --- | --- |
+| 2026-07-13 | Done | Completed hover/list lag pass. | Shared tooltip host, fewer row tooltips, sliding window, stable labels, day-only date tick, referential domain refresh. |
 | 2026-07-10 | Planned / WIP | Started next hover/list lag pass; paused to lock plans in markdown. | Full checklist in this file + `PERFORMANCE_AND_RANK_TRACKING_PLAN.md`. Rank work tracked in `SERP_RANK_TRACKING.md`. |
 | 2026-07-03 17:32 WIB | Done | Completed hover/cursor and floating-action pass. | Cursor changes are CSS-only; tooltip activation is O(1) instead of broadcasting to every mounted tooltip; persistent floating circles share one size/style system. |
 | 2026-07-03 17:32 WIB | Done | Completed tooltip placement and tag-shortcut follow-up. | Tooltips anchor before display, stay off their trigger, and tag choices expose working Mine/To Snatch/Others shortcuts. |

@@ -1,7 +1,7 @@
 # SERP Rank Tracking — MVP Plan
 
-Last updated: 2026-07-10 WIB  
-Status: **Planned / partially started** (performance files may have WIP; rank backend/UI not finished)
+Last updated: 2026-07-13 WIB  
+Status: **MVP implemented** (apply migration + deploy Edge Functions + paste at least one SERP API key)
 
 This is the durable product + provider plan for multi-domain keyword rank tracking.  
 Related docs:
@@ -316,34 +316,36 @@ Mirror `WhoisProviderPanel` patterns:
 
 ### Schema / backend
 
-- [ ] Migration: `rank_keywords`, `rank_keyword_domains`, `rank_checks`, `rank_positions`, `serp_provider_credentials`, optional telemetry  
-- [ ] RLS policies (owner-only; no browser SELECT on raw API keys)  
-- [ ] Shared modules: `serp-types`, `serp-registry`, `serp-adapters` (10), `serp-logic`, `serp-match`, `serp-store`  
-- [ ] Edge Function `get-serp-providers`  
-- [ ] Edge Function `check-ranks` (cron + manual)  
-- [ ] `supabase/config.toml` entries (`check-ranks` verify_jwt false if CRON)  
-- [ ] Deploy notes in `docs/SUPABASE.md`  
+- [x] Migration: `rank_keywords`, `rank_keyword_domains`, `rank_checks`, `rank_positions`, `serp_provider_credentials`, telemetry (`20260712090000_add_rank_tracking.sql`)
+- [x] RLS policies (owner-only; no browser SELECT on raw API keys)
+- [x] Shared modules: `serp-types`, `serp-registry`, `serp-adapters` (10), `serp-logic`, `serp-match` (JSON stored in `rank_checks.serp_json`; R2 key column reserved)
+- [x] Edge Function `get-serp-providers`
+- [x] Edge Function `check-ranks` (cron + manual)
+- [x] `supabase/config.toml` (`check-ranks` verify_jwt false)
+- [x] Deploy notes in `docs/SUPABASE.md`
 
 ### Frontend
 
-- [ ] Types in `src/types.ts`  
-- [ ] `src/services/rankService.ts` + credential helpers in `supabaseService`  
-- [ ] `SerpProviderPanel` + Settings tab  
-- [ ] `RanksPage` lazy route + Header nav  
-- [ ] Docs page entry / in-app doc optional  
+- [x] Types in `src/types.ts`
+- [x] `src/services/rankService.ts` + credential helpers in `supabaseService`
+- [x] `SerpProviderPanel` + Settings → SERP Providers tab
+- [x] `RanksPage` lazy route + Header nav
+- [ ] Docs page entry / in-app doc optional
 
 ### Ops
 
-- [ ] User applies migration on Supabase  
-- [ ] User pastes at least one free-tier API key (Serper recommended first)  
-- [ ] Optional: schedule cron for `check-ranks` like `check-domains`  
+- [ ] User applies migration on Supabase
+- [ ] User pastes at least one free-tier API key (Serper recommended first)
+- [ ] Deploy `get-serp-providers` and `check-ranks` with `--use-api`
+- [ ] Optional: schedule cron for `check-ranks` like `check-domains`
 
 ### Verify
 
-- [ ] `pnpm run lint`  
-- [ ] `pnpm exec tsc --noEmit`  
-- [ ] `pnpm run build` (delete `dist/` after unless asked to keep)  
-- [ ] Manual: create keyword → attach 2+ domains → check → positions differ from same snapshot  
+- [x] `pnpm run lint`
+- [x] `pnpm exec tsc --noEmit`
+- [x] `pnpm run test:regression`
+- [x] `pnpm run build` (dist cleaned after)
+- [ ] Manual: create keyword → attach 2+ domains → check → positions from same snapshot  
 
 ---
 
@@ -376,5 +378,6 @@ Mirror `WhoisProviderPanel` patterns:
 
 | Date/Time (WIB) | Status | Note |
 | --- | --- | --- |
-| 2026-07-10 | Plan written | Full MVP model, 10-provider research, checklist. Implementation interrupted for durable docs first. |
-| 2026-07-10 | WIP code may exist | Shared tooltip / DomainItem edits may be on disk from an interrupted pass — reconcile against this plan before continuing. |
+| 2026-07-13 | MVP implemented | Migration, 10 SERP adapters + rotation, Edge Functions, Settings keys UI, Ranks page, keyword multi-domain attach, check-now. Snapshot in `serp_json` (R2-ready `storage_key`). |
+| 2026-07-10 | Plan written | Full MVP model, 10-provider research, checklist. |
+| 2026-07-10 | WIP code may exist | Reconciled into completed performance + rank MVP pass. |

@@ -65,7 +65,7 @@ export const listRankKeywords = async (): Promise<RankKeywordWithLinks[]> => {
   }
 
   const linksByKeyword = new Map<string, number[]>();
-  for (const link of links || []) {
+  for (const link of (links || []) as Array<{ keyword_id: string; domain_id: number }>) {
     const list = linksByKeyword.get(link.keyword_id) || [];
     list.push(link.domain_id);
     linksByKeyword.set(link.keyword_id, list);

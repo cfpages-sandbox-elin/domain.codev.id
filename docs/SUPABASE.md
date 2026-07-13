@@ -57,11 +57,38 @@ Domainduck specifically uses `DOMAINDUCK_API_KEY`; per-user browser-entered cred
 - `check-domains`: cron-style scheduled checks; `verify_jwt = false` because it checks `CRON_SECRET` itself.
 - `external-api`: scoped external API; `verify_jwt = false` because it validates integration bearer tokens itself.
 
-### Planned (see `docs/SERP_RANK_TRACKING.md`)
+### Rank tracking (see `docs/SERP_RANK_TRACKING.md`)
 
 - `get-serp-providers`: authenticated SERP provider registry/status (no raw keys returned).
-- `check-ranks`: keyword SERP checks (cron via `CRON_SECRET` and/or user JWT for manual single-keyword check).
-- Tables: `rank_keywords`, `rank_keyword_domains`, `rank_checks`, `rank_positions`, `serp_provider_credentials`.
+- `check-ranks`: keyword SERP checks (cron via `CRON_SECRET` and/or user JWT for manual single-keyword check). `verify_jwt = false` in `config.toml` so cron bearer auth works; user path still validates JWT itself.
+- Migration: `supabase/migrations/20260712090000_add_rank_tracking.sql`
+- Tables: `rank_keywords`, `rank_keyword_domains`, `rank_checks`, `rank_positions`, `serp_provider_credentials`, `serp_provider_telemetry`.
 - User-pasted SERP API keys live in `serp_provider_credentials` (same RLS pattern as WHOIS: write from browser, read only with service role).
 
-After changing shared WHOIS modules or function entrypoints, deploy affected functions with `npx supabase@latest functions deploy ... --use-api`.
+Apply the rank migration in the Supabase SQL editor (or `db push`), then deploy:
+
+```powershell
+$env:SUPABASE_ACCESS_TOKEN='<token>'; npx supabase@latest functions deploy get-serp-providers check-ranks --project-ref gfnjestxjgkfujzubiqr --use-api
+```
+
+Optional cron (same pattern as `check-domains`):
+
+```sql
+-- Example: every hour
+select cron.schedule(
+  'check-ranks-hourly',
+  '0 * * * *',
+  $$
+  select net.http_post(
+    url := 'https://gfnjestxjgkfujzubiqr.supabase.co/functions/v1/check-ranks',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || current_setting('app.settings.cron_secret', true)
+    ),
+    body := '{}'::jsonb
+  );
+  $$
+);
+```
+
+After changing shared WHOIS/SERP modules or function entrypoints, deploy affected functions with `npx supabase@latest functions deploy ... --use-api`.

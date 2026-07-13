@@ -17,11 +17,15 @@ describe('serpMatchLogic', () => {
     expect(hit?.position).toBe(4);
   });
 
-  it('supports subdomain matching', () => {
+  it('matches registrable domain and optional subdomains', () => {
     const organic = [
       { position: 2, url: 'https://blog.mine.id/', domain: 'blog.mine.id' },
+      { position: 5, url: 'https://unrelated.com/', domain: 'unrelated.com' },
     ];
+    // registrable domain of blog.mine.id is mine.id, so domain mode matches too
+    expect(findBestRankHit(organic, 'mine.id', 'domain')?.position).toBe(2);
     expect(findBestRankHit(organic, 'mine.id', 'subdomain')?.position).toBe(2);
-    expect(findBestRankHit(organic, 'mine.id', 'domain')).toBeNull();
+    expect(findBestRankHit(organic, 'other.id', 'domain')).toBeNull();
   });
 });
+

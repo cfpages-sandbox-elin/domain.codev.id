@@ -1,6 +1,6 @@
 # Codebase Map
 
-Last audited: 2026-07-03 WIB.
+Last audited: 2026-07-13 WIB.
 
 ## Overview
 
@@ -124,6 +124,11 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `src/components/StatusLog.tsx` | Floating viewport-constrained collapsible status log. Uses shared floating-action geometry and infers icon/color from emoji markers in log strings. |
 | `src/components/Tooltip.tsx` | Shared instant portal tooltip. Tracks one active tooltip, prepares its trigger-relative anchor before display, performs one measured correction, constrains height to one side so it cannot cover its trigger, and closes on mouse leave, blur, Escape, page hide, and tab/window inactivity. |
 | `src/components/WhoisProviderPanel.tsx` | WHOIS provider accordion used in Settings. Shows summary first, then known providers, active/missing-key/not-implemented state, priority, static free-limit labels, live daily/monthly quota when exposed or persisted by telemetry, quota-source support, secret-key names, notes/errors, mobile provider cards, and write-only per-user key inputs for OTI Labs, Domainduck, and RDAP API when expanded. Supports `defaultExpanded` for the Settings tab. |
+| `src/components/SerpProviderPanel.tsx` | SERP provider panel for Settings. Lists 10 free-tier SERP APIs, free-tier labels, configured/blocked status, write-only API key save/remove, signup links. |
+| `src/components/RanksPage.tsx` | Dedicated rank-tracking view. Create keyword + multi-select domains, matrix of latest positions, check-now, pause/enable/delete. |
+| `src/services/rankService.ts` | Browser client for rank keywords, domain links, SERP provider status invoke, and manual `check-ranks`. |
+| `src/hooks/useSerpProviders.ts` | SERP provider dashboard state and credential save/remove. |
+| `src/utils/serpMatchLogic.ts` | Pure domain/URL matching helpers used by tests (mirrors Edge `serp-match`). |
 
 ## Supabase Functions
 
@@ -151,6 +156,10 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `supabase/functions/external-api/http.ts` | Shared external API HTTP helpers: CORS headers, JSON responses, and `/api/v1` path normalization. |
 | `supabase/functions/external-api/auth.ts` | External API authentication/idempotency helpers. Hashes bearer tokens with SHA-256, validates `integration_clients`, checks scopes, records audit/idempotency events, and reads completed idempotent responses. |
 | `supabase/functions/external-api/routes.ts` | External API route handlers for listing/adding domains, rechecking WHOIS, due alerts, and exact-domain drop alerts. Reuses shared WHOIS logic with the integration owner `user_id`. |
+| `supabase/functions/_shared/serp-*.ts` | SERP rank shared modules: types, registry (10 providers), adapters, match helpers, credential/telemetry load, waterfall fetch. |
+| `supabase/functions/get-serp-providers/index.ts` | Authenticated SERP provider status for Settings (no raw keys). |
+| `supabase/functions/check-ranks/index.ts` | Cron (`CRON_SECRET`) or user JWT manual keyword SERP check; stores snapshot in `rank_checks.serp_json` and derives multi-domain positions. |
+| `supabase/migrations/20260712090000_add_rank_tracking.sql` | Rank keywords/links/checks/positions + SERP credentials/telemetry + RLS. |
 
 ## Supabase Migrations
 

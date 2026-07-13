@@ -1,6 +1,25 @@
 
 import { createClient, Session, SupabaseClient } from '@supabase/supabase-js';
-import { Domain, DomainMonitoringSettings, DomainMonitoringSettingsInput, DomainTag, DomainStatus, IntegrationClient, IntegrationScope, NotificationChannel, NotificationDelivery, SerpProviderCredentialInput, UserAppSettings, WhoisProviderCredentialInput } from '../types';
+import {
+  Domain,
+  DomainMonitoringSettings,
+  DomainMonitoringSettingsInput,
+  DomainTag,
+  DomainStatus,
+  IntegrationClient,
+  IntegrationScope,
+  NotificationChannel,
+  NotificationDelivery,
+  RankDevice,
+  RankKeyword,
+  RankKeywordDomain,
+  RankMatchMode,
+  RankPosition,
+  SerpProviderCredentialInput,
+  SerpProviderId,
+  UserAppSettings,
+  WhoisProviderCredentialInput,
+} from '../types';
 import { sanitizeAutoMineRules, sanitizeCategoryManualOverrides, sanitizeCategoryNameOverrides, sanitizeCategoryWordGroups } from '../utils/userSettingsStorage';
 
 // The type for inserting a new row. DB handles id, user_id, and created_at.
@@ -96,6 +115,138 @@ export interface Database {
           auto_mine_rules?: unknown[];
           updated_at?: string;
         };
+        Relationships: [];
+      };
+      rank_keywords: {
+        Row: RankKeyword;
+        Insert: {
+          id?: string;
+          user_id: string;
+          keyword: string;
+          keyword_key: string;
+          engine?: string;
+          locale?: string;
+          device?: RankDevice;
+          location?: string | null;
+          enabled?: boolean;
+          check_interval_hours?: number;
+          last_checked_at?: string | null;
+          next_check_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<RankKeyword, 'id' | 'user_id' | 'created_at'>>;
+        Relationships: [];
+      };
+      rank_keyword_domains: {
+        Row: RankKeywordDomain;
+        Insert: {
+          keyword_id: string;
+          domain_id: number;
+          user_id: string;
+          match_mode?: RankMatchMode;
+          target_url?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Omit<RankKeywordDomain, 'keyword_id' | 'domain_id' | 'user_id' | 'created_at'>>;
+        Relationships: [];
+      };
+      rank_checks: {
+        Row: {
+          id: string;
+          keyword_id: string;
+          user_id: string;
+          status: string;
+          provider: string | null;
+          requested_at: string;
+          completed_at: string | null;
+          storage_key: string | null;
+          serp_json: unknown;
+          result_count: number | null;
+          error_message: string | null;
+          provider_attempts: unknown;
+        };
+        Insert: {
+          id?: string;
+          keyword_id: string;
+          user_id: string;
+          status?: string;
+          provider?: string | null;
+          requested_at?: string;
+          completed_at?: string | null;
+          storage_key?: string | null;
+          serp_json?: unknown;
+          result_count?: number | null;
+          error_message?: string | null;
+          provider_attempts?: unknown;
+        };
+        Update: Partial<{
+          status: string;
+          provider: string | null;
+          completed_at: string | null;
+          storage_key: string | null;
+          serp_json: unknown;
+          result_count: number | null;
+          error_message: string | null;
+          provider_attempts: unknown;
+        }>;
+        Relationships: [];
+      };
+      rank_positions: {
+        Row: RankPosition;
+        Insert: {
+          id?: number;
+          check_id: string;
+          keyword_id: string;
+          domain_id: number;
+          user_id: string;
+          position?: number | null;
+          rank_url?: string | null;
+          rank_title?: string | null;
+          found?: boolean;
+          created_at?: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
+      serp_provider_credentials: {
+        Row: {
+          id: string;
+          user_id: string;
+          provider_id: SerpProviderId;
+          api_key: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          provider_id: string;
+          api_key: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          api_key?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      serp_provider_telemetry: {
+        Row: {
+          provider_id: string;
+          user_id: string;
+          month_key: string;
+          estimated_month_used: number;
+          blocked_until: string | null;
+          block_reason: string | null;
+          last_used_at: string | null;
+          last_error_message: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: never;
         Relationships: [];
       };
     };

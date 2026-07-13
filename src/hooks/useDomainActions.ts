@@ -12,7 +12,7 @@ import {
 import { readCachedDomains, writeCachedDomains } from '../utils/appDataCache';
 import type { BulkAddResult, BulkDomain } from '../components/bulk-add/bulkAddLogic';
 
-type ViewName = 'dashboard' | 'schedule' | 'docs' | 'categories' | 'settings';
+type ViewName = 'dashboard' | 'schedule' | 'docs' | 'categories' | 'settings' | 'ranks';
 type AddDomainOptions = { optimistic?: boolean };
 
 const WHOIS_AUTO_REPAIR_CONCURRENCY = 6;
