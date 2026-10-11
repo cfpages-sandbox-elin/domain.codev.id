@@ -219,3 +219,43 @@ It is live now and deployed at https://domain.codev.id
 - [x] **6. Out of Scope (Future Enhancements)** (Defined)
 
 - [x] **7. Status** (Defined)
+
+## 9. Production Hardening: Scroll Performance & Layout Stability Audit
+
+**Objective**: Eliminate scroll jitter, heavy frame drops, layout thrashing, and "domains keep moving around" behavior during scrolling on desktop and mobile.
+
+### Progress Legend
+- ⏳ Pending
+- 🔄 In Progress
+- ✅ Completed
+
+### Findings & Implementation Tasks
+
+- [x] **9.1. Fix Grouped Category Virtualization Slicing Defect ("Domains Keep Moving Around")**
+  - **Status**: ✅ Completed
+  - **Root Cause**: In category view (`categoryFilter === 'all'`), the component grouped domains by category clusters (`orderedGroups`), but windowing sliced `sortedDomains` by arbitrary flat index `[windowStart, windowEnd]`. Slicing a flat sorted list and filtering non-linear category groups caused domains inside categories to pop in and vanish as the user scrolled. Entire category cards collapsed and reappeared dynamically, while `topSpacerHeight` was prepended above all categories, causing severe visual jumping, card collapse/expansion, and the perceived "domains keep moving around".
+  - **Hardening Fix**: Replace broken flat slicing across categorized groups with stable, progressive block rendering. Category cards and their internal domain lists maintain stable rendered sequence and do not pop in/out or move between categories during scroll.
+
+- [x] **9.2. Eliminate Sliding Window Top-Unmounting Jitter & Layout Jumps (CLS)**
+  - **Status**: ✅ Completed
+  - **Root Cause**: In flat list mode, `updateWindow` unmounted top rows and inserted `topSpacerHeight = windowStart * ESTIMATED_ROW_HEIGHT` (hardcoded 72px). But actual row heights vary significantly (compact mode: 56px; standard mode: 80-96px; rows with warnings or tags: 96px+; mobile stacked grid: 150-180px). When items unmounted, the spacer height differed from actual item heights by hundreds of pixels, causing sudden scroll position jumps. These jumps altered `anchorTop.getBoundingClientRect().top`, triggering immediate feedback loop re-renders on subsequent frames (jitter).
+  - **Hardening Fix**: Replace top-unmounting with progressive sentinel appending (`IntersectionObserver` sentinel) combined with modern native CSS `content-visibility: auto` and `contain-intrinsic-size: 72px` (and responsive mobile rules). Offscreen rows are natively culled by the browser's compositor without unmounting top DOM nodes, ensuring 100% stable scroll anchoring without spacer calculation jumps.
+
+- [x] **9.3. Eliminate Tooltip Layout Thrashing & State Storm on Scroll**
+  - **Status**: ✅ Completed
+  - **Root Cause**: `Tooltip.tsx` mounted tooltips synchronously on `onMouseEnter` with 0ms delay. As the user scrolled or quickly swept their mouse down the list, every domain name touched called `getBoundingClientRect()`, re-rendered `TooltipHost`, forced layout reflow to measure height, and re-rendered again. Furthermore, `TooltipHost` registered a capturing window scroll listener that repeatedly called `computePosition` during scroll.
+  - **Hardening Fix**:
+    - Add a 150ms hover delay to `Tooltip.tsx` so rapid pointer sweeps across domain rows during scroll do not trigger layout measurements or tooltip renders.
+    - Immediately dismiss active tooltips on scroll and suppress new tooltip triggers while scrolling is active.
+
+- [x] **9.4. Decouple Floating Filter Bar Re-Renders from DomainList**
+  - **Status**: ✅ Completed
+  - **Root Cause**: `updateFloatingFilterVisibility` called `setIsFloatingFilterVisible(nextIsVisible)` inside `DomainList`, forcing the entire list (and all category memoizations) to re-render when scrolling past 220px.
+  - **Hardening Fix**: Decouple the floating filter bar into its own isolated component (`FloatingFilterBar`) so toggling its visibility does not re-render the parent `DomainList`.
+
+- [x] **9.5. CSS & Layout Performance Hardening**
+  - **Status**: ✅ Completed
+  - **Root Cause**: Hundreds of domain rows were actively calculated in the layout tree. Sticky header `backdrop-blur-lg` over a scrolling list of hundreds of elements incurred expensive compositor and GPU shader redraws on every scroll frame.
+  - **Hardening Fix**:
+    - Add `.domain-row-item` utility with `content-visibility: auto` and responsive `contain-intrinsic-size` (72px desktop / 140px mobile).
+    - Ensure smooth GPU acceleration on row elements and eliminate unnecessary repaint triggers during scroll.

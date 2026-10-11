@@ -11,16 +11,14 @@ export const TLD_FILTER_STORAGE_KEY = 'domain-codev-tld-filter';
 export const HIDE_REGISTERED_TARGETS_STORAGE_KEY = 'domain-codev-hide-registered-targets';
 export const FILTER_OPTIONS: FilterType[] = ['all', 'mine', 'to-snatch', 'others', 'missing', 'expiring', 'expired', 'available'];
 export const SORT_OPTIONS: SortOption[] = ['added-desc', 'added-asc', 'name-asc', 'name-desc', 'expiry-asc', 'expiry-desc', 'checked-desc', 'checked-asc', 'category-asc', 'category-desc', 'tld-asc', 'tld-desc'];
-/** Sliding window size (mounted rows) for dense domain lists. */
-export const WINDOW_ROWS = 50;
-/** Extra rows above/below the estimated viewport. */
-export const WINDOW_OVERSCAN = 15;
-/** Estimated row height for spacer math (compact/standard average). */
+/** Initial render limit for progressive domain rendering. */
+export const INITIAL_RENDERED_DOMAINS = 80;
+/** Batch increment for progressive domain rendering via sentinel intersection. */
+export const RENDER_INCREMENT = 60;
+/** Kept for backwards compatibility. */
+export const WINDOW_ROWS = 60;
+export const WINDOW_OVERSCAN = 20;
 export const ESTIMATED_ROW_HEIGHT = 72;
-/** @deprecated Prefer WINDOW_ROWS — kept for callers that still import the old name. */
-export const INITIAL_RENDERED_DOMAINS = WINDOW_ROWS + WINDOW_OVERSCAN * 2;
-/** @deprecated Prefer sliding window. */
-export const RENDER_INCREMENT = WINDOW_ROWS;
 const DAY_MS = 1000 * 3600 * 24;
 
 export const readStoredFilter = (): FilterType => {

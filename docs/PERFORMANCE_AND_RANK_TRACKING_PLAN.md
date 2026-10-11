@@ -1,7 +1,7 @@
 # Performance Audit + Rank Tracking Integration Plan
 
-Last updated: 2026-07-10 WIB  
-Implementation status: **In progress / interrupted for documentation**
+Last updated: 2026-07-14 WIB  
+Implementation status: **Performance pass done · Rank MVP code shipped (ops: migrate + deploy + paste keys)**
 
 This document is the durable map for:
 
@@ -28,15 +28,15 @@ With ~600–700 domains, remaining lag is **interaction cost on already-mounted 
 
 | Priority | Area | What happens today | Why it feels laggy | Recommended fix | Status |
 | --- | --- | --- | --- | --- | --- |
-| P0 | Tooltip density + per-instance portals | Many `Tooltip`s per row (~8–12) × 60+ rows | Cursor traversal pays state/layout/portal work | **Shared `TooltipHost`** + lightweight triggers; only one portal | 🟡 WIP (Tooltip rewrite started) |
-| P0 | List is top-N append only | `INITIAL_RENDERED_DOMAINS=60`, +60 never unmounts above | Deep scroll mounts most of the list | **Sliding window** (estimate row height, unmount offscreen) | ❌ Not done |
-| P1 | Hover tag switcher + nested tooltips | Opacity fade-in alternates + tooltips on each | Paint + pointer churn while moving | No opacity animation; `title`/`aria-label` on alt tags; desktop **or** mobile tree | 🟡 WIP (DomainItem rewrite started) |
-| P1 | Expensive row paint | `transition-all`, grayscale/saturate filters | Broad invalidation | `transition-colors` only; mute with opacity/border | 🟡 WIP |
-| P1 | Unstable `categoryLabels` arrays | New array every parent render | O(rows) memo compares | Stable `Map<domainId, labels>` by reference | ❌ Not done |
-| P2 | `dateRefreshTick` on every focus | Full filter pipeline recompute | Hitch on tab return | Bump only when local calendar day changed | ❌ Not done |
-| P2 | Dual mobile + desktop tag DOM | Both trees mounted; CSS hides one | Extra nodes | `isDesktopLayout` / matchMedia, render one | 🟡 WIP |
-| P3 | Nested tooltip under domain name | Site link tooltip inside domain tooltip | Show/hide thrash | Flatten; site link uses `title` only | 🟡 WIP |
-| P3 | 5‑min full domain refetch identity | Full array replace → re-categorize | Hitches while browsing | Keep previous array ref if rows unchanged | ❌ Not done |
+| P0 | Tooltip density + per-instance portals | Many `Tooltip`s per row (~8–12) × 60+ rows | Cursor traversal pays state/layout/portal work | **Shared `TooltipHost`** + lightweight triggers; only one portal | ✅ Done |
+| P0 | List is top-N append only | `INITIAL_RENDERED_DOMAINS=60`, +60 never unmounts above | Deep scroll mounts most of the list | **Progressive sentinel rendering + `content-visibility: auto`** (superseded jittery sliding window spacer unmounting) | ✅ Done |
+| P1 | Hover tag switcher + nested tooltips | Opacity fade-in alternates + tooltips on each | Paint + pointer churn while moving | No opacity animation; `title`/`aria-label` on alt tags; desktop **or** mobile tree | ✅ Done |
+| P1 | Expensive row paint | `transition-all`, grayscale/saturate filters | Broad invalidation | `transition-colors` only; mute with opacity/border | ✅ Done |
+| P1 | Unstable `categoryLabels` arrays | New array every parent render | O(rows) memo compares | Stable `Map<domainId, labels>` by reference | ✅ Done |
+| P2 | `dateRefreshTick` on every focus | Full filter pipeline recompute | Hitch on tab return | Bump only when local calendar day changed | ✅ Done |
+| P2 | Dual mobile + desktop tag DOM | Both trees mounted; CSS hides one | Extra nodes | `isDesktopLayout` / matchMedia, render one | ✅ Done |
+| P3 | Nested tooltip under domain name | Site link tooltip inside domain tooltip | Show/hide thrash | Flatten; site link uses `title` only | ✅ Done |
+| P3 | 5‑min full domain refetch identity | Full array replace → re-categorize | Hitches while browsing | Keep previous array ref if rows unchanged | ✅ Done |
 | P3 | Full re-categorize | `categorizeDomains` on any domains identity change | Tag/WHOIS update cost | Incremental / fingerprint cache (later) | ❌ Deferred |
 
 ### Hover: root cause ranking
@@ -50,40 +50,39 @@ With ~600–700 domains, remaining lag is **interaction cost on already-mounted 
 
 #### P-1 Shared tooltip host
 
-- [ ] `TooltipHost` mounted once at app root (`App` or `index`)
-- [ ] `Tooltip` triggers only attach enter/leave/focus; **no portal per instance**
-- [ ] Single active tooltip state module-level
-- [ ] Position: cheap anchor + one measured correction; scroll/resize rAF-coalesced
-- [ ] Escape / blur / pagehide / visibility hide
+- [x] `TooltipHost` mounted once at app root (`App`)
+- [x] `Tooltip` triggers only attach enter/leave/focus; **no portal per instance**
+- [x] Single active tooltip state module-level
+- [x] Position: cheap anchor + one measured correction; scroll/resize rAF-coalesced
+- [x] Escape / blur / pagehide / visibility hide
 
 #### P-2 Cheaper DomainItem
 
-- [ ] Keep rich tooltip **only** on domain name (WHOIS details) and buy / drop-timeline where needed
-- [ ] Recheck, delete, tag, category remove, site link: `title` + `aria-label` (no Tooltip)
-- [ ] No nested tooltips
-- [ ] `transition-colors` not `transition-all`
-- [ ] Drop `grayscale` / `saturate`; use opacity for muted registered targets
-- [ ] Desktop **or** mobile alternate-tag UI via `isDesktopLayout` prop
-- [ ] Alternate tags: no nested Tooltip; `title` only
-- [ ] Memo: prefer `categoryLabels` **reference equality** first
+- [x] Keep rich tooltip **only** on domain name (WHOIS details) and buy / drop-timeline where needed
+- [x] Recheck, delete, tag, category remove, site link: `title` + `aria-label` (no Tooltip)
+- [x] No nested tooltips
+- [x] `transition-colors` not `transition-all`
+- [x] Drop `grayscale` / `saturate`; use opacity for muted registered targets
+- [x] Desktop **or** mobile alternate-tag UI via `isDesktopLayout` prop
+- [x] Alternate tags: no nested Tooltip; `title` only
+- [x] Memo: prefer `categoryLabels` **reference equality** first
 
-#### P-3 DomainList sliding window + stable labels
+#### P-3 DomainList progressive rendering + stable labels
 
-- [ ] Replace pure append windowing with sliding window (~50–80 rows + overscan)
-- [ ] Top/bottom spacers from estimated row height (~68–72px)
-- [ ] Passive window scroll listener, rAF coalesce
-- [ ] Category mode: only render groups intersecting visible domain slice (or flat virtual list when large)
-- [ ] Precompute `categoryLabelsByDomainId: Map<number, labels[]>` in `useMemo`
-- [ ] Pass stable label array references into `DomainItem`
+- [x] Progressive sentinel rendering (`INITIAL_RENDERED_DOMAINS=80`, `RENDER_INCREMENT=60`) via `IntersectionObserver`
+- [x] Zero top-spacer layout shift and zero scroll jumping; native browser offscreen culling via CSS `content-visibility: auto`
+- [x] Category mode: stable sequential category group rendering without domain reshuffling or card pop-in/out
+- [x] Precompute `categoryLabelsByDomainId: Map<number, labels[]>` in `useMemo`
+- [x] Pass stable label array references into `DomainItem`
 
 #### P-4 App tick + refresh polish
 
-- [ ] `dateRefreshTick`: daily interval only; on focus/visibility, update **only if** local date string changed
-- [ ] Optional: domain server refresh keeps array reference when snapshot equal
+- [x] `dateRefreshTick`: on focus/visibility, update **only if** local date string changed
+- [x] Domain server refresh keeps array reference when snapshot equal
 
 #### P-5 Verify
 
-- [ ] Lint / tsc / build
+- [x] Lint / tsc / build / regression tests
 - [ ] Manual: scrub cursor across 60+ rows; scroll deep list without progressive lag
 
 ### Suggested files to touch (performance)
@@ -148,5 +147,7 @@ Full schema, 10-provider research, adapter contract, UI, and backend checklist:
 
 | Date/Time (WIB) | Status | Change |
 | --- | --- | --- |
+| 2026-07-14 | Done | Performance checklist complete; rank MVP code complete. User still needs migration + Edge deploy + SERP keys. |
+| 2026-07-13 | Implemented | Shared tooltip host, DomainItem/list lag fixes, rank schema/functions/UI. |
 | 2026-07-10 | Plan | Initial audit + rank architecture |
-| 2026-07-10 | Docs first | Expanded checklist; split detailed SERP plan to `SERP_RANK_TRACKING.md`; linked OPTIMIZATION tracker; recorded interrupted WIP |
+| 2026-07-10 | Docs first | Expanded checklist; split detailed SERP plan to `SERP_RANK_TRACKING.md`; linked OPTIMIZATION tracker |

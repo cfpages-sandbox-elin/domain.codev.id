@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect, useDeferredValue } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useDeferredValue, useCallback } from 'react';
 import { CategoryManualOverrides, CategoryWordGroup, Domain, WhoisData } from '../types';
 import DomainItem from './DomainItem';
 import { ChevronUpDownIcon, ArrowUpOnSquareIcon, ArrowDownOnSquareIcon, RefreshIcon, HomeIcon, TargetIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, DomainCodevIcon, UsersIcon, SearchIcon } from './icons';
@@ -6,18 +6,18 @@ import Tooltip from './Tooltip';
 import { applyCategoryManualOverrides, applyCategoryWordGroups, categorizeDomains } from '../utils/domainCategorization';
 import DomainFilterButton from './domain-list/DomainFilterButton';
 import { DomainListLoadingState, EmptyDomainListState, NoDomainMatchesState } from './domain-list/DomainListEmptyStates';
+import FloatingFilterBar from './domain-list/FloatingFilterBar';
 import KeywordDomainFilter from './domain-list/KeywordDomainFilter';
 import {
   CATEGORY_FILTER_STORAGE_KEY,
-  ESTIMATED_ROW_HEIGHT,
   FILTER_STORAGE_KEY,
   FilterType,
   HIDE_REGISTERED_TARGETS_STORAGE_KEY,
+  INITIAL_RENDERED_DOMAINS,
+  RENDER_INCREMENT,
   SORT_STORAGE_KEY,
   SortOption,
   TLD_FILTER_STORAGE_KEY,
-  WINDOW_OVERSCAN,
-  WINDOW_ROWS,
   applyKeywordFilter,
   applyStatusFilter,
   getFilterCounts,
@@ -94,20 +94,17 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
   const deferredKeywordFilter = useDeferredValue(keywordFilter);
   const [isKeywordSuggestionsOpen, setIsKeywordSuggestionsOpen] = useState(false);
   const [recheckProgress, setRecheckProgress] = useState<RecheckProgress | null>(null);
-  const [windowRange, setWindowRange] = useState({ start: 0, end: WINDOW_ROWS + WINDOW_OVERSCAN * 2 });
+  const [visibleDomainLimit, setVisibleDomainLimit] = useState(INITIAL_RENDERED_DOMAINS);
   const [isDesktopLayout, setIsDesktopLayout] = useState(() => (
     typeof window !== 'undefined' ? window.matchMedia('(min-width: 768px)').matches : true
   ));
-  const [isFloatingFilterVisible, setIsFloatingFilterVisible] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const recheckMenuRef = useRef<HTMLDivElement>(null);
   const keywordFilterRef = useRef<HTMLDivElement>(null);
   const floatingFilterRef = useRef<HTMLDivElement>(null);
   const listAnchorRef = useRef<HTMLDivElement>(null);
-  const windowRangeRef = useRef(windowRange);
-  windowRangeRef.current = windowRange;
+  const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
   const recheckProgressTimeoutRef = useRef<number | null>(null);
-  const isFloatingFilterVisibleRef = useRef(false);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -136,19 +133,6 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
   }, []);
 
   useEffect(() => {
-    const updateFloatingFilterVisibility = () => {
-      const nextIsVisible = window.scrollY > 220;
-      if (isFloatingFilterVisibleRef.current === nextIsVisible) return;
-      isFloatingFilterVisibleRef.current = nextIsVisible;
-      setIsFloatingFilterVisible(nextIsVisible);
-    };
-
-    updateFloatingFilterVisibility();
-    window.addEventListener('scroll', updateFloatingFilterVisibility, { passive: true });
-    return () => window.removeEventListener('scroll', updateFloatingFilterVisibility);
-  }, []);
-
-  useEffect(() => {
     window.localStorage.setItem(FILTER_STORAGE_KEY, filter);
   }, [filter]);
 
@@ -169,7 +153,7 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
   }, [hideRegisteredTargets]);
 
   useEffect(() => {
-    setWindowRange({ start: 0, end: WINDOW_ROWS + WINDOW_OVERSCAN * 2 });
+    setVisibleDomainLimit(INITIAL_RENDERED_DOMAINS);
   }, [categoryFilter, deferredKeywordFilter, filter, hideRegisteredTargets, sortOption, tldFilter]);
 
   useEffect(() => {
@@ -363,75 +347,49 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
   }, [categorization.categorizedDomains, categoryNames]);
 
   const totalSorted = sortedDomains.length;
-  const shouldWindowDomains = totalSorted > WINDOW_ROWS + WINDOW_OVERSCAN;
-  const windowStart = shouldWindowDomains ? Math.min(windowRange.start, Math.max(0, totalSorted - 1)) : 0;
-  const windowEnd = shouldWindowDomains
-    ? Math.min(totalSorted, Math.max(windowRange.end, windowStart + 1))
-    : totalSorted;
+  const hasMoreDomains = visibleDomainLimit < totalSorted;
+
+  const loadMoreDomains = useCallback(() => {
+    setVisibleDomainLimit(current => Math.min(current + RENDER_INCREMENT, totalSorted));
+  }, [totalSorted]);
 
   useEffect(() => {
-    if (!shouldWindowDomains) {
-      setWindowRange(current => (
-        current.start === 0 && current.end >= totalSorted
-          ? current
-          : { start: 0, end: totalSorted }
-      ));
-      return;
-    }
-
-    let frameId: number | null = null;
-    const updateWindow = () => {
-      frameId = null;
-      const anchorTop = listAnchorRef.current?.getBoundingClientRect().top ?? 0;
-      const viewportTop = Math.max(0, -anchorTop);
-      const estimatedIndex = Math.floor(viewportTop / ESTIMATED_ROW_HEIGHT);
-      const start = Math.max(0, estimatedIndex - WINDOW_OVERSCAN);
-      const end = Math.min(totalSorted, start + WINDOW_ROWS + WINDOW_OVERSCAN * 2);
-      const current = windowRangeRef.current;
-      if (current.start === start && current.end === end) return;
-      setWindowRange({ start, end });
-    };
-
-    const schedule = () => {
-      if (frameId !== null) return;
-      frameId = window.requestAnimationFrame(updateWindow);
-    };
-
-    updateWindow();
-    window.addEventListener('scroll', schedule, { passive: true });
-    window.addEventListener('resize', schedule);
-    return () => {
-      if (frameId !== null) window.cancelAnimationFrame(frameId);
-      window.removeEventListener('scroll', schedule);
-      window.removeEventListener('resize', schedule);
-    };
-  }, [shouldWindowDomains, totalSorted, categoryFilter, filter, sortOption, deferredKeywordFilter]);
+    if (!hasMoreDomains || !loadMoreSentinelRef.current || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        loadMoreDomains();
+      }
+    }, { rootMargin: '800px 0px' });
+    observer.observe(loadMoreSentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasMoreDomains, loadMoreDomains]);
 
   const renderedDomains = useMemo(
-    () => sortedDomains.slice(windowStart, windowEnd),
-    [sortedDomains, windowEnd, windowStart],
+    () => sortedDomains.slice(0, visibleDomainLimit),
+    [sortedDomains, visibleDomainLimit],
   );
-  const topSpacerHeight = shouldWindowDomains ? windowStart * ESTIMATED_ROW_HEIGHT : 0;
-  const bottomSpacerHeight = shouldWindowDomains
-    ? Math.max(0, totalSorted - windowEnd) * ESTIMATED_ROW_HEIGHT
-    : 0;
 
   const renderedCategoryGroups = useMemo(() => {
     if (categoryGroups.length === 0) return [];
-    const visibleIds = new Set(renderedDomains.map(domain => domain.id));
-    return categoryGroups
-      .map(group => {
-        const domainsForGroup = group.domains.filter(domain => visibleIds.has(domain.id));
-        if (domainsForGroup.length === 0) return null;
-        return {
+    let remaining = visibleDomainLimit;
+    const groups = [];
+
+    for (const group of categoryGroups) {
+      if (remaining <= 0) break;
+      const domainsForGroup = group.domains.slice(0, remaining);
+      if (domainsForGroup.length > 0) {
+        groups.push({
           ...group,
           domains: domainsForGroup,
           renderedCount: domainsForGroup.length,
           totalCount: group.domains.length,
-        };
-      })
-      .filter((group): group is NonNullable<typeof group> => Boolean(group));
-  }, [categoryGroups, renderedDomains]);
+        });
+        remaining -= domainsForGroup.length;
+      }
+    }
+
+    return groups;
+  }, [categoryGroups, visibleDomainLimit]);
 
   const renderedCategoryBlocks = useMemo(() => {
     if (renderedCategoryGroups.length === 0) return [];
@@ -509,23 +467,6 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
     </DomainFilterButton>
   );
 
-  const renderFloatingFilterButton = (filterType: FilterType, label: string) => (
-    <Tooltip key={filterType} content={`${label}: ${filterCounts[filterType]} domain${filterCounts[filterType] === 1 ? '' : 's'}`}>
-      <button
-        type="button"
-        onClick={() => setFilter(filterType)}
-        disabled={isProcessing}
-        className={`relative inline-flex h-9 w-9 flex-none items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-          filter === filterType
-            ? 'bg-brand-blue text-white shadow-sm'
-            : 'text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-700'
-        }`}
-        aria-label={`Filter ${label}`}
-      >
-        {filterIcons[filterType]}
-      </button>
-    </Tooltip>
-  );
 
   const handleExportClick = (format: 'json' | 'csv') => {
     onExportRequest(format);
@@ -664,60 +605,16 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
 
   return (
     <div>
-      <div
-        ref={floatingFilterRef}
-        className={`fixed bottom-4 left-1/2 z-40 w-[calc(100%-1rem)] max-w-3xl -translate-x-1/2 transition-all duration-200 md:bottom-6 ${
-          isFloatingFilterVisible
-            ? 'translate-y-0 opacity-100'
-            : 'pointer-events-none translate-y-3 opacity-0'
-        }`}
-      >
-        <div className="mx-auto flex items-center gap-1 overflow-x-auto rounded-full border border-slate-200 bg-white/95 p-1 shadow-xl backdrop-blur dark:border-slate-700 dark:bg-slate-900/95 sm:p-1.5">
-          {renderFloatingFilterButton('all', 'All')}
-          {renderFloatingFilterButton('mine', 'Mine')}
-          {renderFloatingFilterButton('to-snatch', 'To Snatch')}
-          {renderFloatingFilterButton('others', 'Others')}
-          {filterCounts.missing > 0 && renderFloatingFilterButton('missing', 'Missing Data')}
-          {renderFloatingFilterButton('available', 'Available')}
-          {renderFloatingFilterButton('expiring', 'Expiring Soon')}
-          {renderFloatingFilterButton('expired', 'Expired')}
-          <div className="relative ml-1 hidden min-w-[10rem] flex-1 md:block">
-            <label htmlFor="domain-keyword-filter-floating" className="sr-only">Filter domains by keyword</label>
-            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
-            <input
-              id="domain-keyword-filter-floating"
-              type="search"
-              value={keywordFilter}
-              onChange={(event) => {
-                setKeywordFilter(event.target.value);
-                setIsKeywordSuggestionsOpen(false);
-              }}
-              onFocus={() => setIsKeywordSuggestionsOpen(false)}
-              onKeyDown={(event) => {
-                if (event.key === 'Escape') {
-                  setIsKeywordSuggestionsOpen(false);
-                }
-              }}
-              disabled={isProcessing}
-              placeholder="Keyword"
-              className="h-9 w-full rounded-full bg-slate-100 py-1.5 pl-9 pr-9 text-sm font-medium text-slate-700 outline-none transition-colors placeholder:text-slate-500 focus:bg-white focus:ring-2 focus:ring-brand-blue disabled:opacity-50 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:bg-slate-950"
-            />
-            {keywordFilter && (
-              <button
-                type="button"
-                onClick={() => {
-                  setKeywordFilter('');
-                  setIsKeywordSuggestionsOpen(false);
-                }}
-                className="absolute right-1.5 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-white hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-slate-200"
-                aria-label="Clear keyword filter"
-              >
-                <XCircleIcon className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+      <FloatingFilterBar
+        filter={filter}
+        filterCounts={filterCounts}
+        filterIcons={filterIcons}
+        isProcessing={isProcessing}
+        onSelectFilter={setFilter}
+        keywordFilter={keywordFilter}
+        onKeywordFilterChange={setKeywordFilter}
+        containerRef={floatingFilterRef}
+      />
       <div className="mb-4 flex flex-col gap-3 sm:mb-6">
         <div className="order-2 -mx-3 flex items-center gap-2 overflow-x-auto px-3 pb-1 sm:order-1 sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0 sm:pb-0 sm:gap-3">
             {renderFilterButton('all', 'All')}
@@ -920,7 +817,6 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
       >
         {sortedDomains.length > 0 ? (
           <>
-            {topSpacerHeight > 0 && <div style={{ height: topSpacerHeight }} aria-hidden="true" />}
             {categoryGroups.length > 0 ? (
               renderedCategoryBlocks.map(block => (
                 block.isOverlapBlock ? (
@@ -936,11 +832,19 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
             ) : (
               renderedDomains.map(renderDomainItem)
             )}
-            {bottomSpacerHeight > 0 && <div style={{ height: bottomSpacerHeight }} aria-hidden="true" />}
-            {shouldWindowDomains && (
-              <p className="py-2 text-center text-xs font-medium text-slate-500 dark:text-slate-400">
-                Showing {windowStart + 1}–{windowEnd} of {totalSorted} domains
-              </p>
+            {hasMoreDomains && (
+              <div ref={loadMoreSentinelRef} className="flex flex-col items-center gap-2 py-4">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                  Showing {Math.min(visibleDomainLimit, totalSorted)} of {totalSorted} domains
+                </p>
+                <button
+                  type="button"
+                  onClick={loadMoreDomains}
+                  className="rounded-full bg-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 sm:text-sm"
+                >
+                  Load more
+                </button>
+              </div>
             )}
           </>
         ) : (
@@ -964,7 +868,7 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
               <div
-                className="h-full rounded-full bg-brand-blue transition-all"
+                className="h-full rounded-full bg-brand-blue transition-[width] duration-300 ease-out"
                 style={{ width: `${recheckProgressPercent}%` }}
               />
             </div>

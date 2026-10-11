@@ -203,7 +203,7 @@ const DomainItem: React.FC<DomainItemProps> = ({
   );
 
   return (
-    <div className={`relative overflow-hidden rounded-md border transition-colors ${rowStyles} ${mutedRowClass} ${isCompact ? 'px-3 py-2' : 'px-3 py-2.5 sm:px-4 sm:py-3'}`}>
+    <div className={`domain-row-item relative overflow-hidden rounded-md border transition-colors ${rowStyles} ${mutedRowClass} ${isCompact ? 'px-3 py-2' : 'px-3 py-2.5 sm:px-4 sm:py-3'}`}>
       {(isWhoisIncomplete || isWhoisProcessing) && (
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center">
           <span className="rounded-b-md bg-slate-800/90 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white dark:bg-slate-100/90 dark:text-slate-900">

@@ -23,6 +23,30 @@ type ActiveTooltipState = {
 let activeTooltipState: ActiveTooltipState | null = null;
 const activeListeners = new Set<() => void>();
 
+let isWindowScrolling = false;
+let scrollEndTimer: number | null = null;
+
+if (typeof window !== 'undefined') {
+  window.addEventListener(
+    'scroll',
+    () => {
+      isWindowScrolling = true;
+      if (activeTooltipState) {
+        activeTooltipState = null;
+        notifyActiveListeners();
+      }
+      if (scrollEndTimer !== null) {
+        window.clearTimeout(scrollEndTimer);
+      }
+      scrollEndTimer = window.setTimeout(() => {
+        isWindowScrolling = false;
+        scrollEndTimer = null;
+      }, 150);
+    },
+    { passive: true, capture: true },
+  );
+}
+
 const notifyActiveListeners = () => {
   activeListeners.forEach(listener => listener());
 };
@@ -62,7 +86,7 @@ const showSharedTooltip = (
   placement: 'top' | 'bottom',
   triggerEl: HTMLElement,
 ) => {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || isWindowScrolling) return;
   const position = computePosition(triggerEl, placement);
   activeTooltipState = {
     id,
@@ -128,11 +152,9 @@ export const TooltipHost: React.FC = () => {
     };
 
     window.addEventListener('resize', schedule);
-    window.addEventListener('scroll', schedule, true);
     return () => {
       if (frameId !== null) window.cancelAnimationFrame(frameId);
       window.removeEventListener('resize', schedule);
-      window.removeEventListener('scroll', schedule, true);
     };
   }, [active]);
 
@@ -190,17 +212,34 @@ const Tooltip: React.FC<TooltipProps> = ({ children, content, className = '', pl
   const triggerRef = useRef<HTMLSpanElement>(null);
   const contentRef = useRef(content);
   const placementRef = useRef(placement);
+  const showTimerRef = useRef<number | null>(null);
   contentRef.current = content;
   placementRef.current = placement;
 
-  useEffect(() => () => hideSharedTooltip(tooltipId), [tooltipId]);
+  const cancelShowTimer = () => {
+    if (showTimerRef.current !== null) {
+      window.clearTimeout(showTimerRef.current);
+      showTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => () => {
+    cancelShowTimer();
+    hideSharedTooltip(tooltipId);
+  }, [tooltipId]);
 
   const showTooltip = useCallback(() => {
-    if (!triggerRef.current) return;
-    showSharedTooltip(tooltipId, contentRef.current, placementRef.current, triggerRef.current);
+    cancelShowTimer();
+    if (isWindowScrolling || !triggerRef.current) return;
+    showTimerRef.current = window.setTimeout(() => {
+      showTimerRef.current = null;
+      if (isWindowScrolling || !triggerRef.current) return;
+      showSharedTooltip(tooltipId, contentRef.current, placementRef.current, triggerRef.current);
+    }, 150);
   }, [tooltipId]);
 
   const hideTooltip = useCallback(() => {
+    cancelShowTimer();
     hideSharedTooltip(tooltipId);
   }, [tooltipId]);
 
