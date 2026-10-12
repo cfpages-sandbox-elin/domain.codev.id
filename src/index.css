@@ -20,13 +20,6 @@
 
 @layer utilities {
   .domain-row-item {
-    content-visibility: auto;
-    contain-intrinsic-size: 72px;
-  }
-}
-
-@media (max-width: 767px) {
-  .domain-row-item {
-    contain-intrinsic-size: 150px;
+    transform: translateZ(0);
   }
 }

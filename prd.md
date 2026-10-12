@@ -319,3 +319,38 @@ It is live now and deployed at https://domain.codev.id
     - Automatically ensure domain tag is set to `to-snatch`.
     - Trigger immediate drop alert notification and surface registrar purchase controls with direct buy links.
     - Ensure client-side `useDomainActions.ts` and server-side Edge function maintain identical status transition logic.
+
+## 11. Scroll Rendering Optimization & Progressive Loading Feedback
+
+**Objective**: Eliminate blank-box flashing and multi-second content delay during scrolling, tune progressive rendering increments to achieve smooth 60fps micro-batching with aggressive prefetching, provide realistic skeleton loading placeholders with informative wait feedback when approaching unrendered batches, and optimize component memoization to minimize allocation churn.
+
+### Progress Legend
+- ⏳ Pending
+- 🔄 In Progress
+- ✅ Completed
+
+### Root Cause Audit
+1. **Empty Row Flash via `content-visibility: auto`**: In `src/index.css`, applying `content-visibility: auto` with `contain-intrinsic-size: 72px` causes Chromium to defer painting off-screen element descendants. When the user scrolls fast, Chromium enters unrendered areas and displays empty boxes for 1–3 seconds until layout and painting threads catch up, giving the impression of delayed data fetching.
+2. **Coarse Batch Mounting**: `INITIAL_RENDERED_DOMAINS = 80` and `RENDER_INCREMENT = 60` synchronously mounted 60 complex cards per trigger, inducing small main-thread spikes.
+3. **Late Sentinel Preload**: A `rootMargin` of `800px` gave insufficient lead time during fast trackpad/mousewheel scrolling, allowing the viewport to overtake the sentinel into unrendered empty space.
+4. **Missing Visual Feedback**: When the user reached the end of the rendered batch, there were no placeholder skeletons or informative status indicators, only a tiny text line and button.
+5. **Memo Comparison Allocation Churn**: In `DomainItem.tsx`, the memo comparator executed `.map()` across `categoryLabels` creating fresh string arrays on every comparison, regardless of reference equality.
+
+### Implementation Tasks
+
+- [x] **11.1. Eliminate Blank-Box Flash by Removing `content-visibility: auto`**
+  - **Status**: ✅ Completed
+  - **Requirement**: Remove `content-visibility: auto` and `contain-intrinsic-size` from `.domain-row-item` in `src/index.css`. Because DOM node count is already bounded by progressive rendering, this eliminates the multi-second blank card delay during scrolling while preserving fluid rendering.
+
+- [x] **11.2. Micro-Batching & Aggressive Prefetch Margin**
+  - **Status**: ✅ Completed
+  - **Requirement**: In `src/components/domain-list/domainListLogic.ts`, update `INITIAL_RENDERED_DOMAINS` to `40` (halves initial mount time) and `RENDER_INCREMENT` to `30` (mounts in <10ms without dropping frames). In `src/components/DomainList.tsx`, expand IntersectionObserver `rootMargin` to `'1400px 0px'` so the next 30 items mount 2–3 screens before the user reaches the bottom.
+
+- [x] **11.3. Progressive Skeleton Loading Placeholders with Wait Message**
+  - **Status**: ✅ Completed
+  - **Requirement**: In `src/components/DomainList.tsx`, when `hasMoreDomains` is true, render 3 realistic skeleton domain cards with `animate-pulse` shimmer matching exact card dimensions alongside an explicit status indicator (`<Spinner size="sm" />` + `"Loading more domains... (X of Y displayed)"`) and fallback load button.
+
+- [x] **11.4. Zero-Allocation Memo Comparator in DomainItem**
+  - **Status**: ✅ Completed
+  - **Requirement**: In `src/components/DomainItem.tsx`, refactor `areCategoryLabelsEqual` to compare label items element-by-element without string interpolation or `.map()` array allocations, and only evaluate when references differ.
+

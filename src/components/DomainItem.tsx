@@ -477,10 +477,15 @@ const DomainItem: React.FC<DomainItemProps> = ({
   );
 };
 
-const areStringArraysEqual = (left?: string[], right?: string[]) => {
+type CategoryLabelItem = { id: string; label: string; kind: 'word-group' | 'auto' };
+
+const areCategoryLabelsEqual = (left?: CategoryLabelItem[], right?: CategoryLabelItem[]) => {
   if (left === right) return true;
   if (!left || !right || left.length !== right.length) return false;
-  return left.every((value, index) => value === right[index]);
+  return left.every((item, index) => {
+    const other = right[index];
+    return item.id === other.id && item.label === other.label && item.kind === other.kind;
+  });
 };
 
 export default memo(DomainItem, (prev, next) => (
@@ -491,9 +496,5 @@ export default memo(DomainItem, (prev, next) => (
   && prev.isTagUpdating === next.isTagUpdating
   && prev.tld === next.tld
   && prev.isDesktopLayout === next.isDesktopLayout
-  && prev.categoryLabels === next.categoryLabels
-  && areStringArraysEqual(
-    prev.categoryLabels?.map(item => `${item.kind}:${item.id}:${item.label}`),
-    next.categoryLabels?.map(item => `${item.kind}:${item.id}:${item.label}`),
-  )
+  && areCategoryLabelsEqual(prev.categoryLabels, next.categoryLabels)
 ));

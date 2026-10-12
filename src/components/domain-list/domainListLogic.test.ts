@@ -41,4 +41,10 @@ describe('domain list expiry filters', () => {
     expect(getFilterMatch(expiredByDate, 'expiring', now)).toBe(false);
     expect(getFilterMatch(expiredByDate, 'expired', now)).toBe(true);
   });
+
+  it('configures smooth progressive rendering micro-batches', async () => {
+    const { INITIAL_RENDERED_DOMAINS, RENDER_INCREMENT } = await import('./domainListLogic');
+    expect(INITIAL_RENDERED_DOMAINS).toBe(40);
+    expect(RENDER_INCREMENT).toBe(30);
+  });
 });

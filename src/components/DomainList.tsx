@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, useEffect, useDeferredValue, useCallb
 import { CategoryManualOverrides, CategoryWordGroup, Domain, WhoisData } from '../types';
 import DomainItem from './DomainItem';
 import { ChevronUpDownIcon, ArrowUpOnSquareIcon, ArrowDownOnSquareIcon, RefreshIcon, HomeIcon, TargetIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, DomainCodevIcon, UsersIcon, SearchIcon } from './icons';
+import Spinner from './Spinner';
 import Tooltip from './Tooltip';
 import { applyCategoryManualOverrides, applyCategoryWordGroups, categorizeDomains } from '../utils/domainCategorization';
 import DomainFilterButton from './domain-list/DomainFilterButton';
@@ -360,7 +361,7 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
       if (entries.some(entry => entry.isIntersecting)) {
         loadMoreDomains();
       }
-    }, { rootMargin: '800px 0px' });
+    }, { rootMargin: '1400px 0px' });
     observer.observe(loadMoreSentinelRef.current);
     return () => observer.disconnect();
   }, [hasMoreDomains, loadMoreDomains]);
@@ -846,17 +847,38 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
               renderedDomains.map(renderDomainItem)
             )}
             {hasMoreDomains && (
-              <div ref={loadMoreSentinelRef} className="flex flex-col items-center gap-2 py-4">
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                  Showing {Math.min(visibleDomainLimit, totalSorted)} of {totalSorted} domains
-                </p>
-                <button
-                  type="button"
-                  onClick={loadMoreDomains}
-                  className="rounded-full bg-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 sm:text-sm"
-                >
-                  Load more
-                </button>
+              <div ref={loadMoreSentinelRef} className="space-y-3 py-3" role="status" aria-label="Loading more domains">
+                <div className="flex items-center justify-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                  <Spinner size="sm" color="border-brand-blue" />
+                  <span>
+                    Loading more domains... ({Math.min(visibleDomainLimit, totalSorted)} of {totalSorted} displayed)
+                  </span>
+                </div>
+                <div className="animate-pulse space-y-2 sm:space-y-3" aria-hidden="true">
+                  {Array.from({ length: 3 }, (_, index) => (
+                    <div
+                      key={index}
+                      className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border-2 border-slate-200/80 bg-white/60 p-2 sm:p-2.5 dark:border-slate-800 dark:bg-slate-900/40 sm:grid-cols-[minmax(0,1.6fr)_7rem_6rem_5rem]"
+                    >
+                      <div className="min-w-0 space-y-2">
+                        <div className={`h-4 rounded bg-slate-300 dark:bg-slate-700 ${index % 2 === 0 ? 'w-48' : 'w-36'}`} />
+                        <div className="h-3 w-24 rounded bg-slate-200 dark:bg-slate-800" />
+                      </div>
+                      <div className="h-6 w-20 rounded-full bg-slate-200 dark:bg-slate-800 sm:w-full" />
+                      <div className="hidden h-4 rounded bg-slate-200 dark:bg-slate-800 sm:block" />
+                      <div className="hidden h-7 rounded-md bg-slate-200 dark:bg-slate-800 sm:block" />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-center pt-1">
+                  <button
+                    type="button"
+                    onClick={loadMoreDomains}
+                    className="rounded-full bg-slate-200 px-4 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 sm:text-sm"
+                  >
+                    Load next {Math.min(RENDER_INCREMENT, totalSorted - visibleDomainLimit)} domains
+                  </button>
+                </div>
               </div>
             )}
           </>

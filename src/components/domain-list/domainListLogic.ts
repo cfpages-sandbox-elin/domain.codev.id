@@ -12,9 +12,9 @@ export const HIDE_REGISTERED_TARGETS_STORAGE_KEY = 'domain-codev-hide-registered
 export const FILTER_OPTIONS: FilterType[] = ['all', 'mine', 'to-snatch', 'others', 'missing', 'expiring', 'expired', 'available'];
 export const SORT_OPTIONS: SortOption[] = ['added-desc', 'added-asc', 'name-asc', 'name-desc', 'expiry-asc', 'expiry-desc', 'checked-desc', 'checked-asc', 'category-asc', 'category-desc', 'tld-asc', 'tld-desc'];
 /** Initial render limit for progressive domain rendering. */
-export const INITIAL_RENDERED_DOMAINS = 80;
+export const INITIAL_RENDERED_DOMAINS = 40;
 /** Batch increment for progressive domain rendering via sentinel intersection. */
-export const RENDER_INCREMENT = 60;
+export const RENDER_INCREMENT = 30;
 /** Kept for backwards compatibility. */
 export const WINDOW_ROWS = 60;
 export const WINDOW_OVERSCAN = 20;
