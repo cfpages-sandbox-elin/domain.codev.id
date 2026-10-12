@@ -1,17 +1,20 @@
 import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-interface TooltipProps {
+export interface TooltipProps {
   children: React.ReactNode;
   content: React.ReactNode;
   className?: string;
   placement?: 'top' | 'bottom';
+  size?: 'sm' | 'md' | 'lg';
+  delay?: number;
 }
 
 type ActiveTooltipState = {
   id: string;
   content: React.ReactNode;
   placement: 'top' | 'bottom';
+  size: 'sm' | 'md' | 'lg';
   left: number;
   top: number;
   width: number;
@@ -25,14 +28,35 @@ const activeListeners = new Set<() => void>();
 
 let isWindowScrolling = false;
 let scrollEndTimer: number | null = null;
+let hideGraceTimer: number | null = null;
+let lastClosedTimestamp = 0;
+
+export const cancelTooltipHide = () => {
+  if (hideGraceTimer !== null) {
+    window.clearTimeout(hideGraceTimer);
+    hideGraceTimer = null;
+  }
+};
+
+export const scheduleTooltipHide = (delay = 120) => {
+  cancelTooltipHide();
+  hideGraceTimer = window.setTimeout(() => {
+    hideGraceTimer = null;
+    lastClosedTimestamp = Date.now();
+    activeTooltipState = null;
+    notifyActiveListeners();
+  }, delay);
+};
 
 if (typeof window !== 'undefined') {
   window.addEventListener(
     'scroll',
     () => {
       isWindowScrolling = true;
+      cancelTooltipHide();
       if (activeTooltipState) {
         activeTooltipState = null;
+        lastClosedTimestamp = Date.now();
         notifyActiveListeners();
       }
       if (scrollEndTimer !== null) {
@@ -54,12 +78,14 @@ const notifyActiveListeners = () => {
 const computePosition = (
   triggerEl: HTMLElement,
   placement: 'top' | 'bottom',
+  size: 'sm' | 'md' | 'lg' = 'md',
   measuredHeight = 0,
 ) => {
   const rect = triggerEl.getBoundingClientRect();
-  const margin = 16;
+  const margin = 12;
   const gap = 8;
-  const width = Math.min(320, window.innerWidth - margin * 2);
+  const targetWidth = size === 'lg' ? 480 : size === 'sm' ? 220 : 320;
+  const width = Math.min(targetWidth, window.innerWidth - margin * 2);
   const halfWidth = width / 2;
   const centeredLeft = rect.left + rect.width / 2;
   const left = Math.min(Math.max(centeredLeft, margin + halfWidth), window.innerWidth - margin - halfWidth);
@@ -68,7 +94,7 @@ const computePosition = (
   const shouldPlaceTop = placement === 'top'
     ? spaceAbove >= Math.min(measuredHeight || 120, 120) || spaceAbove >= spaceBelow
     : measuredHeight > 0 && spaceBelow < Math.min(measuredHeight, 120) && spaceAbove > spaceBelow;
-  const maxHeight = Math.max(shouldPlaceTop ? spaceAbove : spaceBelow, 48);
+  const maxHeight = Math.min(Math.max(shouldPlaceTop ? spaceAbove : spaceBelow, 48), 380);
   const renderedHeight = measuredHeight > 0 ? Math.min(measuredHeight, maxHeight) : 0;
   const top = shouldPlaceTop ? rect.top - gap - renderedHeight : rect.bottom + gap;
   const transform = measuredHeight > 0
@@ -84,14 +110,17 @@ const showSharedTooltip = (
   id: string,
   content: React.ReactNode,
   placement: 'top' | 'bottom',
+  size: 'sm' | 'md' | 'lg',
   triggerEl: HTMLElement,
 ) => {
   if (typeof window === 'undefined' || isWindowScrolling) return;
-  const position = computePosition(triggerEl, placement);
+  cancelTooltipHide();
+  const position = computePosition(triggerEl, placement, size);
   activeTooltipState = {
     id,
     content,
     placement,
+    size,
     triggerEl,
     ...position,
   };
@@ -101,6 +130,8 @@ const showSharedTooltip = (
 const hideSharedTooltip = (id?: string) => {
   if (!activeTooltipState) return;
   if (id && activeTooltipState.id !== id) return;
+  cancelTooltipHide();
+  lastClosedTimestamp = Date.now();
   activeTooltipState = null;
   notifyActiveListeners();
 };
@@ -122,12 +153,13 @@ export const TooltipHost: React.FC = () => {
     if (!active || !tooltipRef.current) return;
 
     const measuredHeight = tooltipRef.current.scrollHeight;
-    const next = computePosition(active.triggerEl, active.placement, measuredHeight);
+    const next = computePosition(active.triggerEl, active.placement, active.size, measuredHeight);
     if (
       next.left !== active.left
       || next.top !== active.top
       || next.maxHeight !== active.maxHeight
       || next.transform !== active.transform
+      || next.width !== active.width
     ) {
       if (activeTooltipState?.id === active.id) {
         activeTooltipState = { ...activeTooltipState, ...next };
@@ -144,6 +176,7 @@ export const TooltipHost: React.FC = () => {
         const updated = computePosition(
           activeTooltipState.triggerEl,
           activeTooltipState.placement,
+          activeTooltipState.size,
           tooltipRef.current?.scrollHeight || 0,
         );
         activeTooltipState = { ...activeTooltipState, ...updated };
@@ -186,12 +219,14 @@ export const TooltipHost: React.FC = () => {
   return createPortal(
     <span
       ref={tooltipRef}
-      className="pointer-events-none fixed z-[2147483647] rounded-md border border-slate-200 bg-white p-3 text-left text-xs font-normal text-slate-600 shadow-xl dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+      onMouseEnter={cancelTooltipHide}
+      onMouseLeave={() => scheduleTooltipHide(120)}
+      className="pointer-events-auto fixed z-[2147483647] rounded-lg border border-slate-200 bg-white p-3 text-left text-xs font-normal text-slate-700 shadow-2xl dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
       style={{
         left: active.left,
         top: active.top,
         width: active.width,
-        maxWidth: 'calc(100vw - 2rem)',
+        maxWidth: 'calc(100vw - 1.5rem)',
         maxHeight: active.maxHeight,
         overflowY: 'auto',
         transform: active.transform,
@@ -207,14 +242,23 @@ export const TooltipHost: React.FC = () => {
 /**
  * Lightweight tooltip trigger. Does not mount a portal; TooltipHost renders the single shared portal.
  */
-const Tooltip: React.FC<TooltipProps> = ({ children, content, className = '', placement = 'bottom' }) => {
+const Tooltip: React.FC<TooltipProps> = ({
+  children,
+  content,
+  className = '',
+  placement = 'bottom',
+  size = 'md',
+  delay,
+}) => {
   const tooltipId = useId();
   const triggerRef = useRef<HTMLSpanElement>(null);
   const contentRef = useRef(content);
   const placementRef = useRef(placement);
+  const sizeRef = useRef(size);
   const showTimerRef = useRef<number | null>(null);
   contentRef.current = content;
   placementRef.current = placement;
+  sizeRef.current = size;
 
   const cancelShowTimer = () => {
     if (showTimerRef.current !== null) {
@@ -230,22 +274,35 @@ const Tooltip: React.FC<TooltipProps> = ({ children, content, className = '', pl
 
   const showTooltip = useCallback(() => {
     cancelShowTimer();
+    cancelTooltipHide();
     if (isWindowScrolling || !triggerRef.current) return;
-    showTimerRef.current = window.setTimeout(() => {
-      showTimerRef.current = null;
-      if (isWindowScrolling || !triggerRef.current) return;
-      showSharedTooltip(tooltipId, contentRef.current, placementRef.current, triggerRef.current);
-    }, 150);
-  }, [tooltipId]);
+
+    // Warm delay: if a tooltip was active within 350ms, display immediately (0ms).
+    // Otherwise use 50ms default (or explicitly passed delay).
+    const effectiveDelay = delay !== undefined
+      ? delay
+      : (Date.now() - lastClosedTimestamp < 350 ? 0 : 50);
+
+    if (effectiveDelay === 0) {
+      showSharedTooltip(tooltipId, contentRef.current, placementRef.current, sizeRef.current, triggerRef.current);
+    } else {
+      showTimerRef.current = window.setTimeout(() => {
+        showTimerRef.current = null;
+        if (isWindowScrolling || !triggerRef.current) return;
+        showSharedTooltip(tooltipId, contentRef.current, placementRef.current, sizeRef.current, triggerRef.current);
+      }, effectiveDelay);
+    }
+  }, [delay, tooltipId]);
 
   const hideTooltip = useCallback(() => {
     cancelShowTimer();
-    hideSharedTooltip(tooltipId);
-  }, [tooltipId]);
+    scheduleTooltipHide(120);
+  }, []);
 
   const handleBlur = (event: React.FocusEvent<HTMLSpanElement>) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-      hideTooltip();
+      cancelShowTimer();
+      hideSharedTooltip(tooltipId);
     }
   };
 

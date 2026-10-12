@@ -4,6 +4,7 @@ Guidance for AI coding agents working in this repository.
 
 ## Operating Style
 
+- **PRD-First Workflow & Progress Tracking**: Whenever planning or implementing features, fixes, refactoring, or optimizations in this repository, always update the project `PRD.md` first before writing code. Never implement code before updating `PRD.md`. Document the audit findings, architecture, and granular tasks in the PRD, and use unicode status symbols (`⏳ Pending`, `🔄 In Progress`, `✅ Completed`) to track progress as each item is implemented.
 - Be proactive: when you notice a bug, missing test, fragile implementation, security risk, UX issue, or simpler architecture, record your own recommendation in `docs/SUGGESTION.md`.
 - `docs/SUGGESTION.md` is for agent-originated suggestions based on codebase analysis. Do not use it as a changelog for user-requested changes or as a place to restate the user's own product suggestions.
 - Keep `docs/CODEBASE.md` current when changing file responsibilities, runtime flow, database schema, Edge Function behavior, or major UI/data logic. Treat it as the quick project map for future context.

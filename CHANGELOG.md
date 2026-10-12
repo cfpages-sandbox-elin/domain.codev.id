@@ -5,6 +5,18 @@ All notable changes to the Domain Codev project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-10-12
+
+### Added
+- **Direct Expired Filter Refresh Action**: Added a split-pill refresh trigger directly on the "Expired" filter button (`DomainFilterButton.tsx`) to allow one-click status re-checking without opening the dropdown menu.
+- **Active Drop Watch Banner**: Surfaced an informative drop-watch header banner with a direct `"Re-check Expired"` button whenever the Expired filter is active.
+- **Custom Tooltip Interactive Hover Bridge**:
+  - Replaced native `title="..."` attributes across all domain rows, site links, tags, and schedule triggers with unified `<Tooltip size="sm">` components.
+  - Enabled pointer interactions on tooltips with a 120ms hide grace period, allowing users to hover over and copy details directly from the tooltip body.
+  - Added warm tooltip transitions (0ms delay between consecutive tooltips within 350ms, 50ms default delay) for instant responsiveness.
+  - Added horizontal multi-column layout for `DomainTooltipContent` (`size="lg"` up to 480px width) with maximum height clamping (380px) and vertical scroll fallback to prevent off-screen bottom truncation.
+- **Durable PRD-First Policy**: Added durable operational rule across repo-local and global `AGENTS.md` requiring PRD updates with unicode progress trackers before writing code.
+
 ## [1.1.0] - 2026-10-12
 
 ### Added

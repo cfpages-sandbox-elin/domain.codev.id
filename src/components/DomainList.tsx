@@ -456,7 +456,12 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
     expired: <XCircleIcon className="h-4 w-4" />,
   };
 
-  const renderFilterButton = (filterType: FilterType, label: string) => (
+  const renderFilterButton = (
+    filterType: FilterType,
+    label: string,
+    onRefresh?: () => void,
+    isRefreshing?: boolean,
+  ) => (
     <DomainFilterButton
       filterType={filterType}
       activeFilter={filter}
@@ -464,6 +469,9 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
       icon={filterIcons[filterType]}
       isDisabled={isProcessing}
       onSelect={setFilter}
+      onRefresh={onRefresh}
+      isRefreshing={isRefreshing}
+      refreshTooltip={filterType === 'expired' ? `Re-check ${filterCounts.expired} expired domain(s)` : undefined}
     >
       {label}
     </DomainFilterButton>
@@ -630,7 +638,12 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
             {filterCounts.missing > 0 && renderFilterButton('missing', 'Missing Data')}
             {renderFilterButton('available', 'Available')}
             {renderFilterButton('expiring', 'Expiring Soon')}
-            {renderFilterButton('expired', 'Expired')}
+            {renderFilterButton(
+              'expired',
+              'Expired',
+              expiredDomains.length > 0 ? () => runRecheck(expiredDomains, 'expired domain(s)') : undefined,
+              isRecheckingVisible,
+            )}
         </div>
         <div className="order-1 sm:order-2 sm:flex sm:justify-center">
             <KeywordDomainFilter
@@ -824,6 +837,33 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
           </div>
         </div>
       </div>
+
+      {filter === 'expired' && expiredDomains.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-amber-900 shadow-sm dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200">
+              <RefreshIcon className={`h-4 w-4 ${isRecheckingVisible ? 'animate-spin' : ''}`} />
+            </span>
+            <div>
+              <p className="text-sm font-semibold">
+                Expired Domains Drop Watch ({expiredDomains.length})
+              </p>
+              <p className="text-xs text-amber-800/80 dark:text-amber-300/80">
+                Continuous daily check active. Re-check WHOIS to confirm registry release and transition to available/dropped.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => runRecheck(expiredDomains, 'expired domain(s)')}
+            disabled={isProcessing || isRecheckingVisible}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white shadow transition-colors hover:bg-amber-700 disabled:opacity-50 dark:bg-amber-700 dark:hover:bg-amber-600"
+          >
+            <RefreshIcon className={`h-3.5 w-3.5 ${isRecheckingVisible ? 'animate-spin' : ''}`} />
+            <span>{isRecheckingVisible ? 'Re-checking...' : `Re-check Expired (${expiredDomains.length})`}</span>
+          </button>
+        </div>
+      )}
 
       <div
         ref={listAnchorRef}

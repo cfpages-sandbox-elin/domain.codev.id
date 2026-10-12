@@ -354,3 +354,55 @@ It is live now and deployed at https://domain.codev.id
   - **Status**: ✅ Completed
   - **Requirement**: In `src/components/DomainItem.tsx`, refactor `areCategoryLabelsEqual` to compare label items element-by-element without string interpolation or `.map()` array allocations, and only evaluate when references differ.
 
+## 12. Tooltip Ergonomics, Horizontal Domain Card & Expired Filter Controls
+
+**Objective**: Eliminate sluggish native browser tooltips (~1000ms delay) across all interactive elements, fix tooltip hover usability by providing an interactive bridge so users can move their cursor into the tooltip body without it disappearing, restructure domain data hover card horizontally so it never overflows off the bottom of the viewport, optimize tooltip hover latency with warm transitions, and add direct, visible refresh capabilities to the expired domain filter pill and active list view.
+
+### Progress Legend
+- ⏳ Pending
+- 🔄 In Progress
+- ✅ Completed
+
+### Root Cause Audit
+1. **Sluggish Native Tooltips**: Buttons and icons used the standard HTML `title="..."` attribute. Modern desktop browsers (Chromium, Firefox, Safari) enforce an unconfigurable delay of 800–1200ms before rendering OS-level native tooltips. They also cannot be styled, formatted, or hovered over.
+2. **Tooltip Body Hover Dropoff**: In `Tooltip.tsx`, `TooltipHost` was marked with `pointer-events-none`, and `onMouseLeave` on the trigger element instantly cleared `activeTooltipState`. When users tried to move their cursor toward the tooltip body to read or select details, the trigger's `mouseLeave` fired and immediately destroyed the tooltip before the cursor could reach it.
+3. **Vertical Domain Tooltip Overflow**: `DomainTooltipContent` in `TooltipContent.tsx` was organized as a single vertical column (`space-y-3`) with 11 `DetailRow` items, drop estimates, registry status explanations, and nameservers. On medium and standard displays, this vertical stack grew to >650px, causing the bottom half (registry status, nameservers, drop timeline) to overflow off the bottom edge of the browser viewport.
+4. **Missing Direct Refresh on Expired Filter**: In `DomainList.tsx`, users had to navigate to the separate `Re-check` dropdown menu to trigger an expired check. The "Expired" filter pill had no direct refresh trigger, making drop-watch workflows unintuitive.
+
+### Implementation Tasks
+
+- [x] **12.1. Tooltip Interactive Hover Bridge, Warm Transitions & Viewport Boundary Clamping**
+  - **Status**: ✅ Completed
+  - **Requirement**:
+    - Update `Tooltip.tsx` portal to `pointer-events-auto`.
+    - Implement a 120ms hide grace period in `scheduleTooltipHide` so the cursor can traverse the gap between trigger and tooltip body.
+    - Add `onMouseEnter={cancelTooltipHide}` and `onMouseLeave={() => scheduleTooltipHide(120)}` on the portal card.
+    - Implement warm transition: if a tooltip was active within 350ms, open the next tooltip with 0ms delay; default to 50ms initial delay (down from 150ms).
+    - Add `size?: 'sm' | 'md' | 'lg'` prop (target width up to 480px on `lg`).
+    - Enforce `maxHeight: min(space, 380)` and `overflowY: 'auto'` to guarantee zero screen overflow.
+
+- [x] **12.2. Horizontal Multi-Column Domain Tooltip Card Layout**
+  - **Status**: ✅ Completed
+  - **Requirement**:
+    - Refactor `DomainTooltipContent` in `src/components/domain-item/TooltipContent.tsx` into a structured, horizontal 2-column card.
+    - Header: Domain name (bold mono), status badge, tag pill, TLD badge.
+    - Left Column: Expiration date, registration date, registrar, last checked timestamp, provider label, category pills.
+    - Right Column: Drop lifecycle estimate (grace period end, redemption end, estimated drop date), registry statuses with humanized tags, and nameservers list.
+    - Restructure `DomainItem.tsx` to pass `size="lg"` to the domain name tooltip.
+
+- [x] **12.3. Direct Re-Check Button on Expired Filter Pill & Active Expired Watch Banner**
+  - **Status**: ✅ Completed
+  - **Requirement**:
+    - Update `DomainFilterButton.tsx` to support optional `onRefresh` and `isRefreshing` props, rendering a split-pill refresh icon button when provided.
+    - In `DomainList.tsx`, pass `onRefresh={() => runRecheck(expiredDomains, 'expired domain(s)')}` to the "Expired" filter button.
+    - When `filter === 'expired'`, render a prominent drop-watch header banner with count, drop-watch summary, and a direct `"Re-check Expired (${expiredDomains.length})"` action.
+
+- [x] **12.4. Audit & Replace Native `title` Attributes Across the Codebase**
+  - **Status**: ✅ Completed
+  - **Requirement**:
+    - Audit all elements with native `title="..."` attributes.
+    - Replace them in `src/components/DomainItem.tsx` (re-check button, remove button, site link, word-group add button, category remove button, tag selection buttons, status icons) with `<Tooltip size="sm">`.
+    - Replace them in `src/components/WhoisSchedulePage.tsx` (manual schedule re-check button) with `<Tooltip size="sm">`.
+
+
+

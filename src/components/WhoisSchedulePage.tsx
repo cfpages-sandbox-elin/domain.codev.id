@@ -5,6 +5,7 @@ import { getDaysUntilExpiry } from './domain-list/domainListLogic';
 import { DEFAULT_MONITORING_SETTINGS } from '../utils/monitoringSettings';
 import { getDomainMonitoringSettings } from '../services/supabaseService';
 import { RefreshIcon } from './icons';
+import Tooltip from './Tooltip';
 
 interface WhoisSchedulePageProps {
   dateRefreshTick: number;
@@ -106,16 +107,17 @@ const WhoisSchedulePage = ({ dateRefreshTick, domains, onRecheck, isProcessing =
                         <div className="flex items-center gap-1.5 flex-none">
                           <span className="text-xs text-slate-500 dark:text-slate-400">{schedule.isDue ? 'Due now' : formatDateTime(schedule.nextCheckAt!)}</span>
                           {onRecheck && (
-                            <button
-                              type="button"
-                              onClick={() => handleRecheck(domain.id)}
-                              disabled={recheckingId === domain.id || isProcessing}
-                              className="inline-flex h-6 w-6 items-center justify-center rounded text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 disabled:opacity-50 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-                              aria-label={`Re-check ${domain.domain_name}`}
-                              title="Re-check WHOIS now"
-                            >
-                              <RefreshIcon className={`h-3.5 w-3.5 ${recheckingId === domain.id ? 'animate-spin' : ''}`} />
-                            </button>
+                            <Tooltip content="Re-check WHOIS now" size="sm">
+                              <button
+                                type="button"
+                                onClick={() => handleRecheck(domain.id)}
+                                disabled={recheckingId === domain.id || isProcessing}
+                                className="inline-flex h-6 w-6 items-center justify-center rounded text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 disabled:opacity-50 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                                aria-label={`Re-check ${domain.domain_name}`}
+                              >
+                                <RefreshIcon className={`h-3.5 w-3.5 ${recheckingId === domain.id ? 'animate-spin' : ''}`} />
+                              </button>
+                            </Tooltip>
                           )}
                         </div>
                       </div>

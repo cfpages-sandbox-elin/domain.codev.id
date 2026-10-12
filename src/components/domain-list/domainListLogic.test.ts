@@ -50,6 +50,6 @@ describe('domain list expiry filters', () => {
 
   it('exposes valid semver APP_VERSION', async () => {
     const { APP_VERSION } = await import('../../version');
-    expect(APP_VERSION).toBe('v1.1.0');
+    expect(APP_VERSION).toBe('v1.2.0');
   });
 });
