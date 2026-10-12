@@ -73,4 +73,18 @@ describe('WHOIS schedule visibility', () => {
     expect(paused.cadence).toBe('Paused');
     expect(paused.nextCheckAt).toBeNull();
   });
+
+  it('schedules expired target domains for continuous daily drop watch', () => {
+    const expiredTarget = domain({
+      tag: 'to-snatch',
+      status: 'expired',
+      expiration_date: '2026-06-01T00:00:00.000Z',
+      last_checked: '2026-06-04T10:00:00.000Z',
+    });
+    const schedule = getWhoisSchedule(expiredTarget, new Date('2026-06-05T12:00:00.000Z'));
+    expect(schedule.cadence).toBe('Daily (drop watch)');
+    expect(schedule.priority).toBe(80);
+    expect(schedule.isDue).toBe(true);
+    expect(schedule.reason).toContain('daily drop watch');
+  });
 });

@@ -259,3 +259,63 @@ It is live now and deployed at https://domain.codev.id
   - **Hardening Fix**:
     - Add `.domain-row-item` utility with `content-visibility: auto` and responsive `contain-intrinsic-size` (72px desktop / 140px mobile).
     - Ensure smooth GPU acceleration on row elements and eliminate unnecessary repaint triggers during scroll.
+
+## 10. Holistic Domain Lifecycle & Drop-Watch Architecture
+
+**Objective**: Model the entire end-to-end domain lifecycle from active registration to drop release, distinguish confirmed non-dropped expired states from unconfirmed or available states, ensure continuous daily monitoring during the expected drop window, and provide direct manual refresh triggers across all views for expired domains.
+
+### Progress Legend
+- ⏳ Pending
+- 🔄 In Progress
+- ✅ Completed
+
+### Holistic Domain Lifecycle Stages
+
+```
+[ Active / Registered ]
+        │ (expiryDate - 30..90 days)
+        ▼
+[ Expiring Soon ] (Weekly / 3-day checks)
+        │ (now >= expiryDate)
+        ▼
+[ Expired (Unconfirmed) ] (Needs WHOIS confirmation)
+        │
+        ├─────────────────────────────────────────────────┐
+        │ WHOIS: still registered / held                  │ WHOIS: available / not found
+        ▼                                                 ▼
+[ Expired, Confirmed Not Dropped Yet ]              [ Available / Dropped ]
+(Grace Period -> Redemption -> Pending Delete)      (Tag: to-snatch, immediate buy controls)
+        │
+        │ Continuous Daily Checks (Expected Drop Window)
+        ▼
+[ Potential Drop Date Reached ]
+        │
+        ├──────────────────────┐
+        │ Dropped              │ Renewed / Retained by Owner
+        ▼                      ▼
+[ Available / Dropped ]     [ Registered ]
+```
+
+### Findings & Implementation Tasks
+
+- [x] **10.1. Add Direct Re-Check & Refresh Controls for Expired Domains**
+  - **Status**: ✅ Completed
+  - **Requirement**: Expired domains must have direct, visible refresh capabilities. In `DomainList.tsx`, add a dedicated "Re-check expired" action to the bulk re-check dropdown menu (`Re-check expired (N domain(s))`). In `WhoisSchedulePage.tsx`, add inline manual re-check buttons per domain card so users can refresh due and expired domains directly from the schedule view without switching pages. Ensure each expired row in `DomainItem.tsx` clearly presents its manual refresh trigger with dedicated tooltips.
+
+- [x] **10.2. Implement "Expired, Confirmed Not Dropped Yet" Lifecycle State**
+  - **Status**: ✅ Completed
+  - **Requirement**: Introduce explicit differentiation between an unconfirmed expired domain and an expired domain that has been confirmed by WHOIS to still be held by the registry/registrar.
+    - When `domain.expiration_date < now` AND `domain.last_checked >= domain.expiration_date` AND WHOIS indicates the domain is still registered/held (e.g. grace period, redemption, or pending delete): surface the status clearly as **"Expired, confirmed not dropped yet"** (badge: `Expired (Not Dropped)`).
+    - StatusBadge and tooltips must inform the user of the exact phase (Grace Period, Redemption, Pending Delete), the date confirmed, and the estimated release window.
+
+- [x] **10.3. Continuous Daily Monitoring During Expected Drop Date Window**
+  - **Status**: ✅ Completed
+  - **Requirement**: Expired domains must not languish in weekly checks. Update `whoisSchedule.ts` and `supabase/functions/check-domains/scheduler.ts` so that expired domains entering their expected drop lifecycle (post-expiry up to estimated drop date and active window) are scheduled for **continuous daily checks** (`intervalHours: 24`, cadence: `Daily (drop watch)`). During the high-probability active drop window (around `expiry + estimated_drop_days`), maintain high-frequency active watch.
+
+- [x] **10.4. Automatic State Transition from Expired to Available / Dropped**
+  - **Status**: ✅ Completed
+  - **Requirement**: When WHOIS check (manual or scheduled) returns `available` for a previously expired domain:
+    - Automatically transition domain status from `expired` to `available` (or `dropped`).
+    - Automatically ensure domain tag is set to `to-snatch`.
+    - Trigger immediate drop alert notification and surface registrar purchase controls with direct buy links.
+    - Ensure client-side `useDomainActions.ts` and server-side Edge function maintain identical status transition logic.

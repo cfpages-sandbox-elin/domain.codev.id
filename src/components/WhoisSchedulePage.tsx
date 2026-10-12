@@ -4,10 +4,13 @@ import { getWhoisSchedule } from '../utils/whoisSchedule';
 import { getDaysUntilExpiry } from './domain-list/domainListLogic';
 import { DEFAULT_MONITORING_SETTINGS } from '../utils/monitoringSettings';
 import { getDomainMonitoringSettings } from '../services/supabaseService';
+import { RefreshIcon } from './icons';
 
 interface WhoisSchedulePageProps {
   dateRefreshTick: number;
   domains: Domain[];
+  onRecheck?: (id: number) => Promise<void>;
+  isProcessing?: boolean;
 }
 
 const formatDateTime = (date: Date) => date.toLocaleString('en-GB', {
@@ -17,9 +20,20 @@ const formatDateTime = (date: Date) => date.toLocaleString('en-GB', {
   minute: '2-digit',
 });
 
-const WhoisSchedulePage = ({ dateRefreshTick, domains }: WhoisSchedulePageProps) => {
+const WhoisSchedulePage = ({ dateRefreshTick, domains, onRecheck, isProcessing = false }: WhoisSchedulePageProps) => {
   const [clockTick, setClockTick] = useState(dateRefreshTick);
+  const [recheckingId, setRecheckingId] = useState<number | null>(null);
   const [monitoringSettings, setMonitoringSettings] = useState<DomainMonitoringSettingsInput>(DEFAULT_MONITORING_SETTINGS);
+
+  const handleRecheck = async (id: number) => {
+    if (!onRecheck || isProcessing || recheckingId !== null) return;
+    setRecheckingId(id);
+    try {
+      await onRecheck(id);
+    } finally {
+      setRecheckingId(null);
+    }
+  };
   useEffect(() => {
     let cancelled = false;
     void getDomainMonitoringSettings().then(settings => {
@@ -89,7 +103,21 @@ const WhoisSchedulePage = ({ dateRefreshTick, domains }: WhoisSchedulePageProps)
                     <li key={domain.id} className="rounded-md bg-white/75 p-2.5 text-sm dark:bg-slate-900/60">
                       <div className="flex min-w-0 items-center justify-between gap-3">
                         <span className="truncate font-semibold text-slate-900 dark:text-white">{domain.domain_name}</span>
-                        <span className="flex-none text-xs text-slate-500 dark:text-slate-400">{schedule.isDue ? 'Due now' : formatDateTime(schedule.nextCheckAt!)}</span>
+                        <div className="flex items-center gap-1.5 flex-none">
+                          <span className="text-xs text-slate-500 dark:text-slate-400">{schedule.isDue ? 'Due now' : formatDateTime(schedule.nextCheckAt!)}</span>
+                          {onRecheck && (
+                            <button
+                              type="button"
+                              onClick={() => handleRecheck(domain.id)}
+                              disabled={recheckingId === domain.id || isProcessing}
+                              className="inline-flex h-6 w-6 items-center justify-center rounded text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800 disabled:opacity-50 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                              aria-label={`Re-check ${domain.domain_name}`}
+                              title="Re-check WHOIS now"
+                            >
+                              <RefreshIcon className={`h-3.5 w-3.5 ${recheckingId === domain.id ? 'animate-spin' : ''}`} />
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
                         <span>{schedule.cadence}</span>

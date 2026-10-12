@@ -149,7 +149,7 @@ export const getDomainNotificationMessage = (domain: Domain) => {
     }
   }
 
-  if (domain.status === 'dropped' && domain.tag === 'to-snatch') {
+  if ((domain.status === 'dropped' || domain.status === 'available') && domain.tag === 'to-snatch') {
     return `The domain ${domain.domain_name} has dropped and is now available to register!`;
   }
 

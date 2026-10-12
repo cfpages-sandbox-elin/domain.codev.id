@@ -171,9 +171,13 @@ export const getWhoisSchedule = (
     return schedule(domain, now, settings.post_window_interval_hours, 'Target domain past estimated drop window but still unavailable.', `Every ${settings.post_window_interval_hours} hours`, 100);
   }
 
-  if (daysSinceExpiry < settings.pre_drop_start_days) {
-    return schedule(domain, now, settings.grace_interval_hours, 'Target domain likely in grace/redemption period.', `Every ${settings.grace_interval_hours} hours`, 55);
-  }
-
-  return schedule(domain, now, settings.pre_drop_interval_hours, 'Target domain approaching active drop watch.', `Every ${settings.pre_drop_interval_hours} hours`, 75);
+  const dropIntervalHours = Math.min(settings.pre_drop_interval_hours, 24);
+  return schedule(
+    domain,
+    now,
+    dropIntervalHours,
+    'Target domain expired; daily drop watch checking continuously for drop.',
+    dropIntervalHours === 24 ? 'Daily (drop watch)' : `Every ${dropIntervalHours} hours`,
+    80,
+  );
 };

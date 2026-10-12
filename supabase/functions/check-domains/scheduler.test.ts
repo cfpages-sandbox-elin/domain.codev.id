@@ -77,4 +77,17 @@ describe('targeted WHOIS cron scheduler', () => {
     expect(paused.due).toBe(false);
     expect(paused.reason).toContain('paused');
   });
+
+  it('checks expired target domains daily during drop watch', () => {
+    const expiredTarget = domain({
+      tag: 'to-snatch',
+      status: 'expired',
+      expiration_date: '2026-06-01T00:00:00.000Z',
+      last_checked: '2026-06-03T12:00:00.000Z',
+    });
+    const decision = checkDecisionForDomain(expiredTarget, new Date('2026-06-05T00:00:00.000Z'));
+    expect(decision.due).toBe(true);
+    expect(decision.priority).toBe(80);
+    expect(decision.reason).toContain('daily drop watch');
+  });
 });

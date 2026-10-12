@@ -511,7 +511,7 @@ const App: React.FC = () => {
           />
         );
       case 'schedule':
-        return <WhoisSchedulePage dateRefreshTick={dateRefreshTick} domains={domains} />;
+        return <WhoisSchedulePage dateRefreshTick={dateRefreshTick} domains={domains} onRecheck={recheckDomain} isProcessing={isBulkProcessing} />;
       case 'ranks':
         return <RanksPage domains={domains} addLog={addLog} />;
       case 'dashboard':

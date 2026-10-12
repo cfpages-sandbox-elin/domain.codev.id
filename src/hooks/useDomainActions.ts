@@ -454,10 +454,18 @@ export const useDomainActions = ({
       : `🔄 Auto-fixing missing WHOIS data: ${domain.domain_name}`);
     const whoisData = await getWhoisData(domain.domain_name, addLog);
     updateProviderFromWhoisData(whoisData);
-    const forcedTag = whoisData.status === 'available' || whoisData.status === 'dropped' ? 'to-snatch' : domain.tag;
+
+    const isExpiredPrior = domain.status === 'expired'
+      || (Boolean(domain.expiration_date) && new Date(domain.expiration_date!).getTime() < Date.now());
+
+    const nextStatus = (isExpiredPrior && whoisData.status === 'available')
+      ? 'available'
+      : whoisData.status;
+
+    const forcedTag = nextStatus === 'available' || nextStatus === 'dropped' ? 'to-snatch' : domain.tag;
 
     const updates: DomainUpdate = {
-      status: whoisData.status,
+      status: nextStatus,
       tag: forcedTag,
       expiration_date: whoisData.expirationDate,
       registered_date: whoisData.registeredDate,
@@ -474,7 +482,11 @@ export const useDomainActions = ({
       setWhoisDetailsByDomainId(prev => ({ ...prev, [domain.id]: whoisData }));
       if (updatedDomain.status !== 'unknown') {
         checkAndNotify(updatedDomain);
-        addLog(`${mode === 'manual' ? '✅ Re-check' : '✅ Auto-fix'} successful for ${domain.domain_name}. Status is now ${updatedDomain.status}.`);
+        if (isExpiredPrior && (updatedDomain.status === 'available' || updatedDomain.status === 'dropped')) {
+          addLog(`🎉 Domain ${domain.domain_name} has officially dropped and is now available to register!`);
+        } else {
+          addLog(`${mode === 'manual' ? '✅ Re-check' : '✅ Auto-fix'} successful for ${domain.domain_name}. Status is now ${updatedDomain.status}.`);
+        }
       } else {
         addLog(`${mode === 'manual' ? '❌ Re-check' : '❌ Auto-fix'} failed for ${domain.domain_name}. Still unknown.`);
       }

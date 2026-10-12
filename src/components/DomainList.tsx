@@ -21,6 +21,7 @@ import {
   applyKeywordFilter,
   applyStatusFilter,
   getFilterCounts,
+  getFilterMatch,
   getKeywordSuggestions,
   hasMissingData,
   readStoredBoolean,
@@ -477,6 +478,10 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
     () => sortedDomains.filter(hasMissingData),
     [sortedDomains],
   );
+  const expiredDomains = useMemo(
+    () => domains.filter(domain => getFilterMatch(domain, 'expired', now)),
+    [domains, now],
+  );
   const registeredTargetCount = useMemo(
     () => domains.filter(domain => domain.tag === 'to-snatch' && domain.status === 'registered').length,
     [domains],
@@ -659,6 +664,14 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
                         >
                             Re-check all visible
                             <span className="block text-xs text-slate-500 dark:text-slate-400">{sortedDomains.length} domain(s)</span>
+                        </button>
+                        <button
+                            onClick={() => runRecheck(expiredDomains, 'expired domain(s)')}
+                            disabled={expiredDomains.length === 0}
+                            className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-slate-600"
+                        >
+                            Re-check expired
+                            <span className="block text-xs text-slate-500 dark:text-slate-400">{expiredDomains.length} domain(s)</span>
                         </button>
                         <button
                             onClick={() => runRecheck(missingDataDomains, 'domain(s) with missing data')}

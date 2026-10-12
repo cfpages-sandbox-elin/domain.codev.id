@@ -107,9 +107,6 @@ const DomainItem: React.FC<DomainItemProps> = ({
   };
 
   const daysUntilExpiry = getDaysUntilExpiry(domain.expiration_date);
-  const dropLifecycleEstimate = domain.status === 'expired' && domain.expiration_date
-    ? getDropLifecycleEstimate(domain.expiration_date)
-    : null;
   const canDeriveExpiryState = domain.status !== 'available'
     && domain.status !== 'dropped'
     && domain.status !== 'reserved'
@@ -117,7 +114,23 @@ const DomainItem: React.FC<DomainItemProps> = ({
   const isExpiredByDate = canDeriveExpiryState && daysUntilExpiry < 0;
   const isExpiringSoonByDate = canDeriveExpiryState && daysUntilExpiry >= 0 && daysUntilExpiry <= 90;
   const displayStatus = isExpiredByDate ? 'expired' : domain.status;
-  const expiredStatusLabel = dropLifecycleEstimate?.phaseLabel;
+  const isExpired = displayStatus === 'expired';
+
+  const dropLifecycleEstimate = isExpired && domain.expiration_date
+    ? getDropLifecycleEstimate(domain.expiration_date)
+    : null;
+
+  const isConfirmedNotDropped = isExpired
+    && Boolean(domain.last_checked)
+    && Boolean(domain.expiration_date)
+    && new Date(domain.last_checked!).getTime() >= new Date(domain.expiration_date!).getTime()
+    && domain.status !== 'available'
+    && domain.status !== 'dropped';
+
+  const expiredStatusLabel = isConfirmedNotDropped
+    ? (isCompact ? 'Expired (not dropped)' : 'Expired, confirmed not dropped yet')
+    : dropLifecycleEstimate?.phaseLabel;
+
   const statusLabelOverride = expiredStatusLabel
     || (isExpiredByDate ? 'Expired' : daysUntilExpiry === 0 ? 'Expires today' : isExpiringSoonByDate ? 'Expiring soon' : undefined);
   const isAvailableStatus = domain.status === 'available' || domain.status === 'dropped';
@@ -129,7 +142,7 @@ const DomainItem: React.FC<DomainItemProps> = ({
     && (domain.status === 'registered' || domain.status === 'expired' || effectiveTag === 'mine')
     && !domain.expiration_date;
   const isAvailableForPurchase = isAvailableStatus;
-  const canShowDropTimeline = domain.status === 'expired' && Boolean(domain.expiration_date);
+  const canShowDropTimeline = isExpired && Boolean(domain.expiration_date);
   const actionButtonClass = 'inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200 disabled:cursor-wait disabled:opacity-50 dark:hover:bg-slate-700';
   const registryStatuses = useMemo(() => (
     domain.domain_statuses || whoisDetails?.domainStatuses || []
@@ -157,7 +170,7 @@ const DomainItem: React.FC<DomainItemProps> = ({
   const tooltipContent = useMemo(() => (
     <DomainTooltipContent
       domainName={domain.domain_name}
-      status={domain.status === 'dropped' ? 'available' : domain.status === 'reserved' ? 'reserved domain' : domain.status}
+      status={isConfirmedNotDropped ? 'expired (confirmed not dropped yet)' : (domain.status === 'dropped' ? 'available' : domain.status === 'reserved' ? 'reserved domain' : displayStatus)}
       tagLabel={tagLabel}
       tld={tld}
       categoryLabels={categoryLabels.map(item => item.label)}
@@ -168,10 +181,10 @@ const DomainItem: React.FC<DomainItemProps> = ({
       providerLabel={whoisDetails?.providerLabel}
       registryStatuses={registryStatuses}
       nameServers={nameServers}
-      dropLifecycleLabel={expiredStatusLabel}
+      dropLifecycleLabel={isConfirmedNotDropped ? `${dropLifecycleEstimate?.phaseLabel || 'Grace/Redemption'} (Not dropped yet)` : expiredStatusLabel}
       dropLifecycleEstimate={dropLifecycleEstimate}
     />
-  ), [categoryLabels, domain, dropLifecycleEstimate, expiredStatusLabel, nameServers, registryStatuses, tagLabel, tld, whoisDetails?.providerLabel]);
+  ), [categoryLabels, domain, displayStatus, isConfirmedNotDropped, dropLifecycleEstimate, expiredStatusLabel, nameServers, registryStatuses, tagLabel, tld, whoisDetails?.providerLabel]);
 
   const alternateTags = useMemo(
     () => (['mine', 'to-snatch', 'others'] as DomainTag[]).filter(tag => tag !== effectiveTag),
@@ -322,9 +335,9 @@ const DomainItem: React.FC<DomainItemProps> = ({
                 </span>
               )}
               {daysUntilExpiry !== null && daysUntilExpiry <= 90 && domain.status !== 'unknown' && (
-                <span className="block text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <span className={`block text-xs font-semibold ${isConfirmedNotDropped ? 'text-amber-800 dark:text-amber-300' : 'text-slate-500 dark:text-slate-400'}`}>
                   {displayStatus === 'expired'
-                    ? `${expiredStatusLabel || 'Expired'}${dropLifecycleEstimate ? `; drop around ${formatDate(dropLifecycleEstimate.dropDate.toISOString())}` : ''}`
+                    ? `${isConfirmedNotDropped ? 'Expired, confirmed not dropped yet' : (expiredStatusLabel || 'Expired')}${dropLifecycleEstimate ? `; drop around ${formatDate(dropLifecycleEstimate.dropDate.toISOString())}` : ''}`
                     : daysUntilExpiry === 0 ? 'Expires today' : `${daysUntilExpiry} days left`}
                 </span>
               )}
@@ -351,8 +364,8 @@ const DomainItem: React.FC<DomainItemProps> = ({
                 onClick={handleRecheck}
                 disabled={isRechecking}
                 className={actionButtonClass}
-                aria-label={`Re-check WHOIS data for ${domain.domain_name}`}
-                title="Re-check WHOIS"
+                aria-label={displayStatus === 'expired' ? `Re-check drop status for ${domain.domain_name}` : `Re-check WHOIS data for ${domain.domain_name}`}
+                title={displayStatus === 'expired' ? "Re-check WHOIS & drop status" : "Re-check WHOIS"}
               >
                 {isRechecking ? <Spinner size="sm" color="border-brand-blue" /> : <RefreshIcon className="w-5 h-5" />}
               </button>

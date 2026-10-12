@@ -11,10 +11,15 @@ const StatusBadge: React.FC<{ status: DomainStatus, isCompact: boolean, labelOve
     unknown: 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300',
   };
 
+  const isConfirmedNotDropped = labelOverride?.toLowerCase().includes('not dropped');
+  const badgeStyle = isConfirmedNotDropped
+    ? 'bg-amber-100 text-amber-900 border border-amber-300/80 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700'
+    : statusStyles[status];
+
   const statusText = labelOverride || (status === 'dropped' ? 'available' : status === 'reserved' ? 'reserved domain' : status);
 
   return (
-    <span className={`rounded-full px-2 font-semibold capitalize ${statusStyles[status]} ${isCompact ? 'py-0 text-[9px]' : 'py-0.5 text-[10px]'}`}>
+    <span className={`rounded-full px-2 font-semibold capitalize ${badgeStyle} ${isCompact ? 'py-0 text-[9px]' : 'py-0.5 text-[10px]'}`}>
       {statusText}
     </span>
   );

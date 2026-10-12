@@ -192,17 +192,10 @@ export const checkDecisionForDomain = (
     }
   }
 
-  if (daysSinceExpiry < settings.pre_drop_start_days) {
-    return {
-      due: lastCheckedHours >= settings.grace_interval_hours,
-      reason: `target domain likely in grace/redemption period; check every ${settings.grace_interval_hours} hours`,
-      priority: 55,
-    };
-  }
-
+  const dropIntervalHours = Math.min(settings.pre_drop_interval_hours, 24);
   return {
-    due: lastCheckedHours >= settings.pre_drop_interval_hours,
-    reason: `target domain approaching active drop watch; check every ${settings.pre_drop_interval_hours} hours`,
-    priority: 75,
+    due: lastCheckedHours >= dropIntervalHours,
+    reason: `expired target domain in daily drop watch; checking for availability`,
+    priority: 80,
   };
 };
