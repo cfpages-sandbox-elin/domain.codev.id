@@ -25,10 +25,17 @@ import type { WhoisData, WhoisProviderCredentials, WhoisProviderId } from './who
 
 type WhoisProviderHandler = (domainName: string, credentials: WhoisProviderCredentials) => Promise<WhoisData>;
 
+const FETCH_TIMEOUT_MS = 6000;
+
+const fetchWithTimeout = (input: RequestInfo | URL, init: RequestInit = {}) => {
+  const signal = init.signal ?? AbortSignal.timeout(FETCH_TIMEOUT_MS);
+  return fetch(input, { ...init, signal });
+};
+
 const getWhoisDataFromWhoDat = async (domainName: string): Promise<WhoisData> => {
   const headers = new Headers();
   if (WHO_DAT_AUTH_KEY) headers.append('Authorization', `Bearer ${WHO_DAT_AUTH_KEY}`);
-  const response = await fetch(`${WHO_DAT_URL!}/${domainName}`, { headers });
+  const response = await fetchWithTimeout(`${WHO_DAT_URL!}/${domainName}`, { headers });
   if (!response.ok) throw new Error(`who-dat failed: ${response.status}`);
   const data = await response.json();
   if (data.error) throw new Error(`who-dat error: ${data.error}`);
@@ -47,7 +54,7 @@ const getWhoisDataFromWhoDat = async (domainName: string): Promise<WhoisData> =>
 const getWhoisDataFromWhoisXmlApi = async (domainName: string): Promise<WhoisData> => {
   if (!WHOISXMLAPI_KEY) throw new Error('WhoisXMLAPI Key not provided.');
   const url = `https://www.whoisxmlapi.com/whoisserver/WhoisService?apiKey=${WHOISXMLAPI_KEY}&domainName=${domainName}&outputFormat=JSON&da=2`;
-  const response = await fetch(url);
+  const response = await fetchWithTimeout(url);
   if (!response.ok) throw new Error(`WhoisXMLAPI failed: ${response.status}`);
   const data = await response.json();
   if (data.ErrorMessage) throw new Error(`WhoisXMLAPI Error: ${data.ErrorMessage.msg}`);
@@ -74,7 +81,7 @@ const getWhoisDataFromApiLayer = async (domainName: string): Promise<WhoisData> 
   if (!tld || !APILAYER_SUPPORTED_TLDS.has(tld)) {
     throw new Error(`TLD ".${tld}" is not supported by APILayer`);
   }
-  const response = await fetch(`https://api.apilayer.com/whois/check?domain=${domainName}`, { headers: { apikey: APILAYER_KEY } });
+  const response = await fetchWithTimeout(`https://api.apilayer.com/whois/check?domain=${domainName}`, { headers: { apikey: APILAYER_KEY } });
   const quota = readQuotaHeaders(response.headers);
   if (!response.ok) throw new Error(`APILayer failed: ${response.status}`);
   const data = await response.json();
@@ -96,7 +103,7 @@ const getWhoisDataFromApiLayer = async (domainName: string): Promise<WhoisData> 
 const getWhoisDataFromWhoisFreaks = async (domainName: string): Promise<WhoisData> => {
   if (!WHOISFREAKS_KEY) throw new Error('WhoisFreaks Key not provided.');
   const url = `https://api.whoisfreaks.com/v1.0/whois?apiKey=${WHOISFREAKS_KEY}&whois=live&domainName=${domainName}`;
-  const response = await fetch(url);
+  const response = await fetchWithTimeout(url);
   if (!response.ok) throw new Error(`WhoisFreaks failed: ${response.status}`);
   const data = await response.json();
   if (!data.status || data.error) throw new Error(`WhoisFreaks Error: ${data.error?.message || 'Request failed'}`);
@@ -115,7 +122,7 @@ const getWhoisDataFromWhoisFreaks = async (domainName: string): Promise<WhoisDat
 const getWhoisDataFromWhoapi = async (domainName: string): Promise<WhoisData> => {
   if (!WHOAPI_COM_KEY) throw new Error('WhoAPI Key not provided.');
   const url = `https://api.whoapi.com/?apikey=${WHOAPI_COM_KEY}&r=whois&domain=${domainName}`;
-  const response = await fetch(url);
+  const response = await fetchWithTimeout(url);
   if (!response.ok) throw new Error(`WhoAPI failed: ${response.status}`);
   const data = await response.json();
   if (data.status !== '0') throw new Error(`WhoAPI Error: ${data.status_desc || `Status ${data.status}`}`);
@@ -138,7 +145,7 @@ const getWhoisDataFromRapidApi = async (domainName: string): Promise<WhoisData> 
   if (!RAPIDAPI_KEY) throw new Error('RapidAPI Key not provided.');
 
   const url = `https://domain-whois-lookup-api.p.rapidapi.com/whois?domain_name=${domainName}`;
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     headers: {
       'x-rapidapi-key': RAPIDAPI_KEY,
       'x-rapidapi-host': 'domain-whois-lookup-api.p.rapidapi.com',
@@ -176,7 +183,7 @@ const getWhoisDataFromRapidApi = async (domainName: string): Promise<WhoisData> 
 const getRapidApiJson = async (url: string, host: string) => {
   if (!RAPIDAPI_KEY) throw new Error('RapidAPI Key not provided.');
 
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     headers: {
       'x-rapidapi-key': RAPIDAPI_KEY,
       'x-rapidapi-host': host,
@@ -227,7 +234,7 @@ const getWhoisDataFromRapidApiDomainsApi = async (domainName: string): Promise<W
 
 const getWhoisDataFromWhoisJson = async (domainName: string): Promise<WhoisData> => {
   if (!WHOISJSON_API_KEY) throw new Error('WhoisJSON Key not provided.');
-  const response = await fetch(`https://whoisjson.com/api/v1/whois?domain=${encodeURIComponent(domainName)}`, {
+  const response = await fetchWithTimeout(`https://whoisjson.com/api/v1/whois?domain=${encodeURIComponent(domainName)}`, {
     headers: { Authorization: `Bearer ${WHOISJSON_API_KEY}` },
   });
   if (!response.ok) throw new Error(`WhoisJSON failed: ${response.status}`);
@@ -250,7 +257,7 @@ const getWhoisDataFromWhoisJson = async (domainName: string): Promise<WhoisData>
 
 const getWhoisDataFromIp2Whois = async (domainName: string): Promise<WhoisData> => {
   if (!IP2WHOIS_API_KEY) throw new Error('IP2WHOIS Key not provided.');
-  const response = await fetch(`https://api.ip2whois.com/v2?key=${IP2WHOIS_API_KEY}&domain=${encodeURIComponent(domainName)}`);
+  const response = await fetchWithTimeout(`https://api.ip2whois.com/v2?key=${IP2WHOIS_API_KEY}&domain=${encodeURIComponent(domainName)}`);
   if (!response.ok) throw new Error(`IP2WHOIS failed: ${response.status}`);
   const data = await response.json();
   if (data.error || data.error_message) throw new Error(`IP2WHOIS Error: ${data.error_message || data.error}`);
@@ -273,7 +280,7 @@ const getWhoisDataFromIanaRdap = async (domainName: string): Promise<WhoisData> 
   const baseUrl = await findIanaRdapBaseUrl(domainName);
   if (!baseUrl) throw new Error(`No IANA RDAP server found for ${domainName}`);
 
-  const response = await fetch(`${baseUrl}/domain/${encodeURIComponent(domainName)}`, {
+  const response = await fetchWithTimeout(`${baseUrl}/domain/${encodeURIComponent(domainName)}`, {
     headers: { Accept: 'application/rdap+json, application/json' },
   });
   if (response.status === 404) {
@@ -291,7 +298,7 @@ const getWhoisDataFromIanaRdap = async (domainName: string): Promise<WhoisData> 
 };
 
 const getWhoisDataFromRdapOrg = async (domainName: string): Promise<WhoisData> => {
-  const response = await fetch(`https://rdap.org/domain/${encodeURIComponent(domainName)}`, {
+  const response = await fetchWithTimeout(`https://rdap.org/domain/${encodeURIComponent(domainName)}`, {
     headers: { Accept: 'application/rdap+json, application/json' },
   });
   if (response.status === 404) {
@@ -312,7 +319,7 @@ const getWhoisDataFromOtiLabs = async (domainName: string, credentials: WhoisPro
   const apiKey = credentials['oti-labs'] || OTI_LABS_API_KEY || RAPIDAPI_KEY;
   if (!apiKey) throw new Error('OTI Labs API key not provided.');
 
-  const response = await fetch(`https://domain-intelligence-api.p.rapidapi.com/domain/${encodeURIComponent(domainName)}/whois`, {
+  const response = await fetchWithTimeout(`https://domain-intelligence-api.p.rapidapi.com/domain/${encodeURIComponent(domainName)}/whois`, {
     headers: {
       'x-rapidapi-key': apiKey,
       'x-rapidapi-host': 'domain-intelligence-api.p.rapidapi.com',
@@ -337,7 +344,7 @@ const getWhoisDataFromDomainduck = async (domainName: string, credentials: Whois
   const apiKey = credentials.domainduck || DOMAINDUCK_API_KEY;
   if (!apiKey) throw new Error('Domainduck API key not provided.');
 
-  const response = await fetch(`https://v1.api.domainduck.io/api/get/?domain=${encodeURIComponent(domainName)}&apikey=${encodeURIComponent(apiKey)}&whois=1`);
+  const response = await fetchWithTimeout(`https://v1.api.domainduck.io/api/get/?domain=${encodeURIComponent(domainName)}&apikey=${encodeURIComponent(apiKey)}&whois=1`);
   if (!response.ok) throw new Error(`Domainduck failed: ${response.status}`);
   const data = await response.json();
   if (data.error || data.message === 'rate limit exceeded') throw new Error(`Domainduck Error: ${data.error || data.message}`);
@@ -348,7 +355,7 @@ const getWhoisDataFromRdapApi = async (domainName: string, credentials: WhoisPro
   const apiKey = credentials['rdap-api'] || RDAP_API_KEY;
   if (!apiKey) throw new Error('RDAP API key not provided.');
 
-  const response = await fetch(`https://rdapapi.io/api/v1/domain/${encodeURIComponent(domainName)}`, {
+  const response = await fetchWithTimeout(`https://rdapapi.io/api/v1/domain/${encodeURIComponent(domainName)}`, {
     headers: {
       Authorization: `Bearer ${apiKey}`,
       Accept: 'application/json',

@@ -26,7 +26,7 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
 
   return (
     <header className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md sticky top-0 z-40 shadow-sm dark:shadow-slate-800/60">
-      <div className="container mx-auto px-2 sm:px-4 md:px-8">
+      <div className="w-full max-w-[1600px] mx-auto px-3 sm:px-6 md:px-8">
         <div className="flex h-14 items-center justify-between gap-1 sm:h-16">
           <Tooltip content={`Domain Codev ${APP_VERSION} (dashboard)`}>
             <button

@@ -1,4 +1,4 @@
-import { DomainStatus } from './whois-status.ts';
+import { DomainLifecyclePhase, DomainStatus } from './whois-status.ts';
 
 export type WhoisProviderId =
   | 'who-dat'
@@ -33,6 +33,7 @@ export interface WhoisProviderAttempt {
 
 export interface WhoisData {
   status: DomainStatus;
+  lifecycleStage?: DomainLifecyclePhase;
   expirationDate: string | null;
   registeredDate: string | null;
   registrar: string | null;

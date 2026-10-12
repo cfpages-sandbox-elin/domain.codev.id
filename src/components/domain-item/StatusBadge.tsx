@@ -11,10 +11,13 @@ const StatusBadge: React.FC<{ status: DomainStatus, isCompact: boolean, labelOve
     unknown: 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300',
   };
 
+  const isPendingDelete = labelOverride?.toLowerCase().includes('pending delete');
   const isConfirmedNotDropped = labelOverride?.toLowerCase().includes('not dropped');
-  const badgeStyle = isConfirmedNotDropped
-    ? 'bg-amber-100 text-amber-900 border border-amber-300/80 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700'
-    : statusStyles[status];
+  const badgeStyle = isPendingDelete
+    ? 'bg-rose-100 text-rose-900 border border-rose-300/80 dark:bg-rose-950/80 dark:text-rose-200 dark:border-rose-700'
+    : isConfirmedNotDropped
+      ? 'bg-amber-100 text-amber-900 border border-amber-300/80 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700'
+      : statusStyles[status];
 
   const statusText = labelOverride || (status === 'dropped' ? 'available' : status === 'reserved' ? 'reserved domain' : status);
 

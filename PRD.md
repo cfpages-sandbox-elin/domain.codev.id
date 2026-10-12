@@ -404,5 +404,97 @@ It is live now and deployed at https://domain.codev.id
     - Replace them in `src/components/DomainItem.tsx` (re-check button, remove button, site link, word-group add button, category remove button, tag selection buttons, status icons) with `<Tooltip size="sm">`.
     - Replace them in `src/components/WhoisSchedulePage.tsx` (manual schedule re-check button) with `<Tooltip size="sm">`.
 
+## 13. Row-Level Action Collision Fix, Overhead Tag Popover & Fluid Widescreen Layout
+
+**Objective**: Eliminate action element collisions on domain list rows where the tag-switching buttons physically covered and obscured the individual row re-check button, relocate tag-switching controls to a dedicated floating popover positioned above the current tag button that is hidden by default and only revealed upon hovering, and expand the tracked domains body to a responsive fluid widescreen layout (eliminating artificial container narrowness and dead grid spacer columns) so content renders smoothly without stacking.
+
+### Progress Legend
+- ⏳ Pending
+- 🔄 In Progress
+- ✅ Completed
+
+### Root Cause Audit
+1. **Horizontal Positioning Collision**: In `src/components/DomainItem.tsx`, the alternate tag panel was styled with `absolute right-8 top-0`. In the action button cluster, the re-check button sits immediately to the left of the tag button. Positioning the popup at `right-8` caused it to expand horizontally to the left by ~75px, rendering directly over the re-check button and intercepting cursor clicks.
+2. **Unconditional Mobile Expansion**: On mobile viewport widths (`!isDesktopLayout`), the alternate tag buttons rendered permanently inline, crowding the action bar, pushing elements off-screen or covering the re-check button.
+3. **Accidental Hover Triggering**: The `group/tag` container lacked vertical separation, so moving the cursor toward the re-check button triggered the tag container's hover state, suddenly expanding the tag switcher over the re-check button right before the click landed.
+4. **Narrow Fixed-Breakpoint Container & Dead Grid Spacer**: In `src/App.tsx` and `src/components/Header.tsx`, `<main>` used Tailwind's fixed-width `container mx-auto px-4 md:p-8`, capping content width to 1024px–1280px with excessive 64px horizontal padding on each side. On modern displays, this forced the domain tracking list into a narrow box. Furthermore, in `src/components/DomainItem.tsx`, an unnecessary empty spacer column (`<div className="hidden min-h-[32px] md:block" />` stealing 160px / 0.9fr) squeezed domain names and category tags into a tight 180px column, forcing items to wrap and awkwardly stack vertically.
+
+### Implementation Tasks
+
+- [x] **13.1. Re-position Tag-Switcher to Dedicated Overhead Floating Popover**
+  - **Status**: ✅ Completed
+  - **Requirement**:
+    - In `src/components/DomainItem.tsx`, relocate the alternate tag options (`alternateTags`) out of the horizontal row flow into a dedicated overhead floating popover card positioned at `bottom-full mb-1.5 left-1/2 -translate-x-1/2`.
+    - Style the popover with a dedicated card container (`rounded-lg bg-white p-1 shadow-lg ring-1 border border-slate-200 dark:bg-slate-800 dark:border-slate-700 z-30`) so it floats cleanly above the row with zero horizontal overlap over the re-check button.
+    - Add smooth transition (`opacity-0 scale-95 pointer-events-none group-hover/tag:opacity-100 group-hover/tag:scale-100 group-hover/tag:pointer-events-auto transition-all duration-150`).
+
+- [x] **13.2. Unify Hover-Only Disclosure Across All Layouts**
+  - **Status**: ✅ Completed
+  - **Requirement**:
+    - Remove the divergent mobile inline rendering that permanently displayed alternate tag buttons.
+    - Ensure alternate tag options are hidden by default across all layouts, appearing strictly when the user hovers over or focuses within the current tag button.
+    - Clicking the tag button directly toggles the tag, while hovering provides the dedicated popover to choose a specific tag (`Mine`, `To Snatch`, `Others`).
+
+- [x] **13.3. Verify Row-Level Re-Check Button Accessibility & Clearance**
+  - **Status**: ✅ Completed
+  - **Requirement**:
+    - Verify that every domain row has an unobstructed 32x32px re-check button with its dedicated `<Tooltip>` trigger ("Re-check WHOIS & drop status" for expired domains, "Re-check WHOIS" otherwise).
+    - Ensure zero pointer-event interception from sibling controls, popovers, or floating filter bars.
+
+- [x] **13.4. Fluid Widescreen Container & Eliminate Dead Grid Spacer**
+  - **Status**: ✅ Completed
+  - **Requirement**:
+    - In `src/App.tsx` and `src/components/Header.tsx`, replace the narrow `container mx-auto` constraint with a fluid widescreen layout (`w-full max-w-[1600px] mx-auto px-3 sm:px-6 lg:px-8`) that dynamically follows the browser screen.
+    - In `src/components/DomainItem.tsx`, remove the unused 160px dead spacer column (`<div className="hidden min-h-[32px] md:block" />`) and rebalance the row grid to `md:grid-cols-[minmax(240px,2fr)_minmax(120px,auto)_minmax(180px,1.2fr)_auto] md:items-center` so domain names, category pills, status badges, and expiration controls have ample room to render horizontally without wrapping or stacking.
+
+## 14. WHOIS Data Retrieval Audit, Multi-Source Robustness & Lifecycle EPP Detection
+
+**Objective**: Audit and harden the WHOIS and RDAP data retrieval pipeline across 14 upstream providers to support hundreds of domains without timing out, rate-limit thrashing, or quota exhaustion, while accurately classifying domain lifecycle phases (Active Registered -> Expired in Grace/Redemption -> Pending Delete -> Dropped/Available) based on authoritative registry EPP codes.
+
+### Progress Legend
+- ⏳ Pending
+- 🔄 In Progress
+- ✅ Completed
+
+### Root Cause Audit
+1. **Unbounded Network Calls in Edge Adapters**: `supabase/functions/_shared/whois-adapters.ts` executes `fetch()` without `AbortSignal.timeout()`. When an upstream provider hangs, edge workers block for 60+ seconds, risking early termination of batch cron runs (`check-domains`) under Supabase Edge Function's 150-second wall-clock limit.
+2. **Inverted Cost Order**: Zero-cost, high-speed `rdap-iana` sits at Priority 9 below quota-limited paid APIs (WhoisXMLAPI 500 lifetime queries, WhoisFreaks 500 queries, IP2WHOIS 500 queries), needlessly burning paid credits on standard `.com`/`.org` domains.
+3. **EPP Lifecycle Blindness**: `whois-normalize.ts` collects EPP status codes (`pendingDelete`, `redemptionPeriod`, `clientHold`) into `domainStatuses`, but `whois-status.ts`'s `inferDomainStatus` ignores them completely, lumping all expired domains into a flat `expired` status and failing to surface when an expired domain is confirmed not dropped yet versus imminent pending delete.
+4. **Missing Circuit Breaker on Failing Providers**: When an upstream provider returns 401, 403, 429, or network errors, it is repeatedly re-attempted for every subsequent domain in the batch, causing exponential latency compounding across hundreds of domains.
+
+### Implementation Tasks
+
+- [x] **14.1. Enforce Bounded Network Timeouts on All Provider Adapters**
+  - **Status**: ✅ Completed
+  - **Requirement**:
+    - Wrap all upstream fetch requests in `supabase/functions/_shared/whois-adapters.ts` with `AbortSignal.timeout(6000)` (6 seconds max per provider).
+    - Ensure clean error handling so aborted requests seamlessly fall through to the next provider without stalling the worker thread.
+
+- [x] **14.2. EPP Status Code & Drop Lifecycle Phase Detection**
+  - **Status**: ✅ Completed
+  - **Requirement**:
+    - In `supabase/functions/_shared/whois-status.ts`, update `inferDomainStatus` and status types to detect EPP codes (`pendingDelete`, `redemptionPeriod`, `clientHold`, `autoRenewPeriod`).
+    - Distinguish `pending-delete` (drop imminent within 5 days), `redemption` (confirmed not dropped yet, redemption period), `grace` (expired but in registrar grace period), and `dropped` / `available`.
+    - Expose `lifecycleStage?: 'active' | 'grace' | 'redemption' | 'pending-delete' | 'dropped'` in `WhoisData`.
+
+- [x] **14.3. Resilient Provider Circuit Breaker in Telemetry Runtime**
+  - **Status**: ✅ Completed
+  - **Requirement**:
+    - In `supabase/functions/_shared/whois-runtime.ts`, enhance `markProviderFailure` with a circuit-breaker mechanism: trip a 5-minute cool-down (`blockedUntil = Date.now() + 300_000`) on HTTP 401, 403, 429, or consecutive network timeouts.
+    - Prevent dead or exhausted providers from delaying multi-domain batch execution.
+
+- [x] **14.4. Smart Zero-Cost gTLD RDAP Prioritization**
+  - **Status**: ✅ Completed
+  - **Requirement**:
+    - In `supabase/functions/_shared/whois-logic.ts`, dynamically prioritize `rdap-iana` for gTLDs supported by IANA RDAP bootstrap, preserving commercial paid quota for ccTLDs and obscure extensions.
+
+- [x] **14.5. Frontend Lifecycle Status Badges & Tooltip Synchronization**
+  - **Status**: ✅ Completed
+  - **Requirement**:
+    - In `src/components/domain-item/StatusBadge.tsx` and `TooltipContent.tsx`, render granular lifecycle status labels (e.g., "Expired (Grace/Redemption)", "Pending Delete", "Dropped") so users see at a glance whether an expired domain is still held or imminent to drop.
+
+
+
+
 
 

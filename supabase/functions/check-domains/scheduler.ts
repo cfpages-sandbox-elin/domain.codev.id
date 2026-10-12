@@ -12,6 +12,7 @@ export interface Domain {
   expiration_date: string | null;
   registered_date: string | null;
   last_checked: string | null;
+  domain_statuses?: string[] | null;
 }
 
 export interface CheckDecision {
@@ -170,6 +171,18 @@ export const checkDecisionForDomain = (
       due: lastCheckedHours >= 24,
       reason: 'target domain in final week before expiry; daily confirmation',
       priority: 65,
+    };
+  }
+
+  const isPendingDelete = Array.isArray(domain.domain_statuses)
+    && domain.domain_statuses.some(s => s.toLowerCase().includes('pendingdelete'));
+
+  if (isPendingDelete) {
+    const activeIntervalHours = settings.active_interval_minutes / 60;
+    return {
+      due: lastCheckedHours >= activeIntervalHours,
+      reason: `target domain in pendingDelete registry phase (imminent drop); checking every ${settings.active_interval_minutes} minutes`,
+      priority: 125,
     };
   }
 

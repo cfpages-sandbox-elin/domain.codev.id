@@ -289,13 +289,24 @@ export const markProviderFinished = (providerId: WhoisProviderId) => {
   state.inFlight = Math.max(0, state.inFlight - 1);
 };
 
-const isQuotaFailure = (message: string) => {
-  return /\b429\b|too many requests|rate[\s-]?limit|quota|requests.*consumed|limit.*reached|exhausted/i.test(message);
+const isFatalAuthOrQuota = (message: string) => {
+  return /\b(401|403|429)\b|unauthorized|forbidden|too many requests|rate[\s-]?limit|quota|requests.*consumed|limit.*reached|exhausted|api key not provided/i.test(message);
+};
+
+const isTimeoutOrNetwork = (message: string) => {
+  return /timeout|abort|timed out|fetch failed|network|econnrefused|502|503|504/i.test(message);
 };
 
 export const markProviderFailure = (providerId: WhoisProviderId, message: string) => {
-  if (!isQuotaFailure(message)) return;
   const state = getRuntimeState(providerId);
-  state.blockedUntil = Date.now() + 60_000;
-  state.blockReason = `Provider returned a quota or rate-limit error: ${message}`;
+  if (isFatalAuthOrQuota(message)) {
+    state.blockedUntil = Date.now() + 300_000;
+    state.blockReason = `Provider returned a quota or authentication error: ${message}`;
+    return;
+  }
+
+  if (isTimeoutOrNetwork(message)) {
+    state.blockedUntil = Date.now() + 180_000;
+    state.blockReason = `Provider tripped circuit breaker due to network timeout: ${message}`;
+  }
 };

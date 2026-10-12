@@ -558,7 +558,7 @@ const App: React.FC = () => {
         }}
       />
       
-      <main className="container mx-auto px-4 py-3 sm:p-4 md:p-8">
+      <main className="w-full max-w-[1600px] mx-auto px-3 py-3 sm:px-6 md:px-8">
         {loading ? (
             <div className="flex items-center justify-center pt-20">
               <Spinner size="lg" color="border-brand-blue" />

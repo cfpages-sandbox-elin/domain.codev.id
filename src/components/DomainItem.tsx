@@ -120,6 +120,11 @@ const DomainItem: React.FC<DomainItemProps> = ({
     ? getDropLifecycleEstimate(domain.expiration_date)
     : null;
 
+  const isPendingDelete = Array.isArray(domain.domain_statuses)
+    && domain.domain_statuses.some(s => s.toLowerCase().includes('pendingdelete'));
+  const isRedemption = Array.isArray(domain.domain_statuses)
+    && domain.domain_statuses.some(s => s.toLowerCase().includes('redemptionperiod') || s.toLowerCase().includes('restoringpostredemptionperiod'));
+
   const isConfirmedNotDropped = isExpired
     && Boolean(domain.last_checked)
     && Boolean(domain.expiration_date)
@@ -127,9 +132,13 @@ const DomainItem: React.FC<DomainItemProps> = ({
     && domain.status !== 'available'
     && domain.status !== 'dropped';
 
-  const expiredStatusLabel = isConfirmedNotDropped
-    ? (isCompact ? 'Expired (not dropped)' : 'Expired, confirmed not dropped yet')
-    : dropLifecycleEstimate?.phaseLabel;
+  const expiredStatusLabel = isPendingDelete
+    ? (isCompact ? 'Pending delete' : 'Pending delete (drop imminent)')
+    : isRedemption
+      ? (isCompact ? 'Redemption (not dropped)' : 'Expired, redemption (not dropped yet)')
+      : isConfirmedNotDropped
+        ? (isCompact ? 'Expired (not dropped)' : 'Expired, confirmed not dropped yet')
+        : dropLifecycleEstimate?.phaseLabel;
 
   const statusLabelOverride = expiredStatusLabel
     || (isExpiredByDate ? 'Expired' : daysUntilExpiry === 0 ? 'Expires today' : isExpiringSoonByDate ? 'Expiring soon' : undefined);
@@ -224,7 +233,7 @@ const DomainItem: React.FC<DomainItemProps> = ({
           </span>
         </div>
       )}
-      <div className={`grid grid-cols-1 gap-2 sm:gap-3 md:grid-cols-[minmax(180px,1.5fr)_minmax(110px,0.7fr)_minmax(120px,0.8fr)_minmax(160px,0.9fr)_auto] md:items-center ${(isWhoisIncomplete || isWhoisProcessing) ? 'pt-4' : ''}`}>
+      <div className={`grid grid-cols-1 gap-2 sm:gap-3 md:grid-cols-[minmax(240px,2fr)_minmax(120px,auto)_minmax(180px,1.2fr)_auto] md:items-center ${(isWhoisIncomplete || isWhoisProcessing) ? 'pt-4' : ''}`}>
         <div className="min-w-0">
           <span className="flex min-w-0 items-start gap-2">
             <TagIconComponent className={leadingTagIconClass} />
@@ -356,8 +365,6 @@ const DomainItem: React.FC<DomainItemProps> = ({
           )}
         </div>
 
-        <div className="hidden min-h-[32px] md:block" />
-
         <div className="flex items-center justify-between gap-1 border-t border-black/5 pt-2 dark:border-white/10 md:justify-end md:border-0 md:pt-0">
           {isPending ? (
             <Spinner size="sm" color="border-brand-blue" />
@@ -406,44 +413,28 @@ const DomainItem: React.FC<DomainItemProps> = ({
                   </span>
                 </Tooltip>
               ) : (
-                <div className="group/tag relative inline-flex items-center gap-1 rounded-md focus-within:bg-slate-200 hover:bg-slate-200 dark:focus-within:bg-slate-700 dark:hover:bg-slate-700">
+                <div className="group/tag relative inline-flex items-center justify-center">
                   {isTagUpdating && (
                     <span className="absolute inset-0 z-30 flex items-center justify-center rounded-md bg-white/80 dark:bg-slate-900/80">
                       <Spinner size="sm" color="border-brand-blue" />
                     </span>
                   )}
-                  {isDesktopLayout ? (
-                    <span className="pointer-events-none absolute right-8 top-0 z-20 hidden h-8 items-center gap-1 rounded-md bg-white/95 px-1 shadow-sm ring-1 ring-slate-200 group-hover/tag:pointer-events-auto group-hover/tag:inline-flex group-focus-within/tag:pointer-events-auto group-focus-within/tag:inline-flex dark:bg-slate-900/95 dark:ring-slate-700 md:flex">
+                  {/* Floating dedicated popover above the current tag button, only shown on hover or focus-within */}
+                  <div className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-1.5 -translate-x-1/2 opacity-0 transition-all duration-150 ease-out group-hover/tag:pointer-events-auto group-hover/tag:opacity-100 group-focus-within/tag:pointer-events-auto group-focus-within/tag:opacity-100">
+                    <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
                       {alternateTags.map(tag => {
                         const OptionIcon = getTagIcon(tag);
                         const optionLabel = getTagLabel(tag);
                         return (
-                          <Tooltip key={tag} content={`Set ${optionLabel}`} size="sm">
+                          <Tooltip key={tag} content={`Switch tag to ${optionLabel}`} size="sm">
                             <button
                               type="button"
-                              onClick={() => onSetTag(domain.id, tag)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onSetTag(domain.id, tag);
+                              }}
                               disabled={isTagUpdating}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-white/70 dark:hover:bg-slate-800"
-                              aria-label={`Set ${domain.domain_name} tag to ${optionLabel}`}
-                            >
-                              <OptionIcon className={`h-5 w-5 ${getTagColorClass(tag)}`} />
-                            </button>
-                          </Tooltip>
-                        );
-                      })}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-0.5">
-                      {alternateTags.map(tag => {
-                        const OptionIcon = getTagIcon(tag);
-                        const optionLabel = getTagLabel(tag);
-                        return (
-                          <Tooltip key={tag} content={`Set ${optionLabel}`} size="sm">
-                            <button
-                              type="button"
-                              onClick={() => onSetTag(domain.id, tag)}
-                              disabled={isTagUpdating}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-white/70 disabled:opacity-50 dark:hover:bg-slate-800"
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
                               aria-label={`Set ${domain.domain_name} tag to ${optionLabel}`}
                             >
                               <OptionIcon className={`h-4 w-4 ${getTagColorClass(tag)}`} />
@@ -451,13 +442,16 @@ const DomainItem: React.FC<DomainItemProps> = ({
                           </Tooltip>
                         );
                       })}
-                    </span>
-                  )}
-                  <Tooltip content={`Current tag: ${tagLabel}`} size="sm">
+                    </div>
+                  </div>
+
+                  {/* Main current tag button */}
+                  <Tooltip content={`Current tag: ${tagLabel} (hover to change)`} size="sm">
                     <button
+                      type="button"
                       onClick={() => onToggleTag(domain.id)}
                       disabled={isTagUpdating}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors"
+                      className={actionButtonClass}
                       aria-label={`Current tag for ${domain.domain_name}: ${tagLabel}`}
                     >
                       <TagIconComponent className={tagIconClass} />

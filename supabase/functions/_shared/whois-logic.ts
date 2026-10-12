@@ -33,8 +33,18 @@ import type {
   WhoisProviderStatus,
   WhoisRuntimeOptions,
 } from './whois-types.ts';
+import { inferLifecycleStage } from './whois-status.ts';
 
-const getProviderExecutionOrder = () => {
+const RDAP_FRIENDLY_TLDS = new Set([
+  'com', 'net', 'org', 'xyz', 'io', 'dev', 'app', 'info', 'biz', 'mobi',
+  'club', 'me', 'co', 'cloud', 'top', 'site', 'tech', 'online', 'store',
+  'vip', 'pro', 'page', 'design', 'ai', 'live', 'space', 'fun', 'host',
+]);
+
+const getProviderExecutionOrder = (domainName?: string) => {
+  const tld = domainName ? domainName.toLowerCase().split('.').filter(Boolean).pop() : '';
+  const isRdapFriendly = Boolean(tld && RDAP_FRIENDLY_TLDS.has(tld));
+
   return providerHandlers
     .slice()
     .sort(([providerIdA], [providerIdB]) => {
@@ -44,7 +54,12 @@ const getProviderExecutionOrder = () => {
       const stateB = getRuntimeState(providerIdB);
 
       if (stateA.inFlight !== stateB.inFlight) return stateA.inFlight - stateB.inFlight;
-      return providerA.priority - providerB.priority;
+
+      // Smart zero-cost boost for gTLDs: elevate rdap-iana ahead of paid APIs
+      const priorityA = (isRdapFriendly && providerIdA === 'rdap-iana') ? 1.5 : providerA.priority;
+      const priorityB = (isRdapFriendly && providerIdB === 'rdap-iana') ? 1.5 : providerB.priority;
+
+      return priorityA - priorityB;
     });
 };
 
@@ -91,8 +106,10 @@ const withProviderMetadata = (
 ): WhoisData => {
   const provider = providerById(providerId);
   const quota = hasQuotaData(data.quota) ? data.quota : undefined;
+  const lifecycleStage = data.lifecycleStage || inferLifecycleStage(data.status, data.expirationDate, data.domainStatuses);
   return {
     ...data,
+    lifecycleStage,
     provider: provider.id,
     providerLabel: provider.label,
     providerAttempts: attempts,
@@ -121,7 +138,7 @@ export const getWhoisData = async (domainName: string, options: WhoisRuntimeOpti
   await loadPersistentTelemetry(options.telemetryClient);
   const credentials = await loadUserProviderCredentials(options.telemetryClient, options.userId);
 
-  for (const [providerId, handler] of getProviderExecutionOrder()) {
+  for (const [providerId, handler] of getProviderExecutionOrder(domainName)) {
     const provider = providerById(providerId);
 
     if (!provider.enabled || !provider.implemented || !provider.isConfigured(credentials)) {

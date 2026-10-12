@@ -1,6 +1,6 @@
 # Codebase Map
 
-Last audited: 2026-07-13 WIB.
+Last audited: 2026-10-12 WIB.
 
 ## Overview
 
@@ -9,12 +9,12 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 ## Runtime Flow
 
 1. `src/index.tsx` mounts React into `#root`, wraps the app with `ErrorBoundary` and `CompactModeProvider`, and imports Tailwind CSS.
-2. `src/App.tsx` initializes Supabase, reads/subscribes to auth session state, delegates cached domain/provider state to hooks, and renders either auth, dashboard, categories, settings, docs, loading, or config error views. Settings, secondary views, and heavy modals are lazy-loaded so the initial dashboard bundle stays below Vite's 500 kB warning threshold.
+2. `src/App.tsx` initializes Supabase, reads/subscribes to auth session state, delegates cached domain/provider state to hooks, and renders either auth, dashboard, categories, settings, docs, loading, or config error views. Employs a fluid widescreen container (`w-full max-w-[1600px]`) and progressive IntersectionObserver sentinel rendering (40 initial, 30 increment) for silky scrolling.
 3. User domain actions call `src/services/supabaseService.ts` for CRUD/integration-token management and `src/services/whoisService.ts` for WHOIS.
 4. `whoisService.ts` invokes Supabase Edge Function `get-whois`.
 5. `supabase/functions/get-whois/index.ts` authenticates the Supabase user, creates a service-role client for telemetry, and calls shared provider logic in `supabase/functions/_shared/whois-logic.ts`.
-6. `supabase/functions/_shared/whois-logic.ts` coordinates shared WHOIS modules for provider registry, runtime/persistent telemetry, provider adapters, RDAP/WHOIS normalization, exhausted-provider skipping, in-flight balancing, and normalized WHOIS responses.
-7. `supabase/functions/check-domains/index.ts` is intended for 15-minute scheduled checks. It uses a cron secret, service role key, metadata-first targeted scheduling, capped concurrency, shared WHOIS logic, and persisted provider telemetry. Target domains remain monitored until availability is detected; confirmed drops enqueue and dispatch durable Hermes/webhook notifications with retry.
+6. `supabase/functions/_shared/whois-logic.ts` coordinates shared WHOIS modules for provider registry, runtime/persistent telemetry, provider adapters, RDAP/WHOIS normalization, smart zero-cost gTLD RDAP boosting, bounded 6s fetch timeouts (`AbortSignal.timeout(6000)`), circuit breaker cool-down (5m auth/quota, 3m network), and normalized WHOIS lifecycle responses.
+7. `supabase/functions/check-domains/index.ts` is intended for scheduled checks. It uses a cron secret, service role key, metadata-first targeted scheduling (`scheduler.ts` prioritizing `pendingDelete` domains at priority 125), capped concurrency, shared WHOIS logic, and persisted provider telemetry. Target domains remain monitored until availability is detected; confirmed drops enqueue and dispatch durable Hermes/webhook notifications with retry.
 8. External clients such as Hermes, n8n, scripts, or future apps call `supabase/functions/external-api/index.ts` with scoped bearer tokens stored as hashes in `integration_clients`.
 
 ## Current Stack

@@ -18,8 +18,11 @@ export interface Domain {
   last_checked: string | null;
 }
 
+export type DomainLifecyclePhase = 'active' | 'grace' | 'redemption' | 'pending-delete' | 'dropped' | 'available' | 'reserved' | 'unknown';
+
 export interface WhoisData {
   status: DomainStatus;
+  lifecycleStage?: DomainLifecyclePhase;
   expirationDate: string | null;
   registeredDate: string | null;
   registrar: string | null;

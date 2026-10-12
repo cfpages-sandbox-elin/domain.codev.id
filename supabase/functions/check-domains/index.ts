@@ -53,7 +53,7 @@ serve(async (req) => {
     const now = new Date();
     const { data: domains, error: fetchError } = await supabaseAdmin
       .from('domains')
-      .select('id, user_id, domain_name, status, tag, expiration_date, registered_date, last_checked');
+      .select('id, user_id, domain_name, status, tag, expiration_date, registered_date, last_checked, domain_statuses');
     
     if (fetchError) throw fetchError;
 

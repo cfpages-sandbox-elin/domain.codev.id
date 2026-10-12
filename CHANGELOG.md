@@ -5,6 +5,24 @@ All notable changes to the Domain Codev project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-10-12
+
+### Added
+- **Dedicated Overhead Floating Tag Switcher Popover**:
+  - Relocated alternate tag switching controls out of the horizontal row flow into an overhead floating popover (`bottom-full mb-1.5 left-1/2 -translate-x-1/2`) in `DomainItem.tsx`.
+  - Hidden by default and revealed strictly on hover/focus (`group-hover/tag:opacity-100`), eliminating collision and click interception over the adjacent row-level re-check button across all device viewports.
+- **Fluid Responsive Widescreen Layout**:
+  - Replaced narrow fixed-breakpoint `container mx-auto` in `App.tsx` and `Header.tsx` with a fluid responsive widescreen layout (`w-full max-w-[1600px] mx-auto px-3 sm:px-6 md:px-8`).
+  - Removed the unused 160px dead spacer column in `DomainItem.tsx` and rebalanced row grid to `md:grid-cols-[minmax(240px,2fr)_minmax(120px,auto)_minmax(180px,1.2fr)_auto]`, giving domain names, category badges, and expiration controls ample breathing room without vertical stacking.
+- **Multi-Source WHOIS / RDAP Pipeline Hardening**:
+  - **Bounded Fetch Timeouts**: Enforced 6-second bounded timeouts (`AbortSignal.timeout(6000)`) on all 14 upstream provider requests in `supabase/functions/_shared/whois-adapters.ts` and 8-second timeout on IANA bootstrap fetch in `whois-normalize.ts`, eliminating runaway worker stalls under Edge Function execution limits.
+  - **Smart Zero-Cost gTLD RDAP Prioritization**: In `whois-logic.ts`, dynamically elevated zero-cost `rdap-iana` to priority 1.5 ahead of commercial APIs for ICANN gTLDs (.com, .net, .org, .xyz, .io, .app, .dev, etc.), protecting commercial API quota for ccTLDs.
+  - **Registry EPP Lifecycle Inference**: Added `detectEppLifecyclePhase` and `inferLifecycleStage` in `whois-status.ts` to inspect EPP codes (`pendingDelete`, `redemptionPeriod`, `clientHold`, `autoRenewPeriod`), accurately distinguishing active registered vs. grace period vs. redemption vs. imminent pending delete.
+  - **Runtime Circuit Breaker**: Enhanced `markProviderFailure` in `whois-runtime.ts` with a 5-minute cool-down for auth/quota errors (401/403/429) and a 3-minute breaker for network/timeouts, preventing offline providers from adding hundreds of seconds of latency to batch operations.
+  - **Pending-Delete Drop Prioritization**: Updated `scheduler.ts` to assign urgency priority 125 and active drop-watch cadence to target domains with `pendingDelete` status.
+  - **Detailed Lifecycle Badges**: Updated `StatusBadge.tsx` and `DomainItem.tsx` with distinct status labels for `pending delete` (rose badge) and `redemption` (amber badge).
+- **Authoritative WHOIS Audit Documentation**: Added comprehensive audit report in `%OneDrive%\MD\REPORT\REPORT-DOMAIN-CODEV-WHOIS-RETRIEVAL-AUDIT-2026-10-12.md` and repository copy `docs/WHOIS_RETRIEVAL_AUDIT.md`.
+
 ## [1.2.0] - 2026-10-12
 
 ### Added

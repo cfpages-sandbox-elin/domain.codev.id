@@ -48,7 +48,9 @@ const getIanaRdapServices = async () => {
     return ianaRdapBootstrapCache.services;
   }
 
-  const response = await fetch('https://data.iana.org/rdap/dns.json');
+  const response = await fetch('https://data.iana.org/rdap/dns.json', {
+    signal: AbortSignal.timeout(8000),
+  });
   if (!response.ok) throw new Error(`IANA RDAP bootstrap failed: ${response.status}`);
   const data = await response.json();
   const services = Array.isArray(data.services) ? data.services : [];

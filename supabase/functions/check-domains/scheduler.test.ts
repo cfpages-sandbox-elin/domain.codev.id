@@ -90,4 +90,18 @@ describe('targeted WHOIS cron scheduler', () => {
     expect(decision.priority).toBe(80);
     expect(decision.reason).toContain('daily drop watch');
   });
+
+  it('prioritizes pendingDelete domains with urgency priority 125', () => {
+    const pendingDeleteTarget = domain({
+      tag: 'to-snatch',
+      status: 'expired',
+      expiration_date: '2026-04-01T00:00:00.000Z',
+      domain_statuses: ['pendingDelete', 'clientHold'],
+      last_checked: '2026-06-04T22:30:00.000Z',
+    });
+    const decision = checkDecisionForDomain(pendingDeleteTarget, now);
+    expect(decision.due).toBe(true);
+    expect(decision.priority).toBe(125);
+    expect(decision.reason).toContain('pendingDelete');
+  });
 });
