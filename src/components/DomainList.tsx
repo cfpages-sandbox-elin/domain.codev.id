@@ -198,6 +198,23 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
     return Array.from(tlds).sort((a, b) => a.localeCompare(b));
   }, [categorization.categorizedDomains]);
 
+  const quickTldCounts = useMemo(() => {
+    let idCount = 0;
+    let coIdCount = 0;
+    let comCount = 0;
+    for (const item of categorization.categorizedDomains) {
+      if (item.parts.tld === '.id') idCount += 1;
+      else if (item.parts.tld === '.co.id') coIdCount += 1;
+      else if (item.parts.tld === '.com') comCount += 1;
+    }
+    return {
+      all: categorization.categorizedDomains.length,
+      '.id': idCount,
+      '.co.id': coIdCount,
+      '.com': comCount,
+    };
+  }, [categorization.categorizedDomains]);
+
   useEffect(() => {
     if (categoryFilter !== 'all' && categoryFilter !== UNCATEGORIZED_CATEGORY_FILTER && !categoriesById.has(categoryFilter)) {
       setCategoryFilter('all');
@@ -645,7 +662,7 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
               isRecheckingVisible,
             )}
         </div>
-        <div className="order-1 sm:order-2 sm:flex sm:justify-center">
+        <div className="order-1 flex flex-wrap items-center justify-center gap-2 sm:order-2">
             <KeywordDomainFilter
               containerRef={keywordFilterRef}
               keyword={keywordFilter}
@@ -656,6 +673,47 @@ const DomainList: React.FC<DomainListProps> = ({ dateRefreshTick, domains, isLoa
               onKeywordChange={setKeywordFilter}
               onSuggestionsOpenChange={setIsKeywordSuggestionsOpen}
             />
+            <div
+              className="inline-flex items-center rounded-full bg-slate-200/90 p-1 text-xs font-semibold shadow-inner dark:bg-slate-800"
+              role="group"
+              aria-label="Filter domains by extension"
+            >
+              {[
+                { id: 'all', label: 'All', count: quickTldCounts.all },
+                { id: '.id', label: '.id', count: quickTldCounts['.id'] },
+                { id: '.co.id', label: '.co.id', count: quickTldCounts['.co.id'] },
+                { id: '.com', label: '.com', count: quickTldCounts['.com'] },
+              ].map(option => {
+                const isSelected = tldFilter === option.id || (option.id === 'all' && (tldFilter === 'all' || !tldFilter));
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => {
+                      setTldFilter(current => (current === option.id && option.id !== 'all' ? 'all' : option.id));
+                    }}
+                    disabled={isProcessing || (option.id !== 'all' && option.count === 0)}
+                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs transition-all ${
+                      isSelected
+                        ? 'bg-white font-bold text-brand-blue shadow-sm dark:bg-slate-700 dark:text-blue-400'
+                        : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
+                    } disabled:cursor-not-allowed disabled:opacity-40`}
+                    title={option.id === 'all' ? `Show all extensions (${option.count})` : `Filter by ${option.label} (${option.count} domain${option.count === 1 ? '' : 's'})`}
+                  >
+                    <span>{option.label}</span>
+                    {option.count > 0 && (
+                      <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                        isSelected
+                          ? 'bg-blue-100 text-brand-blue dark:bg-blue-900/60 dark:text-blue-300'
+                          : 'bg-slate-300/70 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
+                      }`}>
+                        {option.count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
         </div>
 
         <div className="order-3 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-3">

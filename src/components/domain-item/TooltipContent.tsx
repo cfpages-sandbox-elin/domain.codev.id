@@ -136,6 +136,18 @@ export const DomainTooltipContent: React.FC<DomainTooltipContentProps> = ({
             <DetailRow label="Redemption" value={formatDate(dropLifecycleEstimate.redemptionPeriodEnd.toISOString())} />
             <DetailRow label="Est. drop" value={formatDate(dropLifecycleEstimate.dropDate.toISOString())} />
           </div>
+        ) : (status === 'available' || status === 'dropped') ? (
+          <div className="space-y-1 rounded bg-green-50/80 p-2 dark:bg-green-950/30">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-green-700 dark:text-green-400">
+              Availability Freshness
+            </p>
+            <p className="text-[11px] font-semibold text-green-800 dark:text-green-300">
+              {lastChecked ? `Available · Verified ${formatDate(lastChecked)}` : 'Available for registration'}
+            </p>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400">
+              Auto re-check runs periodically to verify domain remains unregistered.
+            </p>
+          </div>
         ) : (
           <div className="space-y-1">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">

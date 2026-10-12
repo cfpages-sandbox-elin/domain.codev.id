@@ -493,6 +493,130 @@ It is live now and deployed at https://domain.codev.id
   - **Requirement**:
     - In `src/components/domain-item/StatusBadge.tsx` and `TooltipContent.tsx`, render granular lifecycle status labels (e.g., "Expired (Grace/Redemption)", "Pending Delete", "Dropped") so users see at a glance whether an expired domain is still held or imminent to drop.
 
+## 15. Periodic Quota-Safe Re-Verification for Available Domains
+
+**Objective**: Automatically re-verify domains marked as `available` or `dropped` on a quota-safe, tag-differentiated low-frequency schedule, ensuring that if a third party registers or purchases a tracked available domain, the status correctly updates to `registered` without exhausting WHOIS API query credits or starving high-urgency drop watches.
+
+### Progress Legend
+- ⏳ Pending
+- 🔄 In Progress
+- ✅ Completed
+
+### Root Cause & Quota Analysis
+1. **Premature Terminal State**: In `supabase/functions/check-domains/scheduler.ts`, `isAutoCheckTerminal` flagged `available` and `dropped` as terminal, permanently halting automatic checks for any domain once marked available. If a third party registers the domain, the dashboard indefinitely displays "Available" and "Buy Now" unless manually refreshed.
+2. **Quota Starvation Risk**: Indiscriminately checking available domains daily across large watchlists would burn hundreds of queries per month, depleting free-tier and commercial credits.
+3. **Intent-Tiered Solution**:
+   - `tag === 'to-snatch'`: High purchase intent. Schedule check every **7 days** (168h). Queue Priority: **20**.
+   - `tag === 'others'`: Passive backlog. Schedule check every **21 days** (504h). Queue Priority: **10**.
+   - `tag === 'mine'`: Anomaly check (user marked domain as owned, but WHOIS returned available). Schedule check every **3 days** (72h). Queue Priority: **25**.
+   - Priority 10–25 ensures urgent drop watches (priority 80–125) and upcoming renewals (priority 30–65) always take precedence; available domain checks only consume surplus batch slots.
+   - Standard gTLD checks route via zero-cost IANA RDAP first, preserving commercial credits.
+
+### Implementation Tasks
+
+- [x] **15.1. De-terminalize Available/Dropped Status in Scheduler**
+  - **Status**: ✅ Completed
+  - **Requirement**:
+    - In `supabase/functions/check-domains/scheduler.ts`, restrict `isAutoCheckTerminal` solely to `status === 'reserved'`.
+    - Implement tag-differentiated verification cadence for `status === 'available'` and `status === 'dropped'`.
+    - Set priorities to 20 (`to-snatch`), 10 (`others`), and 25 (`mine`).
+
+- [x] **15.2. Add Scheduler Unit Tests for Available Domain Cadence**
+  - **Status**: ✅ Completed
+  - **Requirement**:
+    - In `supabase/functions/check-domains/scheduler.test.ts`, test that recently checked available domains are not due immediately.
+    - Test that `to-snatch` available domains become due after 7 days with priority 20.
+    - Test that `others` available domains become due after 21 days with priority 10.
+    - Test that `reserved` domains remain strictly terminal.
+
+- [x] **15.3. Handle Available-to-Registered Flip & Telemetry**
+  - **Status**: ✅ Completed
+  - **Requirement**:
+    - In `supabase/functions/check-domains/index.ts`, when an available domain re-check returns registered, seamlessly persist updated registration/expiry data.
+    - If `tag === 'to-snatch'`, record telemetry logging that a target domain was registered by a third party.
+
+- [x] **15.4. Frontend Freshness Indicator for Available Domains**
+  - **Status**: ✅ Completed
+  - **Requirement**:
+    - In `src/components/DomainItem.tsx` and `TooltipContent.tsx`, indicate verification freshness (e.g. "Available · Verified 2d ago") so users know how recently availability was confirmed.
+
+## 16. Tag Switcher Dropdown Placement, Stacking Context & Overflow Fix
+
+**Objective**: Fix the tag changer popover being clipped by row `overflow-hidden`, rendering behind the upper row, and colliding with the main tag button's tooltip.
+
+### Progress Legend
+- ⏳ Pending
+- 🔄 In Progress
+- ✅ Completed
+
+### Root Cause Audit
+1. **Container Overflow Clipping**: `DomainItem` root container had `overflow-hidden`. Any child positioned with `bottom-full` (outside the top boundary of the row) was clipped by the row container, appearing sliced off or hidden behind the upper row.
+2. **Upward Collision**: Positioning the popover at `bottom-full mb-1.5` forced it to render directly into the space occupied by the row above it.
+3. **Missing Elevated Stacking Context**: Without `hover:z-30 focus-within:z-30 relative` on the row, sibling DOM ordering or child stacking contexts allowed upper rows to paint over the popover.
+4. **Trigger Tooltip Clutter**: Wrapping the main tag button in `<Tooltip content="Current tag: ...">` caused both the tooltip bubble and the button switch popover to open simultaneously in the exact same physical coordinates, fighting for pointer events and obscuring the controls.
+5. **Nested Tooltips in Popover**: Wrapping each option button in a portal tooltip caused unnecessary delay, pointer flicker, and visual noise.
+
+### Implementation Tasks
+
+- [x] **16.1. Remove `overflow-hidden` & Elevate Row Stacking on Hover**
+  - **Status**: ✅ Completed
+  - **Requirement**:
+    - In `src/components/DomainItem.tsx`, remove `overflow-hidden` from the row root container.
+    - Add `hover:z-20 focus-within:z-20` so any active row is elevated above adjacent rows in stacking order.
+
+- [x] **16.2. Reposition Tag Switcher to Downward Floating Popover**
+  - **Status**: ✅ Completed
+  - **Requirement**:
+    - Change tag popover placement from `bottom-full mb-1.5` to `top-full mt-1.5 right-0 z-30` (or centered under the button).
+    - Ensure it never invades or hides behind the upper row.
+
+- [x] **16.3. Clean Tag Option Chips & Remove Redundant Trigger Tooltip**
+  - **Status**: ✅ Completed
+  - **Requirement**:
+    - Remove the redundant `<Tooltip>` wrapper from the main tag button to prevent conflicting popups.
+    - In the popover, render explicit, clean option chips with icon and text labels (`Mine`, `To Snatch`, `Others`) without nested portal tooltips.
+
+## 17. Quick TLD Filter Toggle Pills Next to Keyword Search Bar
+
+**Objective**: Allow users to instantly switch between primary domain extensions (`.id`, `.co.id`, `.com`, or `All`) with a single click directly next to the keyword search bar, eliminating the need to scroll down to the bottom filter dropdown.
+
+### Progress Legend
+- ⏳ Pending
+- 🔄 In Progress
+- ✅ Completed
+
+### Requirement Analysis
+1. **Convenience & Speed**: Users managing portfolios frequently want to view only Indonesian apex `.id`, commercial second-level `.co.id`, or global `.com` domains. Currently, filtering by TLD requires finding and opening the secondary dropdown select below the domain list.
+2. **Placement**: Situate a responsive pill toggle group right next to `<KeywordDomainFilter />` in the search header block.
+3. **Behavior**:
+   - Provide pills for `All`, `.id`, `.co.id`, `.com`.
+   - Clicking an unselected extension filters the list to that extension immediately.
+   - Clicking an already-selected extension toggles it off back to `All`.
+   - Include real-time badge count showing the number of domains matching each extension.
+   - Maintain seamless bidirectional synchronization with the existing `tldFilter` state and `localStorage`.
+
+### Implementation Tasks
+
+- [x] **17.1. Quick TLD Pill Toggle Component Next to Search Bar**
+  - **Status**: ✅ Completed
+  - **Requirement**:
+    - In `src/components/DomainList.tsx`, render a pill-shaped toggle button group alongside `<KeywordDomainFilter />`.
+    - Offer toggles for `All`, `.id`, `.co.id`, `.com`.
+
+- [x] **17.2. Dynamic Extension Counts & Active State Styling**
+  - **Status**: ✅ Completed
+  - **Requirement**:
+    - Compute matching domain counts per TLD pill.
+    - Highlight the active pill with brand styling and soft contrast badges.
+
+- [x] **17.3. Bidirectional Sync with `tldFilter` & 1-Click Toggle**
+  - **Status**: ✅ Completed
+  - **Requirement**:
+    - Clicking an active pill resets filter to `'all'`.
+    - Synchronize state with `tldFilter` and persistence in `localStorage`.
+
+
+
 
 
 

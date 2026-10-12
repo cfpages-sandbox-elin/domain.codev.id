@@ -5,6 +5,27 @@ All notable changes to the Domain Codev project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 2026-10-12
+
+### Added
+- **Quick TLD Filter Toggle Pills Next to Keyword Search Bar**:
+  - Added interactive extension toggle pills (`All`, `.id`, `.co.id`, `.com`) directly next to `<KeywordDomainFilter />` in `DomainList.tsx`.
+  - Displays dynamic live count badges of matching domains per extension.
+  - Clicking an active pill toggles back to `All`, maintaining seamless bidirectional synchronization with the existing `tldFilter` state and `localStorage`.
+- **Periodic Quota-Safe Re-Verification for Available Domains**:
+  - De-terminalized `available` and `dropped` domain status in `supabase/functions/check-domains/scheduler.ts` (restricting `isAutoCheckTerminal` strictly to `reserved`).
+  - Implemented tag-differentiated low-frequency verification cadences to prevent quota exhaustion:
+    - `tag === 'to-snatch'`: Re-verified every 7 days (priority 20) to detect third-party snatching.
+    - `tag === 'others'`: Re-verified every 21 days (priority 10) to conserve API credits.
+    - `tag === 'mine'`: Anomaly verification every 3 days (priority 25) to check whether user registration completed.
+  - Priority 10–25 ensures available domain re-checks never starve high-urgency drop watches (priority 80–125) or renewal warnings.
+  - Added telemetry logging in `supabase/functions/check-domains/index.ts` to log third-party registration when an available domain flips to registered.
+  - Surfaced an "Availability Freshness" indicator in `TooltipContent.tsx` showing the date availability was last verified and confirming active background protection.
+- **Tag Switcher Downward Dropdown, Stacking Elevation & Collision Fix**:
+  - Removed `overflow-hidden` from the domain row root container in `DomainItem.tsx` and added `hover:z-20 focus-within:z-20 relative` so active rows smoothly elevate above sibling rows.
+  - Repositioned the tag popover to open downwards (`top-full mt-1.5 right-0 z-30`), preventing it from rendering into or behind the upper row.
+  - Rendered explicit, clean option chips with icon and text labels (`Switch: [Mine] [Others]`) in the popover and removed the conflicting trigger `<Tooltip>` from the main tag button.
+
 ## [1.2.1] - 2026-10-12
 
 ### Added

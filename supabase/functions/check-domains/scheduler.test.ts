@@ -18,8 +18,39 @@ const domain = (overrides: Partial<Domain>): Domain => ({
 
 describe('targeted WHOIS cron scheduler', () => {
   it('skips terminal statuses that should not spend automatic quota', () => {
-    expect(checkDecisionForDomain(domain({ status: 'reserved' }), now).due).toBe(false);
-    expect(checkDecisionForDomain(domain({ status: 'available' }), now).due).toBe(false);
+    expect(checkDecisionForDomain(domain({ status: 'reserved', last_checked: '2025-01-01T00:00:00.000Z' }), now).due).toBe(false);
+  });
+
+  it('schedules available domains at tag-differentiated low-frequency cadences', () => {
+    // to-snatch: 4 days ago -> not due; 8 days ago -> due with priority 20
+    const recentSnatch = domain({ status: 'available', tag: 'to-snatch', last_checked: '2026-06-01T00:00:00.000Z' });
+    expect(checkDecisionForDomain(recentSnatch, now).due).toBe(false);
+
+    const dueSnatch = domain({ status: 'available', tag: 'to-snatch', last_checked: '2026-05-28T00:00:00.000Z' });
+    const snatchDecision = checkDecisionForDomain(dueSnatch, now);
+    expect(snatchDecision.due).toBe(true);
+    expect(snatchDecision.priority).toBe(20);
+    expect(snatchDecision.reason).toContain('weekly verification');
+
+    // others: 10 days ago -> not due; 22 days ago -> due with priority 10
+    const recentOthers = domain({ status: 'available', tag: 'others', last_checked: '2026-05-26T00:00:00.000Z' });
+    expect(checkDecisionForDomain(recentOthers, now).due).toBe(false);
+
+    const dueOthers = domain({ status: 'available', tag: 'others', last_checked: '2026-05-14T00:00:00.000Z' });
+    const othersDecision = checkDecisionForDomain(dueOthers, now);
+    expect(othersDecision.due).toBe(true);
+    expect(othersDecision.priority).toBe(10);
+    expect(othersDecision.reason).toContain('21 days');
+
+    // mine anomaly: 2 days ago -> not due; 4 days ago -> due with priority 25
+    const recentMine = domain({ status: 'available', tag: 'mine', last_checked: '2026-06-03T00:00:00.000Z' });
+    expect(checkDecisionForDomain(recentMine, now).due).toBe(false);
+
+    const dueMine = domain({ status: 'available', tag: 'mine', last_checked: '2026-06-01T00:00:00.000Z' });
+    const mineDecision = checkDecisionForDomain(dueMine, now);
+    expect(mineDecision.due).toBe(true);
+    expect(mineDecision.priority).toBe(25);
+    expect(mineDecision.reason).toContain('anomaly check');
   });
 
   it('checks owned domains only at a low-noise cadence inside the expiry month', () => {

@@ -165,6 +165,10 @@ serve(async (req) => {
       if ((newStatus === 'available' || newStatus === 'dropped') && domain.tag === 'mine') {
         console.log(`⚠️ Provider says ${domain.domain_name} is available, but it is tagged as "mine". Keeping the tag unchanged.`);
       }
+
+      if ((domain.status === 'available' || domain.status === 'dropped') && newStatus === 'registered') {
+        console.log(`🚨 Previously available domain ${domain.domain_name} was registered by a third party! (Registrar: ${whoisData.registrar || 'unknown'})`);
+      }
       
       console.log(`✅ Update for ${domain.domain_name}: status -> ${newStatus}`);
       return payload;

@@ -37,7 +37,7 @@ const daysUntil = (dateString: string | null, now: Date) => {
 };
 
 const isAvailableLike = (status: DomainStatus) => status === 'available' || status === 'dropped';
-const isAutoCheckTerminal = (status: DomainStatus) => isAvailableLike(status) || status === 'reserved';
+const isAutoCheckTerminal = (status: DomainStatus) => status === 'reserved';
 
 const hasTimeComponent = (dateString: string | null) => Boolean(dateString && /T\d{2}:\d{2}/.test(dateString));
 
@@ -85,15 +85,40 @@ export const checkDecisionForDomain = (
   if (isAutoCheckTerminal(domain.status)) {
     return {
       due: false,
-      reason: domain.status === 'reserved'
-        ? 'reserved domain; skip automatic checks'
-        : 'already marked available; manual buy/re-check is enough',
+      reason: 'reserved domain; skip automatic checks',
       priority: 0,
     };
   }
 
   if (!settings.enabled) {
     return { due: false, reason: 'automatic monitoring is paused by user settings', priority: 0 };
+  }
+
+  if (isAvailableLike(domain.status)) {
+    if (domain.tag === 'mine') {
+      const intervalHours = 24 * 3;
+      return {
+        due: lastCheckedHours >= intervalHours,
+        reason: 'owned domain marked available; anomaly check every 3 days to verify registration',
+        priority: 25,
+      };
+    }
+
+    if (domain.tag === 'to-snatch') {
+      const intervalHours = 24 * 7;
+      return {
+        due: lastCheckedHours >= intervalHours,
+        reason: 'available target domain; weekly verification to detect third-party registration',
+        priority: 20,
+      };
+    }
+
+    const intervalHours = 24 * 21;
+    return {
+      due: lastCheckedHours >= intervalHours,
+      reason: 'available tracked domain; low-frequency verification (21 days) to preserve quota',
+      priority: 10,
+    };
   }
 
   if (daysUntilExpiry === null) {

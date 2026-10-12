@@ -225,7 +225,7 @@ const DomainItem: React.FC<DomainItemProps> = ({
   );
 
   return (
-    <div className={`domain-row-item relative overflow-hidden rounded-md border transition-colors ${rowStyles} ${mutedRowClass} ${isCompact ? 'px-3 py-2' : 'px-3 py-2.5 sm:px-4 sm:py-3'}`}>
+    <div className={`domain-row-item relative rounded-md border transition-colors hover:z-20 focus-within:z-20 ${rowStyles} ${mutedRowClass} ${isCompact ? 'px-3 py-2' : 'px-3 py-2.5 sm:px-4 sm:py-3'}`}>
       {(isWhoisIncomplete || isWhoisProcessing) && (
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center">
           <span className="rounded-b-md bg-slate-800/90 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white dark:bg-slate-100/90 dark:text-slate-900">
@@ -419,44 +419,45 @@ const DomainItem: React.FC<DomainItemProps> = ({
                       <Spinner size="sm" color="border-brand-blue" />
                     </span>
                   )}
-                  {/* Floating dedicated popover above the current tag button, only shown on hover or focus-within */}
-                  <div className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-1.5 -translate-x-1/2 opacity-0 transition-all duration-150 ease-out group-hover/tag:pointer-events-auto group-hover/tag:opacity-100 group-focus-within/tag:pointer-events-auto group-focus-within/tag:opacity-100">
-                    <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
+                  {/* Floating dedicated popover below the current tag button, only shown on hover or focus-within */}
+                  <div className="pointer-events-none absolute right-0 top-full z-30 mt-1.5 opacity-0 transition-all duration-150 ease-out group-hover/tag:pointer-events-auto group-hover/tag:opacity-100 group-focus-within/tag:pointer-events-auto group-focus-within/tag:opacity-100">
+                    <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-xl ring-1 ring-slate-900/5 whitespace-nowrap dark:border-slate-700 dark:bg-slate-800 dark:ring-white/10">
+                      <span className="px-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                        Switch:
+                      </span>
                       {alternateTags.map(tag => {
                         const OptionIcon = getTagIcon(tag);
                         const optionLabel = getTagLabel(tag);
                         return (
-                          <Tooltip key={tag} content={`Switch tag to ${optionLabel}`} size="sm">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onSetTag(domain.id, tag);
-                              }}
-                              disabled={isTagUpdating}
-                              className="inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
-                              aria-label={`Set ${domain.domain_name} tag to ${optionLabel}`}
-                            >
-                              <OptionIcon className={`h-4 w-4 ${getTagColorClass(tag)}`} />
-                            </button>
-                          </Tooltip>
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSetTag(domain.id, tag);
+                            }}
+                            disabled={isTagUpdating}
+                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+                            aria-label={`Set ${domain.domain_name} tag to ${optionLabel}`}
+                          >
+                            <OptionIcon className={`h-3.5 w-3.5 ${getTagColorClass(tag)}`} />
+                            <span>{optionLabel}</span>
+                          </button>
                         );
                       })}
                     </div>
                   </div>
 
-                  {/* Main current tag button */}
-                  <Tooltip content={`Current tag: ${tagLabel} (hover to change)`} size="sm">
-                    <button
-                      type="button"
-                      onClick={() => onToggleTag(domain.id)}
-                      disabled={isTagUpdating}
-                      className={actionButtonClass}
-                      aria-label={`Current tag for ${domain.domain_name}: ${tagLabel}`}
-                    >
-                      <TagIconComponent className={tagIconClass} />
-                    </button>
-                  </Tooltip>
+                  {/* Main current tag button (click to toggle, hover reveals dropdown) */}
+                  <button
+                    type="button"
+                    onClick={() => onToggleTag(domain.id)}
+                    disabled={isTagUpdating}
+                    className={actionButtonClass}
+                    aria-label={`Current tag: ${tagLabel}. Click to toggle, hover to choose.`}
+                  >
+                    <TagIconComponent className={tagIconClass} />
+                  </button>
                 </div>
               )}
               <Tooltip content="Remove domain" size="sm">
