@@ -47,4 +47,9 @@ describe('domain list expiry filters', () => {
     expect(INITIAL_RENDERED_DOMAINS).toBe(40);
     expect(RENDER_INCREMENT).toBe(30);
   });
+
+  it('exposes valid semver APP_VERSION', async () => {
+    const { APP_VERSION } = await import('../../version');
+    expect(APP_VERSION).toBe('v1.1.0');
+  });
 });

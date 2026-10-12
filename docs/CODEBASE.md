@@ -38,6 +38,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `.gitattributes` | Git attributes configuration. |
 | `.gitignore` | Ignore rules for dependencies, builds, and local artifacts. |
 | `AGENTS.md` | Agent guidance for future work in this repository. |
+| `CHANGELOG.md` | Human-readable change log following Keep a Changelog and Semantic Versioning. |
 | `deployment.md` | Cloudflare Pages deployment guide, but still centered on Supabase backend functions after frontend deployment. |
 | `index.html` | Vite HTML entry. Contains inline favicon, root div, and `/src/index.tsx` script. |
 | `metadata.json` | App metadata: name, description, and requested frame permissions. |
@@ -45,7 +46,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 | `pnpm-lock.yaml` | pnpm lockfile. Replaces `package-lock.json` so installs can use pnpm's shared package store instead of duplicating full npm installs per project. |
 | `pnpm-workspace.yaml` | pnpm install policy. Allows build scripts for `esbuild` and `supabase` so Vite builds and the local Supabase CLI work under pnpm. |
 | `postcss.config.js` | PostCSS config with Tailwind and Autoprefixer. |
-| `prd.md` | Product requirements and implementation status for the domain tracker. Still names Supabase as the backend. |
+| `PRD.md` | Product requirements and implementation status for the domain tracker. Still names Supabase as the backend. |
 | `README.md` | Setup, feature, database, Supabase Edge Function, provider, and deployment instructions. |
 | `tailwind.config.js` | Tailwind content globs, class dark mode, brand colors, and a slow spin animation. |
 | `tsconfig.json` | Strict frontend TypeScript config; includes only `src`. |
@@ -57,6 +58,7 @@ This project is a Vite + React + TypeScript domain tracker. The current app uses
 
 | File | Purpose / logic |
 | --- | --- |
+| `src/version.ts` | Single source of truth for the client application version (`APP_VERSION = 'v1.1.0'`). |
 | `src/index.tsx` | React startup. Handles missing root element and renders a styled fatal startup error if mounting fails. |
 | `src/index.css` | Tailwind imports plus the global CSS-only cursor policy for enabled/disabled interactive controls. |
 | `src/env.d.ts` | Types Vite env vars for Supabase URL/anon key and `import.meta.glob` for markdown docs. |

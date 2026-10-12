@@ -7,6 +7,7 @@ import { Session } from '@supabase/supabase-js';
 import { signOut } from '../services/supabaseService';
 import { useOutsideDismiss } from '../hooks/useOutsideDismiss';
 import { HEADER_ICON_CLASS, headerControlClass } from './headerStyles';
+import { APP_VERSION } from '../version';
 
 type AppView = 'dashboard' | 'schedule' | 'docs' | 'categories' | 'settings' | 'ranks';
 
@@ -27,15 +28,18 @@ const Header: React.FC<HeaderProps> = ({ session, notifications, clearNotificati
     <header className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md sticky top-0 z-40 shadow-sm dark:shadow-slate-800/60">
       <div className="container mx-auto px-2 sm:px-4 md:px-8">
         <div className="flex h-14 items-center justify-between gap-1 sm:h-16">
-          <Tooltip content="Domain Codev dashboard">
+          <Tooltip content={`Domain Codev ${APP_VERSION} (dashboard)`}>
             <button
               onFocus={() => onViewIntent?.('dashboard')}
               onClick={() => setView('dashboard')}
-              className="inline-flex min-w-0 items-center gap-2 rounded-lg p-1.5 text-brand-blue hover:bg-blue-50 dark:hover:bg-slate-700 sm:p-2"
-              aria-label="Open Domain Codev dashboard"
+              className="inline-flex min-w-0 items-center gap-1.5 rounded-lg p-1.5 text-brand-blue hover:bg-blue-50 dark:hover:bg-slate-700 sm:gap-2 sm:p-2"
+              aria-label={`Open Domain Codev dashboard (${APP_VERSION})`}
             >
-              <DomainCodevIcon className="h-6 w-6 sm:h-7 sm:w-7" />
+              <DomainCodevIcon className="h-6 w-6 flex-none sm:h-7 sm:w-7" />
               <span className="hidden text-xl font-bold md:inline">Domain Codev</span>
+              <span className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-blue dark:border-blue-800 dark:bg-blue-950/70 dark:text-blue-300 sm:text-xs">
+                {APP_VERSION}
+              </span>
             </button>
           </Tooltip>
           <div className="flex min-w-0 items-center gap-0.5 sm:gap-1 md:gap-1.5">
